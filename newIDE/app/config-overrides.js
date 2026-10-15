@@ -3,6 +3,13 @@ const ModuleScopePlugin = require('react-dev-utils/ModuleScopePlugin');
 
 module.exports = {
   webpack: function override(config, env) {
+    // Keep remote previews usable on memory-constrained development machines.
+    // Opt in only: normal development and production builds stay unchanged.
+    if (env === 'development' && process.env.GD_LOW_MEMORY_PREVIEW === 'true') {
+      config.devtool = false;
+      config.cache = false;
+    }
+
     config.module.rules.push({
       test: /\.worker\.js$/,
       use: {

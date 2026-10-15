@@ -36,6 +36,7 @@ public/external/zlib-asm/*
 public/external/__MACOSX/
 
 # Resources
+public/GDJS
 resources/GDJS
 resources/preview_node_modules
 
