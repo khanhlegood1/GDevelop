@@ -260,13 +260,19 @@ self.addEventListener('activate', event => {
 
 self.__WB_DISABLE_DEV_LOGS = true;
 
-// eslint-disable-next-line no-undef
-importScripts(
-  'https://storage.googleapis.com/workbox-cdn/releases/3.5.0/workbox-sw.js'
-);
+// Offline caching is optional. An unreachable CDN must not prevent this
+// worker from registering: local game previews also depend on it.
+try {
+  // eslint-disable-next-line no-undef
+  importScripts(
+    'https://storage.googleapis.com/workbox-cdn/releases/3.5.0/workbox-sw.js'
+  );
+} catch (error) {
+  console.warn('[ServiceWorker] Workbox unavailable; browser previews remain enabled.', error);
+}
 
 /* global workbox */
-if (workbox) {
+if (typeof workbox !== 'undefined') {
   console.log('[ServiceWorker] Workbox loaded successfully');
 
   // Will be replaced by make-service-worker.js to include the proper version.

@@ -123,6 +123,7 @@
     "make-version-metadata": "cd scripts && node make-version-metadata.js",
     "make-service-worker": "cd scripts && node make-service-worker.js",
     "start": "npm run import-resources && concurrently \"react-app-rewired start\" \"node scripts/watch-serve-GDJS-runtime.js\" -n \"editor,game engine\" --kill-others",
+    "start:web-preview": "node scripts/start-web-preview.js",
     "electron-app": "cd ../electron-app && npm run start",
     "build": "npm run import-resources && react-app-rewired build && node scripts/check-build-output.js",
     "build:dev": "npm run import-resources && REACT_APP_ENV=development react-app-rewired build && node scripts/check-build-output.js && node scripts/copy-GDJS-Runtime-to-build.js",
