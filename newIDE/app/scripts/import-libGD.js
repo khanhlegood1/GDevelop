@@ -28,6 +28,22 @@ if (shell.test('-f', path.join(sourceDirectory, 'libGD.js'))) {
     'copy-to-newIDE.js'
   );
   shell.exec(`node ${copyToNewIDEScriptPath}`);
+} else if (shell.test('-d', '../vendor/libGD')) {
+  // This fork pins a prebuilt pair so clean installs do not depend on S3.
+  const fs = require('fs');
+  const crypto = require('crypto');
+  const checksums = require('../vendor/libGD/checksums.json');
+  for (const name of ['libGD.js', 'libGD.wasm']) {
+    const source = path.join('../vendor/libGD', name);
+    const bytes = fs.readFileSync(source);
+    const hash = crypto.createHash('sha256').update(bytes).digest('hex');
+    if (hash !== checksums[name]) {
+      throw new Error(`Pinned ${name} checksum mismatch. Replace the pair and update checksums.json together.`);
+    }
+    fs.copyFileSync(source, path.join('../public', name));
+    fs.copyFileSync(source, path.join(destinationTestDirectory, name === 'libGD.js' ? 'index.js' : name));
+  }
+  shell.echo('✅ Imported pinned libGD.js and libGD.wasm (SHA-256 verified).');
 } else {
   // Download a pre-built version otherwise
   shell.echo(
