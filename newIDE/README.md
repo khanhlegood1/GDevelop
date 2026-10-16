@@ -172,6 +172,12 @@ Once finished, you can download them (use `newIDE/app/scripts/download-all-build
 
 > Note: You can also build manually a desktop version locally by running `npm run build` in `newIDE/electron-app`.
 
+### Self-hosted web editor (Docker + Nginx)
+
+For the VPS deployment configuration in this fork, see the
+[Vietnamese deployment guide](../deploy/README.vi.md). This serves a production
+editor and bundled runtime, not the upstream cloud services.
+
 ### Webapp version
 
 ```bash

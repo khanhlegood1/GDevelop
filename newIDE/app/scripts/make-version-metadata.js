@@ -16,8 +16,10 @@ const gitHashShellString = shell.exec(`git rev-parse "HEAD"`, {
   silent: true,
 });
 
-let gitHash = gitHashShellString.stdout.trim();
-if (gitHashShellString.stderr || gitHashShellString.code) {
+// Container builds may exclude .git. Accept a content-derived build identifier
+// so core/service-worker cache keys still change when the bundled source changes.
+let gitHash = process.env.GDEVELOP_BUILD_COMMIT || gitHashShellString.stdout.trim();
+if (!process.env.GDEVELOP_BUILD_COMMIT && (gitHashShellString.stderr || gitHashShellString.code)) {
   shell.echo(`⚠️ Can't find the hash or branch of the associated commit.`);
   gitHash = 'unknown-hash';
 }

@@ -1,0 +1,17 @@
+services:
+  editor:
+    image: gdevelop-self-hosted:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    # Only the host reverse proxy can access this port by default.
+    ports:
+      - "127.0.0.1:8080:8080"
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
