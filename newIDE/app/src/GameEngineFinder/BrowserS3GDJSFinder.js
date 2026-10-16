@@ -49,7 +49,12 @@ export const findGDJS = (
   // run `newIDE/web-app/scripts/deploy-GDJS-Runtime` script.
   let gdjsRoot = `https://resources.gdevelop-app.com/GDJS-${getIDEVersionWithHash()}`;
 
-  if (Window.isDev()) {
+  // A self-hosted production bundle carries its own matching game engine.
+  // Do not enable development mode merely to avoid upstream runtime hosting.
+  // $FlowFixMe[cannot-resolve-name]
+  if (process.env.REACT_APP_SELF_HOSTED === 'true') {
+    gdjsRoot = `${window.location.origin}/GDJS`;
+  } else if (Window.isDev()) {
     gdjsRoot =
       window.location.hostname === 'localhost'
         ? // Served by `watch-serve-GDJS-runtime.js` when running the IDE locally.
