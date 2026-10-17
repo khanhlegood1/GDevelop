@@ -224,11 +224,12 @@ const useCreateProject = ({
                 projectId: currentProject.getProjectUuid(),
                 projectName: currentProject.getName(),
                 projectAuthor: currentProject.getAuthor(),
-                // Project is saved if choosing cloud or local storage provider.
+                // Persistent workspace storage also saves a real project file.
                 savedStatus:
                   newProjectSetup.storageProvider.internalName ===
                     'LocalFile' ||
-                  newProjectSetup.storageProvider.internalName === 'Cloud'
+                  newProjectSetup.storageProvider.internalName === 'Cloud' ||
+                  newProjectSetup.storageProvider.internalName === 'SelfHosted'
                     ? 'saved'
                     : 'draft',
               })

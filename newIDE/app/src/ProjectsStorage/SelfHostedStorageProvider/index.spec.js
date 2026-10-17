@@ -46,11 +46,24 @@ test('serializes an actual GDevelop project and reopens server resources on a ne
       onStartSaving: jest.fn(),
     });
     expect(saved.wasSaved).toBe(true);
+    expect(saved.fileMetadata.gameId).toBe(project.getProjectUuid());
     expect(stored.resources.resources[0].file).toBe(
       '/api/storage/assets/test.png'
     );
     global.window.location.origin = 'https://my-editor.example';
-    const result = await operations.onOpen({ ...metadata });
+    const legacyMetadata = { ...metadata };
+    const result = await operations.onOpen(legacyMetadata);
+    expect(legacyMetadata.gameId).toBe(project.getProjectUuid());
+    expect(legacyMetadata.version).toBe(metadata.version);
+    // Saving must keep the dashboard link even against an older backend which
+    // returns no gameId. Do not infer it from the project name or storage ID.
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({ fileMetadata: { ...metadata, version: 'v2' } }),
+    }));
+    const updated = await operations.onSaveProject(project, legacyMetadata);
+    expect(updated.fileMetadata.gameId).toBe(project.getProjectUuid());
+    expect(updated.fileMetadata.version).toBe('v2');
     unserializeFromJSObject(reopened, result.content);
     expect(reopened.getName()).toBe('Server game');
     expect(

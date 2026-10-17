@@ -47,7 +47,9 @@ export default ({
       );
       // Metadata from recents may be stale. MainFrame keeps the picked metadata;
       // use the latest version for subsequent conflict-checked saves.
-      Object.assign(metadata, result.fileMetadata);
+      Object.assign(metadata, result.fileMetadata, {
+        gameId: result.content.properties.projectUuid,
+      });
       return { content: rebaseWorkspaceResources(result.content, false) };
     },
     onChooseSaveProjectAsLocation: async ({ project }) => ({
@@ -64,7 +66,13 @@ export default ({
           content: rebaseWorkspaceResources(serializeToJSObject(project), true),
         }),
       });
-      return { wasSaved: true, fileMetadata: result.fileMetadata };
+      return {
+        wasSaved: true,
+        fileMetadata: {
+          ...result.fileMetadata,
+          gameId: project.getProjectUuid(),
+        },
+      };
     },
     onSaveProject: async (project, metadata) => {
       const result = await storageRequest(
@@ -82,7 +90,13 @@ export default ({
           }),
         }
       );
-      return { wasSaved: true, fileMetadata: result.fileMetadata };
+      return {
+        wasSaved: true,
+        fileMetadata: {
+          ...result.fileMetadata,
+          gameId: project.getProjectUuid(),
+        },
+      };
     },
     getWriteErrorMessage: () =>
       t`Could not save to this server. Check the connection, disk quota, or whether another tab changed the project. Keep this tab open and download a copy before reopening.`,
