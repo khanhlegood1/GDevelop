@@ -172,3 +172,39 @@ describe('DownloadFileSaveAsDialog', () => {
     });
   });
 });
+
+it('includes private server files in a downloaded copy instead of leaving localhost URLs', async () => {
+  const originalWindow = global.window;
+  global.window = { location: { origin: 'http://localhost:8080' } };
+  const project = gd.ProjectHelper.createNewGDJSProject();
+  try {
+    const resource = new gd.ImageResource();
+    resource.setName('Hero');
+    resource.setFile('http://localhost:8080/api/storage/assets/test.png');
+    project.getResourcesManager().addResource(resource);
+    resource.delete();
+    mockFn(downloadUrlsToBlobs).mockImplementationOnce(({ urlContainers }) =>
+      urlContainers.map(item => ({ item, blob: { fakeBlob: true } }))
+    );
+    const onAddBlobFile = jest.fn();
+    const result = await downloadResourcesAsBlobs({
+      project,
+      onAddBlobFile,
+      onProgress: () => {},
+    });
+    expect(result.erroredResources).toEqual([]);
+    expect(onAddBlobFile).toHaveBeenCalledWith({
+      blob: { fakeBlob: true },
+      filePath: 'assets/image/test.png',
+    });
+    expect(
+      project
+        .getResourcesManager()
+        .getResource('Hero')
+        .getFile()
+    ).toBe('assets/image/test.png');
+  } finally {
+    project.delete();
+    global.window = originalWindow;
+  }
+});

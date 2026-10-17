@@ -13,8 +13,10 @@ React dev-server và không phụ thuộc vòng đời sandbox Arena.
 - Không tự host tài khoản, lưu trữ cloud, AI, Asset Store, khóa học, multiplayer backend
   hoặc dịch vụ cloud build/export của GDevelop. Những tính năng này có thể không dùng
   được trên tên miền riêng, cần khóa/API và cấu hình origin của nhà cung cấp.
-- Không có backend lưu dự án và không có volume dự án trong container này. Người dùng
-  phải lưu/xuất dự án theo phương thức editor hỗ trợ và tự sao lưu. Không dùng dự án
+- Có backend workspace riêng (`storage`) lưu project JSON và tài nguyên vào named volume
+  `workspace-data`. Đây là **một workspace dùng chung**, không có phân quyền từng người,
+  không phải bản thay thế tài khoản/cloud của GDevelop. Xem [hướng dẫn lưu trữ](Storage.vi.md).
+- Bắt buộc tạo mật khẩu workspace trước khi chạy. Không dùng dự án
   “Don't save this project now” cho công việc quan trọng.
 - Tên và logo GDevelop có quyền sở hữu riêng; xem README và LICENSE trước khi vận hành công khai.
 - Bản core vendored có build commit không xác định. Cần thử dự án thực tế, không chỉ
@@ -48,16 +50,25 @@ Các thao tác git trên VPS là của bạn, không yêu cầu gửi mật kh�
 
 ## 2. Build và chạy
 
+Tạo mật khẩu workspace trước lần chạy đầu (nhập tại máy chủ, không gửi vào chat):
+
+```sh
+bash deploy/setup-storage-auth.sh
+```
+
+
 Chạy tại thư mục gốc repo (cùng vị trí `compose.yaml`):
 
 ```sh
+# Chạy một lần trước lần triển khai đầu tiên:
+# bash deploy/setup-storage-auth.sh
 sudo docker compose build --pull
 sudo docker compose up -d
 sudo docker compose ps
 sudo docker compose logs --tail=100 editor
 curl -f http://127.0.0.1:8080/healthz
-curl -fI http://127.0.0.1:8080/libGD.wasm
-curl -fI http://127.0.0.1:8080/GDJS/Runtime/index.html
+curl -u YOUR_WORKSPACE_USER -fI http://127.0.0.1:8080/libGD.wasm
+curl -u YOUR_WORKSPACE_USER -fI http://127.0.0.1:8080/GDJS/Runtime/index.html
 ```
 
 Container chạy Nginx không phải root trên cổng 8080, chỉ được publish ở loopback
@@ -89,12 +100,12 @@ Không cần WebSocket dev-server trong production.
 ## 4. Kiểm tra sau triển khai
 
 ```sh
-curl -fI https://editor.example.com/
-curl -fI https://editor.example.com/service-worker.js
-curl -fI https://editor.example.com/libGD.wasm
-curl -fI https://editor.example.com/GDJS/Runtime/index.html
+curl -u YOUR_WORKSPACE_USER -fI https://editor.example.com/
+curl -u YOUR_WORKSPACE_USER -fI https://editor.example.com/service-worker.js
+curl -u YOUR_WORKSPACE_USER -fI https://editor.example.com/libGD.wasm
+curl -u YOUR_WORKSPACE_USER -fI https://editor.example.com/GDJS/Runtime/index.html
 # Phải là 404, không phải 200 với nội dung HTML:
-curl -I https://editor.example.com/missing-file.wasm
+curl -u YOUR_WORKSPACE_USER -I https://editor.example.com/missing-file.wasm
 ```
 
 Trong trình duyệt:

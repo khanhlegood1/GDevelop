@@ -19,6 +19,7 @@ import { useDebounce } from '../Utils/UseDebounce';
 import axios from 'axios';
 import AlertMessage from '../UI/AlertMessage';
 import { FileToCloudProjectResourceUploader } from './FileToCloudProjectResourceUploader';
+import SelfHostedResourceUploader from './SelfHostedResourceUploader';
 import {
   extractDecodedFilenameWithExtensionFromPublicAssetResourceUrl,
   isPublicAssetResourceUrl,
@@ -188,22 +189,36 @@ const browserResourceSources: Array<ResourceSource> = [
       shouldGuessAnimationsFromName: true,
       // $FlowFixMe[incompatible-type]
       kind,
-      renderComponent: (props: ResourceSourceComponentProps) => (
-        <FileToCloudProjectResourceUploader
-          createNewResource={createNewResource}
-          onChooseResources={(resources: Array<gdResource>) =>
-            props.onChooseResources({
-              selectedResources: resources,
-              selectedSourceName: sourceName,
-            })
-          }
-          options={props.options}
-          fileMetadata={props.fileMetadata}
-          getStorageProvider={props.getStorageProvider}
-          key={`url-chooser-${kind}`}
-          automaticallyOpenInput={!!props.automaticallyOpenIfPossible}
-        />
-      ),
+      renderComponent: (props: ResourceSourceComponentProps) =>
+        // $FlowFixMe[cannot-resolve-name]
+        process.env.REACT_APP_SELF_HOSTED === 'true' &&
+        props.getStorageProvider().internalName !== 'Cloud' ? (
+          <SelfHostedResourceUploader
+            options={props.options}
+            createNewResource={createNewResource}
+            onChooseResources={resources =>
+              props.onChooseResources({
+                selectedResources: resources,
+                selectedSourceName: sourceName,
+              })
+            }
+          />
+        ) : (
+          <FileToCloudProjectResourceUploader
+            createNewResource={createNewResource}
+            onChooseResources={(resources: Array<gdResource>) =>
+              props.onChooseResources({
+                selectedResources: resources,
+                selectedSourceName: sourceName,
+              })
+            }
+            options={props.options}
+            fileMetadata={props.fileMetadata}
+            getStorageProvider={props.getStorageProvider}
+            key={`url-chooser-${kind}`}
+            automaticallyOpenInput={!!props.automaticallyOpenIfPossible}
+          />
+        ),
     };
   }),
   ...resourcesKindSupportedByResourceStore

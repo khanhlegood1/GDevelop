@@ -4,6 +4,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: web
+    depends_on:
+      storage:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ./deploy/secrets/htpasswd
+        target: /etc/nginx/workspace.htpasswd
+        read_only: true
+        bind:
+          create_host_path: false
     restart: unless-stopped
     # Only the host reverse proxy can access this port by default.
     ports:
@@ -15,3 +26,23 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+  storage:
+    image: gdevelop-storage:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: storage
+    restart: unless-stopped
+    volumes:
+      - workspace-data:/data
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  workspace-data:

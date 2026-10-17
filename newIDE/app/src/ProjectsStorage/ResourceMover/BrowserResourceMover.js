@@ -33,6 +33,9 @@ const movers: {
     CloudStorageProvider.internalName
   }`]: moveUrlResourcesToCloudProject,
 
+  'SelfHosted=>DownloadFile': moveNothing,
+  'SelfHosted=>SelfHosted': moveNothing,
+
   // Moving to "DownloadFile":
 
   // Saving to "DownloadFile" will *not* change any resources, as it's a

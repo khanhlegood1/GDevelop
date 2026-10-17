@@ -100,6 +100,19 @@ export const downloadResourcesAsBlobs = async ({
                   resourceFile
                 ),
               };
+            } else if (
+              typeof window !== 'undefined' &&
+              resourceFile.startsWith(
+                window.location.origin + '/api/storage/assets/'
+              )
+            ) {
+              // Include private workspace assets in the ZIP, not URLs which
+              // would break after moving to another computer or server.
+              return {
+                resource,
+                url: resourceFile,
+                filename: pathPosix.basename(new URL(resourceFile).pathname),
+              };
             } else if (isBlobURL(resourceFile)) {
               // Only in memory (a project not saved yet): named like when
               // uploaded to the cloud.
