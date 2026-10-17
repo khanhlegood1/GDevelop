@@ -10,6 +10,8 @@ import { moveUrlResourcesToCloudFilesIfPrivate } from '../CloudStorageProvider/C
 import UrlStorageProvider from '../UrlStorageProvider';
 import { fetchRelativeResourcesToFullUrls } from '../UrlStorageProvider/UrlResourceFetcher';
 
+// Server uploads are already durable. Public URL resources remain external;
+// they are not silently copied (or fetched server-side) into the workspace.
 const fetchers: {
   [string]: FetchAllProjectResourcesFunction,
 } = {
@@ -17,6 +19,7 @@ const fetchers: {
   // private URLs by downloading them and reuploading them to the cloud.
   // $FlowFixMe[incompatible-type]
   [CloudStorageProvider.internalName]: moveUrlResourcesToCloudFilesIfPrivate,
+  SelfHosted: async () => ({ erroredResources: [] }),
   // The URL storage consider relative resources to be relative to the project
   // URL. This allows to open local projects uploaded to GitHub for example.
   // $FlowFixMe[incompatible-type]

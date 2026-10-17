@@ -22,3 +22,4 @@ newIDE/app/public/external/yarn/yarn-editor*
 newIDE/app/public/external/monaco-editor-min
 newIDE/app/public/external/zip.js
 newIDE/app/public/external/zlib-asm
+deploy/secrets

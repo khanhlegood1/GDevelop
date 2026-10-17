@@ -35,3 +35,6 @@
 Thumbs.db
 .claude
 /GDJS/tests/.benchmark-runtimes
+
+# Self-hosted workspace authentication (never commit credentials).
+deploy/secrets/

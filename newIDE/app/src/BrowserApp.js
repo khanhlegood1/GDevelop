@@ -26,6 +26,7 @@ import ProjectStorageProviders from './ProjectsStorage/ProjectStorageProviders';
 import UrlStorageProvider from './ProjectsStorage/UrlStorageProvider';
 import DownloadFileStorageProvider from './ProjectsStorage/DownloadFileStorageProvider';
 import CloudStorageProvider from './ProjectsStorage/CloudStorageProvider';
+import SelfHostedStorageProvider from './ProjectsStorage/SelfHostedStorageProvider';
 import BrowserResourceMover from './ProjectsStorage/ResourceMover/BrowserResourceMover';
 import BrowserResourceFetcher from './ProjectsStorage/ResourceFetcher/BrowserResourceFetcher';
 import BrowserEventsFunctionsExtensionOpener from './EventsFunctionsExtensionsLoader/Storage/BrowserEventsFunctionsExtensionOpener';
@@ -68,6 +69,10 @@ export const create = (authentication: Authentication): React.Node => {
           appArguments={appArguments}
           storageProviders={[
             UrlStorageProvider,
+            // $FlowFixMe[cannot-resolve-name]
+            ...(process.env.REACT_APP_SELF_HOSTED === 'true'
+              ? [SelfHostedStorageProvider]
+              : []),
             CloudStorageProvider,
             DownloadFileStorageProvider,
           ]}

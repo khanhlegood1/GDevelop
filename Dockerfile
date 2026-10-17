@@ -25,6 +25,16 @@ RUN npx --no-install patch-package \
     && test -s build/libGD.wasm \
     && test -s build/GDJS/Runtime/index.html
 
+FROM node:22-bookworm-slim AS storage
+WORKDIR /app
+COPY deploy/storage/server.js ./server.js
+RUN mkdir /data && chown node:node /data
+USER node
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:3001/api/storage/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "server.js"]
+
 FROM nginxinc/nginx-unprivileged:1.28-alpine AS web
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=builder /src/newIDE/app/build/ /usr/share/nginx/html/

@@ -297,6 +297,10 @@ const NewProjectSetupDialog = ({
       }
 
       if (localFileStorageProvider) return localFileStorageProvider;
+      const selfHostedStorageProvider = storageProviders.find(
+        ({ internalName }) => internalName === 'SelfHosted'
+      );
+      if (selfHostedStorageProvider) return selfHostedStorageProvider;
 
       return emptyStorageProvider;
     }
