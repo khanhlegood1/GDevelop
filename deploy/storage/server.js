@@ -78,12 +78,20 @@ async function createStorageServer({
   const load = async id => {
     if (!idPattern.test(id)) throw fail(400, "Invalid project identifier.");
     try {
-      return JSON.parse(
+      const record = JSON.parse(
         await fs.readFile(
           path.join(directory, "projects", id + ".json"),
           "utf8"
         )
       );
+      // Older workspace records omitted gameId. Recover it from the project,
+      // not from the filename/name: dashboard grouping uses the project UUID.
+      // Normalize on read without rewriting data or changing version tokens.
+      const gameId = record.content.properties.projectUuid;
+      if (typeof gameId === "string" && gameId) {
+        record.fileMetadata.gameId = gameId;
+      }
+      return record;
     } catch (error) {
       if (error.code === "ENOENT") throw fail(404, "Project not found.");
       throw error;
@@ -158,6 +166,10 @@ async function createStorageServer({
       const fileMetadata = {
         fileIdentifier: id,
         name,
+        gameId:
+          typeof body.content.properties.projectUuid === "string"
+            ? body.content.properties.projectUuid || undefined
+            : undefined,
         version: randomUUID(),
         lastModifiedDate: Date.now()
       };

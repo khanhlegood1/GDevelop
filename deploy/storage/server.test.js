@@ -159,3 +159,64 @@ test("request and disk limits fail without reporting a successful save", async t
   });
   assert.equal(large.status, 413);
 });
+
+test("project UUID links workspace metadata to dashboard games on create and update", async t => {
+  const { base } = await fixture(t);
+  const gameId = "d1d4ed49-7b09-4ef6-958b-4f6c26f98f05";
+  const project = {
+    ...content,
+    properties: { ...content.properties, projectUuid: gameId }
+  };
+  const created = await save(base, "/projects", "POST", { content: project });
+  const { fileMetadata } = await created.json();
+  assert.equal(fileMetadata.gameId, gameId);
+  const updated = await save(
+    base,
+    "/projects/" + fileMetadata.fileIdentifier,
+    "PUT",
+    {
+      content: project,
+      expectedVersion: fileMetadata.version
+    }
+  );
+  assert.equal((await updated.json()).fileMetadata.gameId, gameId);
+  const projects = await (await fetch(base + "/api/storage/projects")).json();
+  assert.equal(projects.length, 1);
+  assert.equal(projects[0].gameId, gameId);
+});
+
+test("legacy records recover gameId on list/open without rewriting saved files", async t => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "gd-legacy-"));
+  const server = await createStorageServer({ directory });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(async () => {
+    await new Promise(resolve => {
+      server.close(resolve);
+      server.closeAllConnections();
+    });
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+  const id = "d1d4ed49-7b09-4ef6-958b-4f6c26f98f05";
+  const gameId = "b62f8885-83ce-4c09-9c66-7bc1a0922bfb";
+  const filename = path.join(directory, "projects", id + ".json");
+  const original = JSON.stringify({
+    content: {
+      ...content,
+      properties: { ...content.properties, projectUuid: gameId }
+    },
+    fileMetadata: {
+      fileIdentifier: id,
+      name: "Legacy game",
+      version: "keep-this-version",
+      lastModifiedDate: 42
+    }
+  });
+  await fs.writeFile(filename, original);
+  const base =
+    "http://127.0.0.1:" + server.address().port + "/api/storage/projects";
+  assert.equal((await (await fetch(base)).json())[0].gameId, gameId);
+  const opened = await (await fetch(base + "/" + id)).json();
+  assert.equal(opened.fileMetadata.gameId, gameId);
+  assert.equal(opened.fileMetadata.version, "keep-this-version");
+  assert.equal(await fs.readFile(filename, "utf8"), original);
+});

@@ -1,6 +1,7 @@
 // @flow
 import * as React from 'react';
 import Fuse from 'fuse.js';
+import { getActiveDashboardItems } from './DashboardItems';
 import { I18n } from '@lingui/react';
 import { type I18n as I18nType } from '@lingui/core';
 import { Trans, t } from '@lingui/macro';
@@ -363,31 +364,10 @@ const GamesList = ({
   const allRecentProjectFiles = useProjectsListFor(null);
   const activeDashboardItems: ?(DashboardItem[]) = React.useMemo(
     () => {
-      if (!games) return null;
-      const projectFilesWithGame = games.map(game => {
-        const projectFiles = allRecentProjectFiles.filter(
-          file => file.fileMetadata.gameId === game.id
-        );
-        return { game, projectFiles };
-      });
-      const projectFilesWithoutGame = allRecentProjectFiles
-        .filter(
-          file => !games.find(game => game.id === file.fileMetadata.gameId)
-        )
-        .map(file => ({ projectFiles: [file] }));
-      const allItems = [...projectFilesWithGame, ...projectFilesWithoutGame];
-
-      // $FlowFixMe[incompatible-type]
-      return allItems.filter(
-        item =>
-          // Filter out draft games which don't have a project file linked to it (local or cloud)
-          // and which are not the current opened project.
-          !(
-            item.game &&
-            item.game.savedStatus === 'draft' &&
-            (!item.projectFiles || !item.projectFiles.length) &&
-            (!project || item.game.id !== project.getProjectUuid())
-          )
+      return getActiveDashboardItems(
+        games,
+        allRecentProjectFiles,
+        project ? project.getProjectUuid() : null
       );
     },
     [games, allRecentProjectFiles, project]

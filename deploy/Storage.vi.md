@@ -139,3 +139,25 @@ sudo docker compose up -d
 
 Sau đó chạy checklist browser ở trên. Unit/API test không thay thế test Docker/Nginx
 thực tế, xác thực, upload, Save/Open và game Preview trên ARM64/HTTPS.
+
+## Hai thẻ cùng tên trên dashboard (bản workspace cũ)
+
+Bản cũ bỏ sót `fileMetadata.gameId` (UUID bên trong project). Khi đăng nhập tài khoản
+GDevelop, dashboard có thể hiển thị một cloud game draft và một recent server file
+riêng biệt. Đây không chứng minh có hai file trong volume. Không xóa dự án theo tên.
+
+Bản sửa bổ sung gameId khi tạo/lưu và suy ra UUID từ nội dung project khi đọc các
+record cũ. Không đổi storage ID, version token hoặc tự ghi lại file cũ. Dashboard
+nhóm theo UUID, không theo tên; hai project khác UUID nhưng cùng tên vẫn được giữ riêng.
+
+Sau khi cập nhật và build lại cả editor lẫn storage:
+
+1. Giữ/tải bản sao các thay đổi chưa lưu trước khi refresh hoặc đóng tab.
+2. Mở bản đã lưu qua menu Open → This server (private workspace), không nhấn Save
+   trên thẻ cloud draft đang báo Project not saved.
+3. Lưu bằng menu Save của editor để cập nhật metadata trong danh sách recent của
+   trình duyệt. Quay về Create để kiểm tra hai thẻ được liên kết thành một.
+4. Không xóa site data, Docker volume hay cloud draft để sửa lỗi hiển thị này.
+
+Nếu vẫn có hai thẻ, kiểm tra chúng có cùng UUID hay không. Cùng tên không đủ để
+kết luận là bản trùng và không được tự động gộp/xóa dữ liệu của người dùng.
