@@ -1,6 +1,6 @@
 # Kiến trúc đích — GON.org AI Learning Arena
 
-Tài liệu này ánh xạ prototype `apps/gon-web` sang hệ thống production lấy cảm hứng từ **WSIC** (search 768D + Brew) và **FastChat/Arena** (so sánh hai đáp án), nhưng sửa các điểm yếu đã biết thay vì sao chép nguyên trạng.
+Tài liệu này ánh xạ prototype `apps/gon-web` sang hệ thống production lấy cảm hứng từ **WSIC** (search 768D + Brew) và **FastChat/Arena** (so sánh hai đáp án), đồng thời bổ sung requirement V2.1 về 10+ output ứng viên, trend, dấu chân cá nhân hoá, Journey Fork và render đa định dạng. Đặc tả requirement đầy đủ nằm tại `../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`.
 
 ## 1. Luồng nghiệp vụ
 
@@ -15,14 +15,19 @@ flowchart LR
   G -->|đủ sát| H[Mở module sẵn có]
   G -->|liên quan| I[Chọn module hoặc Brew biến thể]
   G -->|thiếu| J[Brew Your Topic]
-  H --> K[Coach vs Quest arena]
-  I --> K
+  H --> Q[10+ Output Candidates]
+  I --> Q
   J --> L[Queue + ADK 11 bước]
-  L --> K
-  K --> M[Quest/quiz/flashcards]
+  L --> Q
+  Q --> R[Rank: trend + footprint + quality]
+  R --> K[Output Arena vote/merge]
+  K --> S[Fork Journey Branch]
+  S --> T[Render web/GDevelop/infographic/video/task]
+  T --> M[Quest/quiz/flashcards + mastery gate]
   M --> N[XP + Hero level]
   M --> O[Proof Vault]
   O --> P[Issuer/on-chain verification khi đủ điều kiện]
+  O --> Q
 ```
 
 ## 2. Thành phần đề xuất
@@ -40,6 +45,10 @@ flowchart LR
 | Embeddings | `gemini-embedding-001`, 768D, `SEMANTIC_SIMILARITY` | Lưu model/version/dimension cùng vector để tái lập chỉ mục |
 | Research | Exa/Serper hoặc nhà cung cấp đã duyệt | Lưu URL, thời điểm truy xuất, đoạn trích hỗ trợ từng claim |
 | Storage | Object storage có signed URL | Quét malware, giới hạn MIME/dung lượng, chính sách giữ/xoá |
+| Event/Feature Platform | Stream + warehouse/feature store | Footprint có consent, trend snapshot, ranking snapshot; tách dữ liệu định danh khỏi analytics |
+| Recommendation | Rule-based trước, ML sau khi có dữ liệu | Candidate retrieval 768D/graph/trend, rerank theo learning gain; không dùng engagement-only |
+| Journey Graph | DB quan hệ/graph index trên cùng backend | Fork/branch/commit/diff/merge, lineage và attribution bất biến theo version |
+| Media/GDevelop Render | Worker hàng đợi | Canonical Module Graph → web, GDevelop project, infographic, image sequence, video brief và task |
 
 ## 3. Search contract
 
@@ -79,6 +88,11 @@ Trước pipeline: `topic-checker` chặn input rỗng/lặp/nguy hiểm. Lỗi 
 - `interactions` (quest/quiz/flashcard/arena vote)
 - `proofs` (issuer, bằng chứng, cấp xác minh, trạng thái thu hồi)
 - `notifications`, `audit_events`
+- `learning_modes`, `preference_profiles`, `learning_footprints`
+- `candidate_outputs`, `output_versions`, `arena_matches`, `arena_votes`, `ranking_snapshots`
+- `journey_branches`, `branch_commits`, `branch_merges`, `branch_lineage`
+- `trend_snapshots`, `mastery_states`, `creator_attributions`, `reward_ledger`
+- `media_renders`, `gdevelop_exports`, `game_sessions`
 
 ## 6. Proof of Learning không được “tự phong”
 
@@ -92,11 +106,19 @@ Trước pipeline: `topic-checker` chặn input rỗng/lặp/nguy hiểm. Lỗi 
 
 Ảnh chứng chỉ, bài Facebook hoặc video YouTube **không tự động** là Issuer-verified. Public profile chỉ hiển thị dữ liệu người dùng đồng ý công khai; dữ liệu y tế/hiến máu nhạy cảm phải tách consent và không dùng để xếp hạng gây áp lực.
 
-## 7. FastChat/Arena được chuyển hoá ra sao?
+## 7. Recommendation, Trend và Journey Fork
 
-FastChat cho hai chatbot trả lời song song rồi vote. GON giữ UX so sánh nhưng đổi đối tượng: **AI Coach Path** (giải thích, roadmap, nhắc việc) đấu với **Quest/Game Path** (thử thách, XP, Boss Proof). Vote Left/Right/Tie/Both-bad của Arena trở thành chọn trái/chọn phải/hợp nhất/chưa hợp; tín hiệu này là learning-style preference, không dùng để khẳng định một model “đúng” hơn nếu chưa chấm bằng rubric.
+Recommender chạy hai tầng: retrieval hợp nhất vector 768D, topic/fork graph, creator/guild, trend và evergreen; reranking kết hợp relevance, personal fit, predicted learning gain, trend đã trọng số theo completion/proof, source quality, creator trust và diversity. Mọi lần xếp hạng lưu feature/ranking snapshot cùng lý do hiển thị cho user. Trend được tính theo cửa sổ thời gian từ learner độc lập hoàn thành, Fork tạo artifact, mastery và proof; view/like/share có trọng số thấp và phải qua anti-bot/quality gate.
 
-## 8. Bảo mật, an toàn, pháp lý
+Mỗi output/Success Path có version bất biến. Khi user Fork, backend tạo `journey_branch` trỏ về upstream version; các bước học có ý nghĩa thành `branch_commit`; merge phải hiển thị diff concept/nguồn/artifact và xử lý mâu thuẫn thay vì ghi đè âm thầm. Creator Score và mọi reward tương lai đọc từ attribution graph + ledger, ưu tiên downstream mastery/proof hơn tương tác bề mặt. XP nội bộ tách hoàn toàn khỏi token/tiền.
+
+Module được lưu dưới dạng Canonical Module Graph có schema/version. Worker render cùng graph thành web lesson, project GDevelop, infographic, chuỗi hình ảnh, video script/storyboard và task. Game/GDevelop gửi event đã ký/xác thực về backend; XP/proof chính thức do server quyết định bằng idempotency.
+
+## 8. FastChat/Arena được chuyển hoá ra sao?
+
+FastChat cho hai chatbot trả lời song song rồi vote. GON mở rộng thành **Output Arena**: hai trong số 10+ output ứng viên — có thể là AI Coach Path, Quest/Game Path, game, infographic, video hoặc hướng nghiên cứu — được so sánh ẩn danh hoặc công khai. Vote gồm trái/phải/hoà/cả hai chưa tốt/merge và các trục dễ hiểu, sâu, vui, thực dụng, đáng tin, hợp với tôi. Điểm cặp Elo/Bradley–Terry có khoảng tin cậy cho leaderboard toàn hệ/theo ngách/theo Learning Mode; tín hiệu này cập nhật personal ranking nhưng không khẳng định một output/model “đúng” hơn nếu chưa chấm bằng rubric, nguồn và learning outcome.
+
+## 9. Bảo mật, an toàn, pháp lý
 
 - Mọi API queue/ghi dữ liệu xác thực session + chữ ký queue; rate-limit theo user/token budget.
 - Không fetch URL nội bộ (SSRF), không tin MIME client khai, không thực thi file tải lên.
@@ -105,10 +127,12 @@ FastChat cho hai chatbot trả lời song song rồi vote. GON giữ UX so sánh
 - Không biến proof/XP thành cam kết tài chính. Nếu có token ở tương lai, cần tư vấn pháp lý độc lập và cảnh báo rủi ro tương tự ZOFO.
 - Ghi audit cho thay đổi cấp proof; có quy trình sửa/thu hồi khi bằng chứng sai.
 
-## 9. Lộ trình triển khai
+## 10. Lộ trình triển khai
 
 1. **P0:** OAuth thật, project/source CRUD, upload an toàn, một embedding provider.
 2. **P1:** hybrid search có tập đánh giá, module player, XP/proof system-recorded.
 3. **P2:** Brew queue + ADK + grounding gate + thông báo realtime.
-4. **P3:** OCR/transcript, POAP/issuer verification, GDevelop exporter đã kiểm thử.
-5. **P4:** Guild/community sau khi có moderation, anti-cheat và chính sách dữ liệu nhạy cảm.
+4. **P3:** 10+ candidate outputs, Learning Mode/footprint có consent, Output Arena và Journey Fork nội bộ; trend đầu tiên chỉ dùng sự kiện học thật trong GON.
+5. **P4:** Canonical Module Graph, GDevelop exporter đã kiểm thử, infographic/video renderer và game telemetry.
+6. **P5:** Public Success Path, Guild/community và creator attribution sau khi có moderation, anti-cheat, chính sách bản quyền/dữ liệu nhạy cảm.
+7. **P6:** Reward ngoài XP/token/marketplace chỉ khi hoàn tất pháp lý, thuế/KYC áp dụng, chống gian lận và điều khoản creator.

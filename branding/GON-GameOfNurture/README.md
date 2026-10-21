@@ -14,7 +14,7 @@ Bản chạy được của sản phẩm nằm ở [`../../apps/gon-web/`](../..
 | `04-Templates/` | Social cover/post, slide title, Hero Proof certificate, pattern |
 | `05-Product-GDevelop/` | Hướng dẫn chuyển quest/module/XP/proof thành GDevelop |
 | `06-Content/` | Định vị, giọng, copy VI/EN, claim ladder |
-| `07-Product-AI/` | Đặc tả GON.org: multimodal input, Gemini 768D, ADK/Brew, FastChat Arena, Proof of Learning |
+| `07-Product-AI/` | Đặc tả GON.org: multimodal input, Gemini 768D, ADK/Brew, 10+ output, trend + footprint, Output Arena, Journey Fork, GDevelop đa định dạng, Proof of Learning |
 | `assets-illustration/` | Minh họa Heroes 18+; ảnh trẻ em v1 nằm trong thư mục legacy, không sử dụng |
 | `tools/` | Generator logo/template/PNG/favicon/PDF và font TTF phục vụ tái lập |
 
