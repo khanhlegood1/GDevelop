@@ -1,0 +1,6 @@
+{
+  "name": "gon-branding-tools",
+  "private": true,
+  "description": "PNG export tooling for GON brand masters",
+  "dependencies": { "@resvg/resvg-js": "^2.6.2" }
+}

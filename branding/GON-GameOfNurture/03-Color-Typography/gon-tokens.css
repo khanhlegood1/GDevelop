@@ -1,0 +1,39 @@
+/* GON — Game Of Nurture · Design Tokens v1.0 (2026-10-21)
+   Source of truth for web / GDevelop HTML5 UI. See gon-tokens.json + Brandbook PDF. */
+:root {
+  /* Nurture Green — primary */
+  --gon-green-50:#EAFBF2; --gon-green-100:#D3F5E3; --gon-green-200:#A7EAC9;
+  --gon-green-300:#6FD9A7; --gon-green-400:#3AC982; --gon-green-500:#18B26B;
+  --gon-green-600:#0E9455; --gon-green-700:#0C7746; --gon-green-800:#0B5C38;
+  --gon-ink:#12261E;            /* Forest Ink — text, never pure black for large areas */
+  /* Sunbeam — reward / sun leaf. Text on Sun must be Ink, never white */
+  --gon-sun-300:#FFDD7A; --gon-sun-400:#FFC93C; --gon-sun-500:#FFB020; --gon-sun-600:#E8930C;
+  /* Curiosity Sky — discovery, links, teen/adult accent */
+  --gon-sky-400:#38BDF8; --gon-sky-500:#1499D6; --gon-sky-600:#0B7AB8; --gon-sky-700:#0A5E8C;
+  /* Coral Bloom — play energy, use sparingly */
+  --gon-coral-400:#FF8A70; --gon-coral-500:#FF6B57; --gon-coral-600:#E64B38;
+  /* Berry — creativity accent for teens/adults only */
+  --gon-berry-500:#7C6BE0; --gon-berry-600:#6653C9;
+  /* Neutrals */
+  --gon-paper:#FFF9EE; --gon-cream:#FFF3D6; --gon-white:#FFFFFF;
+  --gon-body:#44564F; --gon-line:#DCE8E1; --gon-black:#000000;
+
+  /* Semantic (accessible pairs — verified ratios in Brandbook p.18) */
+  --gon-bg:var(--gon-paper); --gon-surface:var(--gon-white);
+  --gon-text:var(--gon-ink); --gon-text-muted:var(--gon-body);
+  --gon-primary:var(--gon-green-700);        /* white text: 5.61:1 AA */
+  --gon-primary-bright:var(--gon-green-500); /* graphics / Ink text only: Ink on it 5.76:1 */
+  --gon-on-primary:var(--gon-white);
+  --gon-accent:var(--gon-sun-400); --gon-on-accent:var(--gon-ink); /* 10.34:1 */
+  --gon-link:var(--gon-sky-700);             /* 7.02:1 on white */
+  --gon-focus:var(--gon-sky-500);
+
+  --gon-font-display:"Baloo 2","Be Vietnam Pro",system-ui,sans-serif;
+  --gon-font-body:"Be Vietnam Pro","Nunito",system-ui,sans-serif;
+  --gon-radius-s:12px; --gon-radius-m:20px; --gon-radius-l:28px; --gon-radius-pill:999px;
+  --gon-touch-min:48px; /* kids/special-needs touch target minimum */
+  --gon-shadow-card:0 8px 24px rgba(18,38,30,.10);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
