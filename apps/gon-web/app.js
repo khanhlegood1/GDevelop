@@ -8,15 +8,24 @@
    ============================================================ */
 
 const EMBEDDING_DIMENSIONS = 768;
-const LEVELS = [
-  { key: "zero", name: "Zero", icon: "○", xp: 0, note: "Điểm bắt đầu" },
-  { key: "awaken", name: "Awaken", icon: "◐", xp: 100, note: "Thức tỉnh tò mò" },
-  { key: "explorer", name: "Explorer", icon: "✦", xp: 300, note: "Khám phá có hệ thống" },
-  { key: "guardian", name: "Guardian", icon: "⬡", xp: 700, note: "Bảo vệ tri thức & cộng đồng" },
-  { key: "hero", name: "Hero", icon: "◆", xp: 1200, note: "Hành động tạo tác động" },
-  { key: "legend", name: "Legend", icon: "♛", xp: 2000, note: "Dẫn dắt người khác" },
-  { key: "forever", name: "Forever", icon: "∞", xp: 3500, note: "Học tập suốt đời" }
+// Lifelong progression model (Whitepaper V1.0):
+// Numeric Level is the primary, unbounded axis from the first XP.
+// Named entries below are narrative Eras/milestones, not terminal levels.
+// Forever begins at Lv.35 and continues Lv.36, Lv.37, ... without a cap.
+const XP_PER_LEVEL = 100;
+const FOREVER_LEVEL = 35;
+const FOREVER_XP = FOREVER_LEVEL * XP_PER_LEVEL;
+const LEVEL_ERAS = [
+  { key: "zero", name: "Zero", icon: "○", level: 0, xp: 0, note: "Điểm bắt đầu" },
+  { key: "awaken", name: "Awaken", icon: "◐", level: 1, xp: 100, note: "Thức tỉnh tò mò" },
+  { key: "explorer", name: "Explorer", icon: "✦", level: 3, xp: 300, note: "Khám phá có hệ thống" },
+  { key: "guardian", name: "Guardian", icon: "⬡", level: 7, xp: 700, note: "Bảo vệ tri thức & cộng đồng" },
+  { key: "hero", name: "Hero", icon: "◆", level: 12, xp: 1200, note: "Hành động tạo tác động" },
+  { key: "legend", name: "Legend", icon: "♛", level: 20, xp: 2000, note: "Dẫn dắt người khác" },
+  { key: "forever", name: "Forever", icon: "∞", level: FOREVER_LEVEL, xp: FOREVER_XP, note: "Kỷ nguyên học suốt đời · Lv.35+ không giới hạn", openEnded: true }
 ];
+// Backward-compatible alias: older code/docs called the Era list LEVELS.
+const LEVELS = LEVEL_ERAS;
 
 const AGENTS = [
   ["Source Intake", "Chuẩn hóa text/file/image/link, hash và quyền sử dụng"],
@@ -113,10 +122,33 @@ function classifyUrl(raw = "") {
   } catch { return { ok: false, kind: "invalid", host: "", id: "", href: raw, thumbnail: "" }; }
 }
 function calculateLevel(xp = 0) {
-  let current = LEVELS[0], next = null;
-  for (let i = 0; i < LEVELS.length; i++) { if (xp >= LEVELS[i].xp) current = LEVELS[i]; if (xp < LEVELS[i].xp && !next) next = LEVELS[i]; }
-  const span = next ? next.xp - current.xp : 1; const progress = next ? Math.min(1, Math.max(0, (xp - current.xp) / span)) : 1;
-  return { current, next, progress, remaining: next ? next.xp - xp : 0 };
+  const lifetimeXP = Number.isFinite(Number(xp)) ? Math.max(0, Math.floor(Number(xp))) : 0;
+  const numericLevel = Math.floor(lifetimeXP / XP_PER_LEVEL);
+  let current = LEVEL_ERAS[0];
+  let nextEra = null;
+  for (const era of LEVEL_ERAS) {
+    if (lifetimeXP >= era.xp) current = era;
+    if (lifetimeXP < era.xp && !nextEra) nextEra = era;
+  }
+  const levelStartXP = numericLevel * XP_PER_LEVEL;
+  const nextLevelXP = levelStartXP + XP_PER_LEVEL;
+  const next = { level: numericLevel + 1, numericLevel: numericLevel + 1, xp: nextLevelXP, name: `Lv.${numericLevel + 1}` };
+  return {
+    current,
+    era: current,
+    next,
+    nextEra,
+    numericLevel,
+    level: numericLevel,
+    lifetimeXP,
+    levelStartXP,
+    nextLevelXP,
+    progress: Math.min(1, Math.max(0, (lifetimeXP - levelStartXP) / XP_PER_LEVEL)),
+    remaining: nextLevelXP - lifetimeXP,
+    remainingToNextEra: nextEra ? nextEra.xp - lifetimeXP : null,
+    isForever: current.key === "forever",
+    label: `Lv.${numericLevel} · ${current.name}`
+  };
 }
 function uid(prefix = "gon") { return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`; }
 function localHash(text = "") { return `fnv_${(hashSeed(String(text)) >>> 0).toString(16).padStart(8, "0")}`; }
@@ -282,10 +314,12 @@ function saveState() {
 }
 function activeProject() { return state.projects.find((p) => p.id === state.activeProjectId) || state.projects[0] || null; }
 function addXP(amount, title, detail, projectId = state.activeProjectId, icon = "✦") {
-  const before = calculateLevel(state.xp).current.key; state.xp += amount;
+  const before = calculateLevel(state.xp); state.xp += amount;
   state.events.unshift({ id: uid("ev"), icon, title, detail, xp: amount, createdAt: new Date().toISOString(), projectId });
   const after = calculateLevel(state.xp); saveState(); renderAll();
-  toast(before !== after.current.key ? `Lên cấp ${after.current.name}! +${amount} XP` : `+${amount} XP · ${title}`);
+  if (before.current.key !== after.current.key) toast(`Mở Era ${after.current.name} · Lv.${after.numericLevel}! +${amount} XP`);
+  else if (after.numericLevel > before.numericLevel) toast(`Lên Lv.${after.numericLevel}${after.numericLevel - before.numericLevel > 1 ? ` (+${after.numericLevel - before.numericLevel} level)` : ""}! +${amount} XP`);
+  else toast(`+${amount} XP · ${title}`);
 }
 function toast(message) {
   const el = document.getElementById("toast"); if (!el) return; el.textContent = message; el.classList.add("show"); clearTimeout(el._timer); el._timer = setTimeout(() => el.classList.remove("show"), 3400);
@@ -526,12 +560,23 @@ function renderProjects() {
 }
 function renderLevels() {
   const info = calculateLevel(state.xp);
-  document.getElementById("level-name").textContent = info.current.name; document.getElementById("xp-value").textContent = `${state.xp} XP`; document.getElementById("xp-bar").style.width = `${Math.round(info.progress * 100)}%`;
-  document.getElementById("next-level-label").textContent = info.next ? `${info.remaining} XP → ${info.next.name}` : "Forever";
-  const html = LEVELS.map((level, i) => `<div class="level-step ${state.xp >= level.xp ? "done" : ""} ${info.current.key === level.key ? "current" : ""}"><i>${state.xp >= level.xp ? "✓" : i + 1}</i><span><strong>${level.icon} ${level.name}</strong><br><small>${level.xp} XP · ${level.note}</small></span></div>`).join("");
+  const eraRange = (era, index) => {
+    if (era.openEnded) return `Lv.${era.level}+`;
+    const endLevel = LEVEL_ERAS[index + 1].level - 1;
+    return endLevel === era.level ? `Lv.${era.level}` : `Lv.${era.level}–${endLevel}`;
+  };
+  document.getElementById("level-name").textContent = info.label;
+  document.getElementById("xp-value").textContent = `${info.lifetimeXP.toLocaleString("vi-VN")} XP`;
+  document.getElementById("xp-bar").style.width = `${Math.round(info.progress * 100)}%`;
+  document.getElementById("next-level-label").textContent = `${info.remaining} XP → Lv.${info.next.numericLevel}`;
+  const html = LEVEL_ERAS.map((era, i) => `<div class="level-step ${info.lifetimeXP >= era.xp ? "done" : ""} ${info.current.key === era.key ? "current" : ""}"><i>${info.lifetimeXP >= era.xp ? "✓" : era.level}</i><span><strong>${era.icon} ${era.name} · ${eraRange(era, i)}</strong><br><small>${era.xp.toLocaleString("vi-VN")}+ XP · ${era.note}</small></span></div>`).join("")
+    + `<div class="level-step current"><i>∞</i><span><strong>Lifelong Numeric Level</strong><br><small>Hiện tại Lv.${info.numericLevel} · mỗi ${XP_PER_LEVEL} Lifetime XP = 1 level · không có level cuối</small></span></div>`;
   document.getElementById("level-track").innerHTML = html;
-  document.getElementById("journey-levels").innerHTML = LEVELS.map((level) => `<div class="journey-node ${state.xp >= level.xp ? "done" : ""} ${info.current.key === level.key ? "current" : ""}"><i>${level.icon}</i><strong>${level.name}</strong><br>${level.xp} XP</div>`).join("");
-  document.getElementById("journey-next").textContent = info.next ? `Còn ${info.remaining} XP để lên ${info.next.name}` : "Đã chạm Forever — hành trình vẫn tiếp tục";
+  document.getElementById("journey-levels").innerHTML = LEVEL_ERAS.map((era, i) => `<div class="journey-node ${info.lifetimeXP >= era.xp ? "done" : ""} ${info.current.key === era.key ? "current" : ""}"><i>${era.icon}</i><strong>${era.name}</strong><br>${eraRange(era, i)}<br>${era.xp.toLocaleString("vi-VN")}+ XP</div>`).join("")
+    + `<div class="journey-node current"><i>∞</i><strong>Lv.${info.numericLevel}</strong><br>hiện tại<br>${info.remaining} XP → Lv.${info.next.numericLevel}</div>`;
+  document.getElementById("journey-next").textContent = info.nextEra
+    ? `Lv.${info.numericLevel} · còn ${info.remaining} XP lên Lv.${info.next.numericLevel}; ${info.remainingToNextEra} XP mở Era ${info.nextEra.name}`
+    : `Forever Lv.${info.numericLevel} · còn ${info.remaining} XP lên Lv.${info.next.numericLevel} · học tập suốt đời, không giới hạn`;
 }
 function renderProfile() {
   const user = state.user || { name: "Hero Demo", email: "Google demo" };
@@ -623,8 +668,8 @@ function download(filename, content, type = "text/plain") {
   const blob = new Blob([content], { type }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 function journeyMarkdown() {
-  const level = calculateLevel(state.xp).current;
-  return `# GON Hero Journey — ${state.user?.name || "Hero Demo"}\n\n- Level: ${level.icon} ${level.name}\n- XP: ${state.xp}\n- Exported: ${new Date().toISOString()}\n\n## Projects\n${state.projects.map((p) => `\n### ${p.title}\n- Status: ${p.status}\n- Progress: ${moduleProgress(p)}%\n- Module: ${p.module?.title || "—"}\n- Keywords: ${(p.keywords || []).join(", ")}\n- Sources: ${p.sources.map((s) => s.title).join("; ") || "—"}`).join("\n")}\n\n## Proof Vault\n${state.proofs.map((p) => `- [L${p.level}] **${p.title}** (${proofTypeLabel(p.type)}) — ${p.status}${p.url ? ` — ${p.url}` : ""}${p.hash ? `\n  - Hash: \`${p.hash}\`` : ""}`).join("\n")}\n\n> GON prototype export. Verification levels are transparent labels, not issuer certification.\n`;
+  const info = calculateLevel(state.xp); const level = info.current;
+  return `# GON Hero Journey — ${state.user?.name || "Hero Demo"}\n\n- Numeric Level: Lv.${info.numericLevel} (unbounded)\n- Era: ${level.icon} ${level.name}${info.isForever ? " (open-ended from Lv.35)" : ""}\n- Lifetime XP: ${info.lifetimeXP}\n- Next: Lv.${info.next.numericLevel} at ${info.nextLevelXP} XP (${info.remaining} XP remaining)\n- Token note: prototype has no tradable token; any future Learning Token level accounting must use lifetime earned units, not spendable/transferred balance.\n- Exported: ${new Date().toISOString()}\n\n## Projects\n${state.projects.map((p) => `\n### ${p.title}\n- Status: ${p.status}\n- Progress: ${moduleProgress(p)}%\n- Module: ${p.module?.title || "—"}\n- Keywords: ${(p.keywords || []).join(", ")}\n- Sources: ${p.sources.map((s) => s.title).join("; ") || "—"}`).join("\n")}\n\n## Proof Vault\n${state.proofs.map((p) => `- [L${p.level}] **${p.title}** (${proofTypeLabel(p.type)}) — ${p.status}${p.url ? ` — ${p.url}` : ""}${p.hash ? `\n  - Hash: \`${p.hash}\`` : ""}`).join("\n")}\n\n> GON prototype export. Verification levels are transparent labels, not issuer certification.\n`;
 }
 
 /* ---------------- Init ---------------- */
@@ -666,4 +711,4 @@ function init() {
   document.getElementById("export-md").addEventListener("click", () => download("gon-hero-journey.md", journeyMarkdown(), "text/markdown"));
 }
 if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", init);
-if (typeof module !== "undefined" && module.exports) module.exports = { EMBEDDING_DIMENSIONS, LEVELS, CORPUS, normalizeText, tokenize, detectConcepts, createEmbedding768, cosineSimilarity, extractKeywords, classifyUrl, calculateLevel, searchCorpus, createBrewModule, cleanTitle };
+if (typeof module !== "undefined" && module.exports) module.exports = { EMBEDDING_DIMENSIONS, XP_PER_LEVEL, FOREVER_LEVEL, FOREVER_XP, LEVEL_ERAS, LEVELS, CORPUS, normalizeText, tokenize, detectConcepts, createEmbedding768, cosineSimilarity, extractKeywords, classifyUrl, calculateLevel, searchCorpus, createBrewModule, cleanTitle };

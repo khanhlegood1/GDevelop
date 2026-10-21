@@ -1,7 +1,7 @@
 # Requirement bổ sung GON V2.1 — Trending Output, Personalized Fork & Output Arena
 
-**Phiên bản:** 2.1-draft · **Ngày:** 22/10/2026 · **Mở rộng:** [`GON-ORG-PRODUCT-SPEC-18PLUS.md`](GON-ORG-PRODUCT-SPEC-18PLUS.md)  
-**Phạm vi:** GON.org cho người trưởng thành 18+ · **Trạng thái:** requirement đích; prototype hiện tại mới có search/Brew/Coach-vs-Quest cục bộ, chưa có trend thật, cộng đồng, fork công khai hay phần thưởng thật.
+**Phiên bản:** 2.2-draft · **Ngày:** 22/10/2026 · **Mở rộng:** [`GON-ORG-PRODUCT-SPEC-18PLUS.md`](GON-ORG-PRODUCT-SPEC-18PLUS.md) · **Level/XP/Token chuẩn:** [`GON-WHITEPAPER.md`](GON-WHITEPAPER.md) (`gon-level-v1`)<br>
+**Phạm vi:** GON.org cho người trưởng thành 18+ · **Trạng thái:** requirement đích; prototype hiện tại có search/Brew/Coach-vs-Quest và **Numeric Level vô hạn ở client**, nhưng chưa có trend thật, cộng đồng, fork công khai, XP Ledger server hay token/phần thưởng thật.
 
 ## 1. Tuyên ngôn bổ sung
 
@@ -17,7 +17,7 @@ flowchart LR
   D --> E[Fork thành Journey Branch riêng]
   E --> F[Render đa định dạng: web · GDevelop · infographic · video · task]
   F --> G[Kiểm tra hiểu thật + Boss Proof]
-  G --> H[XP · Proof · Reputation]
+  G --> H[Lifetime XP → Lv.N · Era ∞ · Proof · Reputation]
   H --> I[Output/Success Path được cộng đồng học & Fork tiếp]
   I --> B
 ```
@@ -38,6 +38,9 @@ GON học cơ chế khám phá của TikTok/Facebook và cơ chế đối đầu
 | **Success Path** | Hành trình đã công khai có bằng chứng: điểm bắt đầu, mindset/quyết định, hành động, thất bại/điều chỉnh, artifact, kết quả và proof. Người khác có thể Fork nhưng không được hứa sẽ sao chép nguyên vẹn kết quả. |
 | **Creator Attribution Graph** | Đồ thị ghi công nối input gốc, nguồn, người tạo module, người cải tiến/Fork và người xác minh; dùng cho reputation và mọi phân bổ thưởng tương lai. |
 | **Canonical Module Graph** | Nội dung học trung lập về định dạng gồm outcome, concept, nguồn, quest, media, assessment và rubric; từ đây render sang web/GDevelop/infographic/video/task. |
+| **Lifetime XP** | Tổng XP hợp lệ tích lũy suốt đời từ sự kiện học đạt rule/rubric, sau reversal có audit. Đây là cơ sở tính Numeric Level. |
+| **Numeric Level / Era** | `Lv.N = floor(Lifetime XP/100)`, không có trần. Era là lớp bản sắc; Forever là Era mở tại Lv.35+, sau đó vẫn tiếp tục Lv.36, Lv.37… |
+| **Lifetime Earned Token** | Nếu Learning Token được kích hoạt hợp pháp trong tương lai: tổng token/credit đã kiếm được từ cùng sổ cái học tập, dùng để đối chiếu level. Khác hoàn toàn số dư chi tiêu/mua/chuyển nhượng. |
 
 ## 3. Từ một input phải sinh 10+ output có hướng khác nhau
 
@@ -74,7 +77,7 @@ Các output mẫu từ cùng một input có thể là:
 - `Personal Fit`, `Trend`, `Source Quality`, `Mastery Potential` và lý do ngắn “Vì sao gợi ý cho bạn?”;
 - Số nguồn/citation và trạng thái grounding;
 - Creator/lineage, số Fork và số người đã hoàn thành có proof — khi có dữ liệu thật;
-- XP dự kiến chỉ sau hành động đạt rubric, không thưởng chỉ vì bấm mở;
+- XP dự kiến đóng góp vào Lifetime XP chỉ sau hành động đạt rubric, không thưởng chỉ vì bấm mở/like/share; card có thể nêu rõ XP này đưa user tiến bao nhiêu tới `Lv.N+1` mà không hứa mastery;
 - Hành động: **Học ngay**, **Đưa vào Arena**, **Fork**, **Merge với output khác**, **Lưu**, **Không quan tâm**, **Báo cáo**.
 
 ### 3.3 Ràng buộc chất lượng candidate
@@ -230,7 +233,7 @@ Creator Score phải ưu tiên:
 - Tác động đời thật được ghi nhận;
 - Tính bền vững sau giai đoạn viral.
 
-XP là điểm nội bộ. Token, tiền, chia sẻ doanh thu hoặc marketplace — nếu triển khai — là hệ riêng cần điều khoản creator, bản quyền, thuế/KYC khi áp dụng, chống rửa tương tác và tư vấn pháp lý. **GON không được hứa mọi creator sẽ giàu hoặc thành triệu phú.** Thông điệp đúng là: nội dung tạo giá trị học thật có cơ hội được khám phá, ghi công và thương mại hoá minh bạch.
+XP ghi vào sổ cái **Lifetime XP** và điều khiển Numeric Level vô hạn theo White Paper: `Lv = floor(Lifetime XP/100)`; viral/like/share tự chúng không tạo XP lớn nếu không có downstream mastery, artifact hoặc proof. Learning Token chưa được phát hành. Nếu triển khai theo thiết kế 1 XP hợp lệ ↔ 1 Lifetime Earned Token Credit, level cũng đối chiếu bằng `floor(Lifetime Earned Token/100)`; token mua/nhận chuyển nhượng không tăng level và chi tiêu token không làm tụt level. Tiền, chia sẻ doanh thu hoặc marketplace — nếu triển khai — là hệ riêng cần điều khoản creator, bản quyền, thuế/KYC khi áp dụng, chống rửa tương tác và tư vấn pháp lý. **GON không được hứa mọi creator sẽ giàu hoặc thành triệu phú.** Thông điệp đúng là: nội dung tạo giá trị học thật có cơ hội được khám phá, ghi công và thương mại hoá minh bạch.
 
 ### 8.3 Success Path phải chống “thần thoại thành công”
 
@@ -321,12 +324,13 @@ Mọi output được lưu trước dưới dạng **Canonical Module Graph**, r
 - `mastery_states`, `assessment_attempts`
 - `creator_attributions`, `creator_scores`, `reward_ledger`
 - `media_renders`, `gdevelop_exports`, `game_sessions`
+- `xp_ledger_entries`, `level_snapshots`; tương lai `learning_token_ledger` tách `lifetimeEarned` khỏi `spendableBalance`
 
 ### 12.2 Event contract
 
 Mọi event có `event_id`, `schema_version`, `actor_id` băm/mã hoá phù hợp, `session_id`, `occurred_at`, `input_id`, `output_id`, `branch_id` và consent context. Event tối thiểu:
 
-`input_submitted`, `candidates_generated`, `candidate_impressed`, `candidate_selected`, `candidate_hidden`, `arena_vote_cast`, `outputs_merged`, `journey_forked`, `branch_committed`, `branch_merged`, `module_rendered`, `game_started`, `quest_completed`, `assessment_answered`, `artifact_submitted`, `proof_verified`, `success_path_published`, `creator_reward_accrued`.
+`input_submitted`, `candidates_generated`, `candidate_impressed`, `candidate_selected`, `candidate_hidden`, `arena_vote_cast`, `outputs_merged`, `journey_forked`, `branch_committed`, `branch_merged`, `module_rendered`, `game_started`, `quest_completed`, `assessment_answered`, `artifact_submitted`, `proof_verified`, `success_path_published`, `creator_reward_accrued`, `xp_ledger_posted`, `numeric_level_changed`, `era_unlocked`.
 
 Không ghi nội dung riêng tư vào analytics khi chỉ cần ID/đặc trưng đã giảm định danh.
 
@@ -349,7 +353,10 @@ Không ghi nội dung riêng tư vào analytics khi chỉ cần ID/đặc trưng
 | FR-GDEV-01 | Render module đa định dạng | Cùng Canonical Module Graph xuất được web path và GDevelop blueprint/project đã kiểm thử; infographic/video brief dùng cùng source |
 | FR-GDEV-02 | Game telemetry an toàn | Quest/Boss event có idempotency; sửa điểm ở client không tạo XP/proof chính thức |
 | FR-CREATOR-01 | Attribution và Creator Score | Mọi output công khai truy được tác giả/nguồn/Fork lineage; score ưu tiên mastery/proof hơn like/share |
-| FR-CREATOR-02 | Reward minh bạch | XP tách khỏi token/tiền; mọi khoản thưởng có ledger, điều kiện, chống gian lận và không hứa lợi nhuận |
+| FR-LEVEL-01 | Numeric Level vô hạn từ đầu | Với 0, 1.250, 3.500 và 9.999 Lifetime XP, hệ thống lần lượt trả Lv.0 Zero, Lv.12 Hero, Lv.35 Forever, Lv.99 Forever; mọi trường hợp đều có level tiếp theo, không có max/final state |
+| FR-LEVEL-02 | XP Ledger chuẩn `gon-level-v1` | Mỗi XP award có source event, rule/formula version, idempotency và reversal/audit; level tái tính được từ sổ cái và không reset theo season |
+| FR-TOKEN-01 | Tách Lifetime Earned khỏi số dư token | Mua/nhận/chuyển/spend token không làm thay đổi Numeric Level; chỉ token/credit kiếm được từ sự kiện học hợp lệ mới tăng Lifetime Earned dùng đối chiếu level |
+| FR-CREATOR-02 | Reward minh bạch | Lifetime XP tách khỏi spendable token/tiền; mọi khoản thưởng có ledger, điều kiện, chống gian lận và không hứa lợi nhuận |
 | FR-SAFE-01 | Kiểm soát trend độc hại | Nội dung rủi ro bị quality/safety gate trước khuếch đại; user báo cáo và appeal được |
 | FR-PRIV-01 | Quyền riêng tư footprint | User xem/sửa/xoá/tắt cá nhân hoá; xoá dữ liệu lan truyền sang feature store theo chính sách công bố |
 
@@ -369,6 +376,7 @@ Không ghi nội dung riêng tư vào analytics khi chỉ cần ID/đặc trưng
 - Độ đa dạng output được chọn giữa các Learning Mode;
 - Arena vote giúp dự đoán completion/mastery tốt đến đâu;
 - Creator có downstream learner đạt proof, không chỉ follower/share.
+- Phân phối `Lv.N · Era`, Lifetime XP theo nguồn sự kiện và tỷ lệ XP tiến tới retained mastery thay vì chỉ tổng XP.
 
 ### Guardrail
 
@@ -383,7 +391,7 @@ Không ghi nội dung riêng tư vào analytics khi chỉ cần ID/đặc trưng
 
 | Giai đoạn | Deliverable | Điều kiện qua cổng |
 |---|---|---|
-| **V2.1 Prototype** | 10+ output card, Learning Mode sliders, footprint local, Arena vote làm đổi ranking demo, Journey Fork graph cục bộ | Ghi rõ trend là dữ liệu mẫu; test được các persona cho kết quả khác nhau |
+| **V2.1 Prototype** | Nền hiện tại đã có `gon-level-v1` ở client; bổ sung 10+ output card, Learning Mode sliders, footprint local, Arena vote làm đổi ranking demo, Journey Fork graph cục bộ | Ghi rõ trend là dữ liệu mẫu; test được các persona cho kết quả khác nhau và Forever Lv.35 vẫn lên Lv.36 |
 | **P1 Internal Trend** | Event backend, rule-based recommender, trend từ completion/Fork thật, branch/version server | Có moderation, consent, anti-bot cơ bản, ranking snapshot |
 | **P2 Learning Intelligence** | ML ranking/personal embedding, mastery model, Arena leaderboard theo cohort | Đánh giá offline/online bằng learning gain; có fairness và explainability review |
 | **P3 Multi-format Studio** | Canonical Module Graph, GDevelop converter, infographic/video brief, telemetry | Project GDevelop mẫu chạy kiểm thử; asset license và accessibility đạt |
@@ -405,6 +413,7 @@ Ví dụ này là phép ẩn dụ về cơ hội bùng nổ; GON không cam kế
 
 - Không xây dựng thuật toán sao chép bí mật thương mại của TikTok/Facebook/Arena; chỉ dùng nguyên lý sản phẩm công khai và dữ liệu hợp pháp.
 - Không biến XP thành chứng khoán/token có cam kết sinh lời.
+- Không tạo max/final level ở Forever, không reset Numeric Level theo mùa và không cho số dư token mua được level.
 - Không dùng trend/vote số đông để xác minh y khoa, học thuật hoặc chứng chỉ.
 - Không bắt buộc mọi chủ đề thành game; GDevelop là một renderer mạnh, nhưng user phải có đường học tương đương phù hợp khả năng và sở thích.
 - Không công khai hành trình/proof nhạy cảm mặc định để nuôi trend.
