@@ -1,45 +1,52 @@
-# GON — Game Of Nurture · Bộ nhận diện thương hiệu v1.0
+# GON — Game Of Nurture · Brand & Product Package v2 (Heroes 18+)
 
-**Game giáo dục cho trẻ em và người lớn ở mọi lứa tuổi** — *Chơi. Học. Lớn khôn.*
-Bộ nhận diện này học **cấu trúc** của `poap-branding-guidelines.pdf` (Logo → Typography → Color → Partnerships → Integrators)
-và **định hướng nội dung** từ nurture.games (game giáo dục an toàn, thích ứng, rèn kỹ năng điều hành),
-nhưng logo, màu, chữ, minh họa và câu chữ đều là **sáng tạo riêng cho GON** — xem cảnh báo pháp lý cuối file.
+Gói này là bản **v2** của hệ nhận diện đã merge ở PR #6. V1 định vị giáo dục cho trẻ em/mọi lứa tuổi; theo brief mới, GON.org chuyển sang người trưởng thành **18+**, lấy cảm hứng tuyên ngôn của **ZOFO — Zero to Forever** tại hienmaunhanvan.com: *Become The Hero Within*, hiến máu nhân văn, sức khỏe toàn diện, AI Coach, gamification Zero → Forever và Proof/POAP.
 
-## Bắt đầu ở đâu?
-1. **`02-Brandbook/GON-Brandbook-2026.pdf`** — sách thương hiệu 30 trang (bản trình bày chính).
-2. **`index.html`** — bản web tương tác (mở bằng server tĩnh, xem dưới đây).
-3. Cần logo ngay: **`01-Logo/svg/`** (master) + `01-Logo/png/` (đã xuất sẵn). Đọc `01-Logo/LOGO-README.md`.
+Bản chạy được của sản phẩm nằm ở [`../../apps/gon-web/`](../../apps/gon-web/): Google/18+ gate mô phỏng, multimodal composer, demo vector search 768D, Learning Arena kiểu FastChat, Brew Your Topic, XP/level và Proof Vault.
 
-## Cây thư mục
-```
-01-Logo/            Logo master SVG + PNG + 3 phương án exploration (A được chọn, B = huy hiệu, C = khối chữ trẻ em)
-02-Brandbook/       PDF brandbook + bản HTML
-03-Color-Typography/  Token màu/font: gon-tokens.css · gon-tokens.json · FONTS.md
-04-Templates/       Mẫu cover mạng xã hội, bài vuông, slide, giấy khen (SVG+PNG) + họa tiết hạt giống
-05-Product-GDevelop/ Cách áp dụng vào game xây bằng GDevelop trong repo này
-06-Content/         Ngân hàng nội dung VI/EN: định vị, FAQ, tính năng, giọng nói, thang tuyên bố
-assets-illustration/ Minh họa bìa/lớp học (AI hỗ trợ phác thảo — xem lưu ý)
-tools/              Script tái tạo toàn bộ (generate_logos.py, generate_templates.py, build_brandbook.py, render_pngs.js)
-```
+## Cấu trúc
 
-## Tái tạo file (reproducible)
+| Thư mục | Nội dung v2 |
+|---|---|
+| `01-Logo/` | G Orbit trưởng thành: Midnight, mầm Emerald, lá/fork Crimson, chấm Gold, Hero Spark; wordmark Be Vietnam Pro ExtraBold; SVG/PNG/app/favicon/proof badge |
+| `02-Brandbook/` | `GON-Brandbook-2026.pdf` — brandbook v2 18+ |
+| `03-Color-Typography/` | Tokens CSS/JSON (Midnight, Ascent Emerald, Hero Gold, Humanity Crimson, Proof Cyan), typography 18+ |
+| `04-Templates/` | Social cover/post, slide title, Hero Proof certificate, pattern |
+| `05-Product-GDevelop/` | Hướng dẫn chuyển quest/module/XP/proof thành GDevelop |
+| `06-Content/` | Định vị, giọng, copy VI/EN, claim ladder |
+| `07-Product-AI/` | Đặc tả GON.org: multimodal input, Gemini 768D, ADK/Brew, FastChat Arena, Proof of Learning |
+| `assets-illustration/` | Minh họa Heroes 18+; ảnh trẻ em v1 nằm trong thư mục legacy, không sử dụng |
+| `tools/` | Generator logo/template/PNG/favicon/PDF và font TTF phục vụ tái lập |
+
+Mở **`index.html`** ở thư mục này để xem brand hub v2 và mở prototype tương đối `../../apps/gon-web/`.
+
+## Thay đổi cốt lõi so với v1
+
+- **Đối tượng:** trẻ em/gia đình/mọi lứa tuổi → **thanh niên/người lớn 18+**.
+- **Hành trình:** Hạt → Mầm → Chồi → Cây → Vườn → **Zero → Awaken → Explorer → Guardian → Hero → Legend → Forever**.
+- **Tagline:** “Chơi. Học. Lớn khôn.” → **Become the Hero Within** / **Ingest. Learn. Prove. Become.**
+- **Logo:** G xanh Baloo → G Midnight, Be Vietnam Pro ExtraBold, lá Crimson + Hero Spark.
+- **Mascot:** Gon Mầm và concept blocks **nghỉ hưu khỏi master brand**.
+- **Sản phẩm:** game giáo dục chung chung → nền tảng AI search/Brew biến mọi input thành dự án học có Proof.
+
+## Tái tạo
+
+Từ thư mục này, dùng Python venv có `fonttools`, `brotli`, `pillow`, `reportlab`, `pymupdf` và Node package `@resvg/resvg-js`:
+
 ```bash
-python3 -m venv /tmp/venv-branding && /tmp/venv-branding/bin/pip install pymupdf pillow reportlab fonttools brotli
-cd branding/GON-GameOfNurture
-/tmp/venv-branding/bin/python tools/generate_logos.py
-/tmp/venv-branding/bin/python tools/generate_templates.py
-npm --prefix tools install && node tools/render_pngs.js .
-/tmp/venv-branding/bin/python tools/make_favicon.py
-/tmp/venv-branding/bin/python tools/build_brandbook.py
-python3 -m http.server 8123   # xem index.html tại http://localhost:8123/
+python3 tools/generate_logos.py
+python3 tools/generate_templates.py
+NODE_PATH=/path/to/node_modules node tools/render_pngs.js .
+python3 tools/make_favicon.py
+python3 tools/build_brandbook.py
 ```
-Font build để trong `tools/fonts-ttf/` (merge subset latin+latin-ext+vietnamese từ Fontsource, OFL).
 
-## Lưu ý quan trọng (đọc trước khi dùng thương mại)
-- **Nhãn hiệu:** tên "Game Of Nurture/GON" gần với "Nurture Games" cùng lĩnh vực game giáo dục → **tra cứu & đăng ký nhãn hiệu (VN + thị trường mục tiêu) trước khi ra mắt**; không dùng logo/câu chữ của Nurture Games. Logo POAP (rosette) là nhãn hiệu của POAP Inc — GON chủ đích **không** dùng rosette.
-- **Tuyên bố hiệu quả:** chỉ dùng tuyên bố thuộc "Thang tuyên bố" (06-Content). GON không phải thiết bị y tế.
-- **Dữ liệu trẻ em:** tuân thủ COPPA/GDPR-K/PDPD (NĐ 13/2023) — cần tư vấn pháp lý riêng.
-- **Minh họa:** 2 tranh trong `assets-illustration/` do AI hỗ trợ tạo để định hướng phong cách; khi thương mại hóa nên thuê họa sĩ vẽ lại/hoàn thiện để đảm bảo quyền sử dụng & tính độc bản. **Logo là vector vẽ bằng hình học trong `tools/generate_logos.py`, không phải ảnh AI.**
-- Font Baloo 2 & Be Vietnam Pro: SIL Open Font License 1.1.
+SVG là master; PDF và PNG là bản xuất. Logo của app được đồng bộ thủ công vào `../../apps/gon-web/assets/gon-app-icon-v2.svg` sau mỗi lần đổi mark.
 
-Phiên bản: 1.0 · 2026-10-21 · Thiết kế trên nhánh `arena/735ff871-gdevelop` (không sửa thương hiệu/engine GDevelop).
+## Kiểm chứng nguồn & giới hạn pháp lý
+
+- Tính năng AI trong `apps/gon-web` là **prototype cục bộ**; Google OAuth, Gemini, ADK, OCR/transcript và POAP verification chưa nối API thật.
+- Không dùng số liệu 100.000+ thành viên/50.000+ đơn vị máu/1.000.000+ quest của trang ZOFO làm số liệu GON.
+- Nếu ZOFO và GON không cùng chủ thể hoặc chưa có quyền bằng văn bản, cần kiểm tra quyền dùng tên/thông điệp “Zero to Forever/Become The Hero Within”, đồng thời tra cứu nhãn hiệu “GON/Game Of Nurture” trước thương mại hoá.
+- Nội dung hiến máu/sức khỏe chỉ mang tính chuẩn bị và ghi hành trình; không chẩn đoán/điều trị. Ảnh minh họa AI là style draft cần kiểm tra quyền trước dùng thương mại.
+- Không có Pantone được khẳng định; hãy proof màu in thực tế.

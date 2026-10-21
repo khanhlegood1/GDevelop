@@ -2,119 +2,48 @@
 <html lang="vi">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GON — Game Of Nurture · Brandbook 2026</title>
+<title>GON Brand Hub v2 — Game Of Nurture for Heroes 18+</title>
+<meta name="description" content="Hệ nhận diện GON v2 cho người trưởng thành 18+: AI Search 768D, Brew Your Topic, Quest, XP và Proof of Learning.">
 <link rel="icon" href="01-Logo/favicon.ico">
-<link rel="stylesheet" href="03-Color-Typography/gon-tokens.css">
 <style>
-@font-face{font-family:"Baloo 2";src:url("tools/fonts-ttf/Baloo2-ExtraBold.ttf") format("truetype");font-weight:800}
-@font-face{font-family:"Be Vietnam Pro";src:url("tools/fonts-ttf/BeVietnamPro-Regular.ttf") format("truetype");font-weight:400}
-@font-face{font-family:"Be Vietnam Pro";src:url("tools/fonts-ttf/BeVietnamPro-SemiBold.ttf") format("truetype");font-weight:600}
-@font-face{font-family:"Be Vietnam Pro";src:url("tools/fonts-ttf/BeVietnamPro-Bold.ttf") format("truetype");font-weight:700}
-*{box-sizing:border-box}body{margin:0;font-family:var(--gon-font-body);color:var(--gon-text);background:var(--gon-bg);line-height:1.55}
-header{position:sticky;top:0;z-index:9;background:rgba(255,249,238,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--gon-line)}
-.nav{max-width:1180px;margin:auto;display:flex;gap:18px;align-items:center;padding:10px 20px;flex-wrap:wrap}
-.nav img{height:38px}.nav a{color:var(--gon-sky-700);text-decoration:none;font-weight:600;font-size:14px}.nav a:hover{text-decoration:underline}
-.wrap{max-width:1180px;margin:auto;padding:0 20px 64px}
-.hero{display:grid;grid-template-columns:1fr 1.25fr;gap:28px;align-items:center;padding:44px 0 8px}
-h1,h2{font-family:var(--gon-font-display);line-height:1.08;margin:.2em 0}
-h1{font-size:clamp(42px,6vw,68px)}h2{font-size:clamp(27px,3.4vw,38px);margin-top:52px}
-.kick{display:inline-block;background:var(--gon-green-50);color:var(--gon-green-700);font-weight:700;font-size:12px;padding:5px 12px;border-radius:999px;letter-spacing:.04em}
-.pill{display:inline-block;background:var(--gon-sun-400);color:var(--gon-ink);font-weight:700;padding:8px 16px;border-radius:999px}
-.btn{display:inline-block;min-height:var(--gon-touch-min);line-height:28px;background:var(--gon-green-700);color:#fff!important;padding:10px 20px;border-radius:999px;text-decoration:none;font-weight:700}
-.btn.alt{background:var(--gon-sun-400);color:var(--gon-ink)!important}
-.hero img,.wide{width:100%;border-radius:24px;box-shadow:var(--gon-shadow-card)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:16px}
-.card{background:#fff;border:1px solid var(--gon-line);border-radius:20px;padding:18px;box-shadow:var(--gon-shadow-card)}
-.card img{max-width:100%;max-height:150px;display:block;margin:6px auto}
-.card a{font-weight:700;color:var(--gon-sky-700)}
-.sw{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.swatch{border-radius:16px;padding:14px;min-height:104px;border:1px solid var(--gon-line);cursor:pointer;text-align:left;font:inherit;width:100%}
-.swatch b{display:block}.small{font-size:13px;color:var(--gon-text-muted)}
-table{width:100%;border-collapse:collapse;background:#fff;border-radius:16px;overflow:hidden}td,th{padding:11px 14px;border-bottom:1px solid var(--gon-line);text-align:left}
-.do{border-left:6px solid var(--gon-green-500)}.dont{border-left:6px solid #d64541}
-.spec{font-size:clamp(22px,4vw,38px)}
-footer{background:var(--gon-ink);color:var(--gon-green-100);padding:36px 20px;text-align:center}
-@media(max-width:760px){.hero{grid-template-columns:1fr}}
-:focus-visible{outline:3px solid var(--gon-focus);outline-offset:2px}
-</style></head>
+:root{--mid:#07111f;--mid2:#0a1a2e;--panel:#0e2237;--line:rgba(168,189,210,.2);--paper:#f5f8fc;--mut:#a8bdd2;--green:#12b981;--green7:#047857;--gold:#ffb703;--red:#f04452;--cyan:#38d5f5;--cyan7:#0369a1;--r:20px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--mid);color:#eef6ff;font:16px/1.65 "Be Vietnam Pro","Segoe UI",system-ui,sans-serif}a{color:#7de3ff}img{max-width:100%}
+.wrap{max-width:1180px;margin:auto;padding:0 22px}.top{position:sticky;top:0;z-index:5;background:rgba(7,17,31,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}.topin{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:12px 0}.logo{display:flex;gap:12px;align-items:center;text-decoration:none;color:#fff}.logo img{width:52px;height:52px;border-radius:12px}.logo b{font-size:1.35rem;letter-spacing:.03em}.logo span{display:block;color:var(--mut);font-size:.72rem;letter-spacing:.16em}nav{display:flex;gap:18px;flex-wrap:wrap}nav a{color:#fff;text-decoration:none;font-weight:700}.hero{padding:66px 0 42px;display:grid;grid-template-columns:1.02fr .98fr;gap:36px;align-items:center}.pill{display:inline-flex;border:1px solid rgba(255,183,3,.5);color:#ffd34d;background:rgba(255,183,3,.1);padding:7px 12px;border-radius:999px;font-weight:800;font-size:.8rem}h1{font-size:clamp(2.8rem,6vw,5.4rem);line-height:1.02;margin:20px 0 18px}h1 em{color:var(--green);font-style:normal}.lead{color:var(--mut);font-size:1.13rem}.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:12px 20px;border-radius:999px;text-decoration:none;font-weight:900}.btn.gold{background:var(--gold);color:var(--mid)}.btn.ghost{border:1px solid var(--line);color:#fff}.heroart{border-radius:28px;border:1px solid var(--line);box-shadow:0 30px 80px rgba(0,0,0,.35)}section{padding:46px 0}h2{font-size:2.1rem;margin:0 0 10px}.sub{color:var(--mut);max-width:820px}.grid{display:grid;gap:18px}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}.card{background:linear-gradient(180deg,#10263d,#0b1c2f);border:1px solid var(--line);border-radius:var(--r);padding:22px}.card h3{margin:4px 0 8px}.card p{color:var(--mut)}.card img.logoimg{display:block;margin:auto;max-height:190px}.light{background:var(--paper);color:var(--mid)}.light p{color:#44586e}.level{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}.level div{border:1px solid var(--line);border-radius:16px;padding:16px;text-align:center;background:var(--panel)}.level b{display:block}.level span{color:var(--mut);font-size:.82rem}.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.sw{border-radius:16px;padding:18px;min-height:130px}.sw b{display:block}.pipeline{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}.pipe{border:1px solid var(--line);border-radius:16px;padding:16px;background:var(--panel)}.pipe i{font-style:normal;font-size:1.5rem}.proof{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.proof div{border-radius:16px;padding:16px;background:var(--panel);border-top:4px solid var(--cyan)}.proof p{color:var(--mut);font-size:.9rem}.warning{border:1px solid rgba(240,68,82,.45);background:rgba(240,68,82,.09);padding:20px;border-radius:18px}.files{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.files a{display:block;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;color:#fff;text-decoration:none}.files a span{display:block;color:var(--mut);font-size:.9rem}footer{padding:36px 0 60px;color:var(--mut);border-top:1px solid var(--line)}code{background:#06101e;padding:2px 6px;border-radius:6px;color:#8ce99a}
+@media(max-width:900px){.hero,.g2{grid-template-columns:1fr}.g3,.pipeline,.proof{grid-template-columns:repeat(2,1fr)}.level{grid-template-columns:repeat(2,1fr)}.swatches{grid-template-columns:repeat(2,1fr)}nav{display:none}}
+@media(max-width:560px){.g3,.pipeline,.proof,.files,.swatches{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
 <body>
-<header><div class="nav">
-<a href="#top"><img src="01-Logo/svg/gon-logo-horizontal.svg" alt="GON — Game Of Nurture"></a>
-<a href="#logo">Logo</a><a href="#mau">Màu sắc</a><a href="#chu">Chữ</a><a href="#cap">Cấp độ</a><a href="#giong">Giọng nói</a><a href="#mau-ung-dung">Mẫu ứng dụng</a><a href="#antoan">An toàn</a>
-</div></header>
-<main class="wrap" id="top">
-<section class="hero"><div>
-<span class="kick">BRANDBOOK 2026 · V1.0</span>
-<h1>GON<br>Game Of Nurture</h1>
-<p><strong>Chơi. Học. Lớn khôn.</strong> Bộ nhận diện cho nền tảng game giáo dục an toàn — cho trẻ em và người lớn ở mọi lứa tuổi.</p>
-<p><a class="btn" href="02-Brandbook/GON-Brandbook-2026.pdf">Tải Brandbook PDF (30 trang)</a> <a class="btn alt" href="#logo">Tải logo SVG</a></p>
-<p class="small">Cấu trúc theo POAP Brandbook · nội dung tính năng tham chiếu nurture.games · mọi dấu hiệu thị giác &amp; câu chữ là sáng tạo riêng của GON.</p>
-</div><img src="assets-illustration/gon-hero-cover.jpg" alt="Minh họa nhiều thế hệ cùng học qua trò chơi quanh mầm cây tri thức"></section>
+<header class="top"><div class="wrap topin"><a class="logo" href="#"><img src="01-Logo/svg/gon-app-icon-green.svg" alt="Logo GON"><span><b>GON</b><span>GAME OF NURTURE · 18+</span></span></a><nav><a href="#logo">Logo</a><a href="#journey">Journey</a><a href="#system">AI System</a><a href="#proof">Proof</a><a href="#files">Files</a></nav></div></header>
+<main class="wrap">
+<section class="hero">
+<div><span class="pill">BRAND V2 · HEROES 18+ · GON.ORG</span><h1>Become the <em>Hero</em> Within.</h1><p class="lead">GON biến mọi text, file, ảnh, video và link thành dự án học tập dạng game: tìm bằng vector 768 chiều, học qua AI Coach &amp; Quest, và lưu lại Proof of Learning trên hành trình Zero → Forever.</p><p class="lead">Bản v2 thay định vị trẻ em của PR #6 bằng tuyên ngôn trưởng thành lấy cảm hứng từ ZOFO: hiến máu nhân văn, sức khỏe toàn diện, AI Coach, XP/Quest và bằng chứng có trách nhiệm.</p><div class="cta"><a class="btn gold" href="../../apps/gon-web/">Mở prototype GON.org →</a><a class="btn ghost" href="02-Brandbook/GON-Brandbook-2026.pdf">Tải Brandbook PDF</a></div></div>
+<img class="heroart" src="assets-illustration/gon-heroes-18plus.jpg" alt="Người trưởng thành khám phá bản đồ học tập, video, tài liệu và huy hiệu bằng chứng">
+</section>
 
-<h2 id="logo">01 · Logo “Mầm Chơi”</h2>
-<p>Chữ <strong>G</strong> liền khối là vòng tăng trưởng; thanh ngang là mặt đất; mầm cây mọc lên từ đó; lá nắng nghiêng như nút Play. SVG là bản gốc, chữ đã convert outline. Bấm vào tên file để tải.</p>
-<div class="grid">
-<div class="card"><img src="01-Logo/svg/gon-logo-horizontal.svg" alt="Logo ngang"><a href="01-Logo/svg/gon-logo-horizontal.svg" download>gon-logo-horizontal.svg</a><p class="small">Mặc định · web, tài liệu, slide</p></div>
-<div class="card"><img src="01-Logo/svg/gon-logo-stacked.svg" alt="Logo xếp chồng"><a href="01-Logo/svg/gon-logo-stacked.svg" download>gon-logo-stacked.svg</a><p class="small">Không gian vuông/hẹp</p></div>
-<div class="card"><img src="01-Logo/svg/gon-icon.svg" alt="Biểu tượng G mầm"><a href="01-Logo/svg/gon-icon.svg" download>gon-icon.svg</a><p class="small">Avatar · tối thiểu 24px / 8mm</p></div>
-<div class="card"><img src="01-Logo/svg/gon-app-icon-green.svg" alt="App icon"><a href="01-Logo/svg/gon-app-icon-green.svg" download>gon-app-icon-green.svg</a><p class="small">iOS/Android · xuất sẵn tới 1024px</p></div>
-<div class="card"><img src="01-Logo/svg/gon-badge-achievement.svg" alt="Huy hiệu Hạt Nắng"><a href="01-Logo/svg/gon-badge-achievement.svg" download>gon-badge-achievement.svg</a><p class="small">Huy hiệu thành tích học tập</p></div>
-<div class="card"><img src="01-Logo/svg/gon-mascot-gon-mam.svg" alt="Linh vật Gon Mầm"><a href="01-Logo/svg/gon-mascot-gon-mam.svg" download>gon-mascot-gon-mam.svg</a><p class="small">Gon Mầm · chỉ ngữ cảnh trẻ em/gia đình</p></div>
-</div>
-<h3>Ba phương án đã khám phá</h3>
-<p class="small">A được chọn làm logo chính · B trở thành huy hiệu thành tích · C (khối chữ) chỉ lưu trữ tham khảo cho ấn phẩm trẻ nhỏ, không dùng làm logo chính.</p>
-<div class="grid">
-<div class="card"><img src="01-Logo/exploration/svg/concept-A-sprout-play-G.svg" alt="Phương án A"><b>A · Mầm Chơi — ĐƯỢC CHỌN</b></div>
-<div class="card"><img src="01-Logo/exploration/svg/concept-B-seed-sun-badge.svg" alt="Phương án B"><b>B · Huy hiệu Hạt Nắng</b></div>
-<div class="card"><img src="01-Logo/exploration/svg/concept-C-gon-blocks.svg" alt="Phương án C"><b>C · Khối chữ GON (lưu trữ)</b></div>
-</div>
+<section id="logo"><h2>Logo G Orbit trưởng thành</h2><p class="sub">Chữ G Midnight là vòng quỹ đạo/điểm tựa; mầm Emerald là tăng trưởng, lá Crimson là lửa hành động và nút Play, chấm Gold là hạt bằng chứng, tia sao là khoảnh khắc bứt phá. Wordmark Be Vietnam Pro ExtraBold thay Baloo 2. Mascot trẻ em đã nghỉ hưu.</p>
+<div class="grid g3"><article class="card light"><img class="logoimg" src="01-Logo/svg/gon-logo-horizontal.svg" alt="Logo ngang GON"><h3>Primary</h3><p>Nền sáng, web, đối tác và tài liệu.</p></article><article class="card"><img class="logoimg" src="01-Logo/svg/gon-logo-horizontal-reverse.svg" alt="Logo GON trên nền tối"><h3>Reverse</h3><p>Nền Midnight và giao diện game tối.</p></article><article class="card light"><img class="logoimg" src="01-Logo/svg/gon-badge-achievement.svg" alt="Hero Proof Badge"><h3>Hero Proof Badge</h3><p>Huy hiệu hoàn thành, POAP-ready nhưng chỉ “verified” khi đã đối chiếu.</p></article></div></section>
 
-<h2 id="mau">02 · Màu sắc <span class="small">(bấm để sao chép mã HEX)</span></h2>
-<div class="sw" id="swatches"></div>
-<p><strong>Quy tắc sống còn:</strong> nút chính = trắng trên Green 700 (5,61:1). Không đặt chữ trắng lên Green 500 (2,76:1) hay vàng nắng. Token đầy đủ: <a href="03-Color-Typography/gon-tokens.css">gon-tokens.css</a> · <a href="03-Color-Typography/gon-tokens.json">gon-tokens.json</a></p>
+<section id="journey"><h2>Zero → Forever</h2><p class="sub">XP là điểm học tập; cấp độ cổ vũ tiến bộ nhưng không thay thế năng lực hay tình trạng sức khỏe.</p><div class="level"><div><b>Zero</b><span>0 XP</span></div><div><b>Awaken</b><span>100 XP</span></div><div><b>Explorer</b><span>300 XP</span></div><div><b>Guardian</b><span>700 XP</span></div><div><b>Hero</b><span>1.200 XP</span></div><div><b>Legend</b><span>2.000 XP</span></div><div><b>Forever</b><span>3.500 XP</span></div></div></section>
 
-<h2 id="chu">03 · Chữ — Baloo 2 + Be Vietnam Pro</h2>
-<div class="card"><p class="spec" style="font-family:var(--gon-font-display)">Nuôi dưỡng trí tuệ — Chơi mà học!</p>
-<p class="spec">Ă Â Đ Ê Ô Ơ Ư · ă â đ ê ô ơ ư · 0123456789</p>
-<p>Rubik của POAP không đủ tin cậy cho dấu tiếng Việt, nên GON chọn hai font OFL này. Chi tiết: <a href="03-Color-Typography/FONTS.md">FONTS.md</a>. Chữ trong game cho trẻ &lt;9 tuổi ≥16px, vùng chạm ≥48px.</p></div>
+<section><h2>Palette 18+</h2><div class="swatches"><div class="sw" style="background:#07111f;border:1px solid var(--line)"><b>Midnight Hero</b>#07111F</div><div class="sw" style="background:#12b981;color:#07111f"><b>Ascent Emerald</b>#12B981</div><div class="sw" style="background:#ffb703;color:#07111f"><b>Hero Gold</b>#FFB703</div><div class="sw" style="background:#bd2038"><b>Humanity Crimson</b>#BD2038</div><div class="sw" style="background:#38d5f5;color:#07111f"><b>Proof Cyan</b>#38D5F5</div></div></section>
 
-<h2 id="cap">04 · Một khu vườn, mọi mùa học</h2>
-<table><tr><th>Cấp</th><th>Tuổi</th><th>Trọng tâm</th><th>Màu nhấn</th></tr>
-<tr><td><b>Hạt</b> Seed</td><td>3–5</td><td>Giác quan, số đầu tiên</td><td>Sun #FFC93C</td></tr>
-<tr><td><b>Mầm</b> Sprout</td><td>6–8</td><td>Đọc, đếm, ghi nhớ, tập trung</td><td>Green #18B26B</td></tr>
-<tr><td><b>Chồi</b> Sapling</td><td>9–12</td><td>Tư duy, lập kế hoạch, sáng tạo</td><td>Sky #1499D6</td></tr>
-<tr><td><b>Cây</b> Tree</td><td>13–17</td><td>Học sâu, thử thách nhóm</td><td>Berry #7C6BE0</td></tr>
-<tr><td><b>Vườn</b> Grove</td><td>18+</td><td>Luyện trí não, học cùng con, ông bà</td><td>Forest #0B5C38</td></tr></table>
-<p class="small">Hỗ trợ đặc biệt (chữ lớn, thêm thời gian, giảm chuyển động) có ở mọi cấp — không tách “nhánh riêng”.</p>
-<img class="wide" src="assets-illustration/gon-classroom-play.jpg" alt="Lớp học hòa nhập, trẻ nhiều khả năng cùng chơi game học tập">
+<section id="system"><h2>GON.org: Search hoặc Brew, không có ngõ cụt</h2><p class="sub">Prototype hiện dùng embedding deterministic 768D ngay trong trình duyệt để minh họa hợp đồng dữ liệu. Production dùng Gemini embeddings, Google ADK, hàng đợi có idempotency và kiểm chứng citation.</p><div class="pipeline"><div class="pipe"><i>⌁</i><h3>Ingest</h3><p>Text · file · ảnh · video · link</p></div><div class="pipe"><i>◎</i><h3>Understand</h3><p>OCR/transcript · keyword · intent</p></div><div class="pipe"><i>⬡</i><h3>Embed 768D</h3><p>Vector + provenance</p></div><div class="pipe"><i>⌕</i><h3>Search</h3><p>Full-text + semantic + specificity</p></div><div class="pipe"><i>✦</i><h3>Brew</h3><p>11 bước ADK khi chưa có module</p></div><div class="pipe"><i>♛</i><h3>Prove</h3><p>Quest · XP · Proof Vault</p></div></div></section>
 
-<h2 id="giong">05 · Giọng nói &amp; sáu lời hứa</h2>
-<div class="grid">
-<div class="card do"><b>NÊN NÓI</b><p>“Sai cũng là một bước học. Thử lại nhé?”<br>“Con đã nhớ được 5 hình liên tiếp — hơn tuần trước!”</p></div>
-<div class="card dont"><b>KHÔNG NÓI</b><p>“Sai rồi! Mất lượt!” · “Con bạn đang thua bạn bè”<br>Không tuyên bố chẩn đoán/chữa trị khi chưa có bằng chứng.</p></div>
-</div>
-<ol><li>Thích ứng từng người học</li><li>Rèn trí nhớ &amp; kỹ năng điều hành</li><li>Người lớn thấy tiến bộ thật</li><li>Chỉ có game — an toàn tuyệt đối</li><li>Vui bằng tò mò, không gây nghiện</li><li>Dựa trên khoa học, nói thật về bằng chứng</li></ol>
-<p>Ngân hàng câu chữ VI/EN đầy đủ: <a href="06-Content/CONTENT-VI-EN.md">06-Content/CONTENT-VI-EN.md</a></p>
+<section id="proof"><h2>Năm cấp Proof trung thực</h2><p class="sub">Ảnh chứng chỉ, Facebook hay YouTube chỉ là nguồn truy vết cho đến khi issuer/chủ sở hữu được đối chiếu.</p><div class="proof"><div><b>0 · Self-declared</b><p>Tự khai cá nhân.</p></div><div><b>1 · Source-linked</b><p>Có file/link + hash.</p></div><div><b>2 · System-recorded</b><p>GON ghi quiz/quest.</p></div><div><b>3 · Issuer-verified</b><p>Tổ chức/chữ ký đối chiếu.</p></div><div><b>4 · Anchored</b><p>POAP/SBT/công khai + provenance.</p></div></div></section>
 
-<h2 id="mau-ung-dung">06 · Mẫu ứng dụng khóa cứng</h2>
-<div class="grid">
-<div class="card"><img src="04-Templates/png/gon-social-cover-1640x924.png" alt="Bìa mạng xã hội"><a href="04-Templates/svg/gon-social-cover-1640x924.svg" download>Bìa mạng xã hội 1640×924</a></div>
-<div class="card"><img src="04-Templates/png/gon-social-post-1080.png" alt="Bài vuông"><a href="04-Templates/svg/gon-social-post-1080.svg" download>Bài vuông 1080</a></div>
-<div class="card"><img src="04-Templates/png/gon-slide-title-1920x1080.png" alt="Slide bìa"><a href="04-Templates/svg/gon-slide-title-1920x1080.svg" download>Slide bìa 1920×1080</a></div>
-<div class="card"><img src="04-Templates/png/gon-certificate-a4-landscape.png" alt="Giấy khen"><a href="04-Templates/svg/gon-certificate-a4-landscape.svg" download>Giấy khen A4 ngang</a></div>
-</div>
-<p>Áp dụng trong game làm bằng GDevelop: <a href="05-Product-GDevelop/GDEVELOP-GON-GUIDE.md">05-Product-GDevelop/GDEVELOP-GON-GUIDE.md</a> · Dấu tích hợp: <a href="01-Logo/svg/gon-powered-by.svg" download>Powered by GON</a> · <a href="01-Logo/svg/gon-made-with.svg" download>Made with GON</a></p>
+<section><div class="warning"><h2>Điều không được hứa</h2><p>Prototype chưa nối OAuth/Gemini/ADK/POAP thật. Không dùng số liệu của ZOFO làm của GON; không để AI Coach chẩn đoán; không biến XP thành cam kết tài chính. Cần kiểm tra quyền sử dụng thông điệp ZOFO và tra cứu nhãn hiệu trước thương mại hoá.</p></div></section>
 
-<h2 id="antoan">07 · An toàn là tính năng số 1</h2>
-<div class="grid">
-<div class="card"><b>Không quảng cáo · Không chat lạ · Không mua hàng ẩn · Không loot-box</b><p class="small">Thiết kế theo WCAG 2.2 AA; rà soát COPPA/GDPR-K &amp; Nghị định 13/2023 với tư vấn pháp lý trước phát hành.</p></div>
-<div class="card"><b>Trước khi dùng thương mại</b><p class="small">Tra cứu/đăng ký nhãn hiệu “GON / Game Of Nurture” (tên gần “Nurture Games”). Minh họa AI trong gói này là phác thảo định hướng — nên vẽ lại khi thương mại hóa. Logo là vector hình học, không phải ảnh AI.</p></div>
-</div>
+<section id="files"><h2>Tài liệu và file chính</h2><div class="files">
+<a href="../../apps/gon-web/"><b>Prototype GON.org</b><span>Learning Arena · Brew · Journey · Proof Vault</span></a>
+<a href="02-Brandbook/GON-Brandbook-2026.pdf"><b>Brandbook PDF v2</b><span>Xuất bản in/chia sẻ đối tác</span></a>
+<a href="07-Product-AI/GON-ORG-PRODUCT-SPEC-18PLUS.md"><b>Đặc tả sản phẩm AI</b><span>Input, search, Brew, module, proof</span></a>
+<a href="../../apps/gon-web/ARCHITECTURE.md"><b>Kiến trúc đích</b><span>Gemini 768D · ADK · queue · dữ liệu · an toàn</span></a>
+<a href="01-Logo/LOGO-README.md"><b>Hướng dẫn logo</b><span>File nào dùng khi nào, clearspace và cấm dùng</span></a>
+<a href="05-Product-GDevelop/GDEVELOP-GON-GUIDE.md"><b>GDevelop guide</b><span>Ánh xạ quest/XP/proof thành game</span></a>
+<a href="06-Content/CONTENT-VI-EN.md"><b>Ngân hàng nội dung VI/EN</b><span>Định vị, giọng, claim ladder</span></a>
+<a href="03-Color-Typography/gon-tokens.css"><b>Design tokens</b><span>CSS variables cho web/game UI</span></a></div></section>
 </main>
-<footer><img src="01-Logo/svg/gon-icon.svg" alt="" style="height:52px"><p><b>GON — Game Of Nurture</b> · Brandbook 2026 v1.0<br>Chơi. Học. Lớn khôn. — Play. Learn. Grow.</p></footer>
-<script>
-const COLORS=[["Sprout Green 500","#18B26B","#12261E"],["Leaf Green 700","#0C7746","#fff"],["Forest Ink","#12261E","#fff"],["Sunbeam 400","#FFC93C","#12261E"],["Curiosity Sky 500","#1499D6","#fff"],["Coral Bloom 500","#FF6B57","#12261E"],["Berry 500","#7C6BE0","#fff"],["Paper","#FFF9EE","#12261E"]];
-const box=document.getElementById("swatches");
-for(const [n,hx,fg] of COLORS){const b=document.createElement("button");b.className="swatch";b.style.background=hx;b.style.color=fg;b.innerHTML=`<b>${n}</b>${hx}<span class="small" style="color:inherit"> — bấm để chép</span>`;b.onclick=async()=>{try{await navigator.clipboard.writeText(hx);b.innerHTML=`<b>${n}</b>Đã chép ${hx}`;}catch(e){b.innerHTML=`<b>${n}</b>${hx}`;}};box.appendChild(b);}
-</script>
+<footer><div class="wrap">GON — Game Of Nurture · Brand Package v2 · 21/10/2026 · SVG là master; xem README để tái tạo. Input mẫu ZOFO: <a href="https://www.hienmaunhanvan.com/">hienmaunhanvan.com</a>.</div></footer>
 </body></html>

@@ -1,35 +1,55 @@
 {
-  "meta": {"name": "GON — Game Of Nurture", "version": "1.0", "date": "2026-10-21",
-           "note": "CMYK are straightforward conversions — proof against a physical swatch before print. No Pantone code is claimed."},
+  "meta": {
+    "name": "GON — Game Of Nurture for Heroes 18+",
+    "version": "2.0",
+    "date": "2026-10-21",
+    "positioning": "Adult learning quests, AI search, Brew Your Topic and Proof of Learning; inspired by ZOFO Zero to Forever, not a copy of ZOFO identity.",
+    "note": "CMYK/print values must be proofed physically. No Pantone match is claimed."
+  },
   "color": {
-    "green": {"50":"#EAFBF2","100":"#D3F5E3","200":"#A7EAC9","300":"#6FD9A7","400":"#3AC982",
-              "500":"#18B26B","600":"#0E9455","700":"#0C7746","800":"#0B5C38"},
-    "ink": "#12261E",
-    "sun": {"300":"#FFDD7A","400":"#FFC93C","500":"#FFB020","600":"#E8930C"},
-    "sky": {"400":"#38BDF8","500":"#1499D6","600":"#0B7AB8","700":"#0A5E8C"},
-    "coral": {"400":"#FF8A70","500":"#FF6B57","600":"#E64B38"},
-    "berry": {"500":"#7C6BE0","600":"#6653C9"},
-    "neutral": {"paper":"#FFF9EE","cream":"#FFF3D6","white":"#FFFFFF","body":"#44564F","line":"#DCE8E1","black":"#000000"}
+    "midnight": {"900": "#07111F", "800": "#0A1A2E", "700": "#0E2237", "600": "#122B45"},
+    "ascentEmerald": {"50": "#ECFDF5", "100": "#D1FAE5", "300": "#6EE7B7", "400": "#34D399", "500": "#12B981", "600": "#059669", "700": "#047857", "800": "#063F2A"},
+    "heroGold": {"400": "#FFB703", "600": "#F59E0B"},
+    "humanityCrimson": {"500": "#F04452", "700": "#BD2038"},
+    "proofCyan": {"400": "#38D5F5", "500": "#0EA5C6", "700": "#0369A1"},
+    "violet": {"500": "#8B7CF6"},
+    "neutral": {"paper": "#F5F8FC", "white": "#FFFFFF", "body": "#44586E", "muted": "#A8BDD2", "line": "#D7E3F0"}
   },
   "accessiblePairs": [
-    {"fg":"#12261E","bg":"#FFF9EE","ratio":15.16,"use":"body text on paper"},
-    {"fg":"#FFFFFF","bg":"#0C7746","ratio":5.61,"use":"primary buttons (AA)"},
-    {"fg":"#12261E","bg":"#18B26B","ratio":5.76,"use":"bright-green chips with Ink text"},
-    {"fg":"#12261E","bg":"#FFC93C","ratio":10.34,"use":"reward/sun surfaces"},
-    {"fg":"#0A5E8C","bg":"#FFFFFF","ratio":7.02,"use":"links / sky text"},
-    {"fg":"#0B5C38","bg":"#FFFFFF","ratio":8.07,"use":"green headings"},
-    {"fg":"#44564F","bg":"#FFFFFF","ratio":7.81,"use":"muted body text"}
+    {"fg": "#07111F", "bg": "#F5F8FC", "ratio": 17.78, "use": "dark text on light documents"},
+    {"fg": "#FFFFFF", "bg": "#047857", "ratio": 5.48, "use": "primary action"},
+    {"fg": "#07111F", "bg": "#FFB703", "ratio": 10.84, "use": "achievement / Brew CTA"},
+    {"fg": "#FFFFFF", "bg": "#BD2038", "ratio": 6.13, "use": "humanity / urgent action"},
+    {"fg": "#38D5F5", "bg": "#07111F", "ratio": 10.82, "use": "proof/data on dark"},
+    {"fg": "#12B981", "bg": "#07111F", "ratio": 7.47, "use": "growth/progress on dark"},
+    {"fg": "#A8BDD2", "bg": "#07111F", "ratio": 9.81, "use": "muted text on dark"}
   ],
   "forbiddenPairs": [
-    {"fg":"#FFFFFF","bg":"#18B26B","ratio":2.76,"why":"fails WCAG for text — use Green 700 or Ink text"},
-    {"fg":"#FFFFFF","bg":"#FFC93C","why":"yellow + white never"},
-    {"fg":"#FFFFFF","bg":"#FF6B57","ratio":"<3","why":"coral is graphic accent only for small text"}
+    {"fg": "#FFFFFF", "bg": "#FFB703", "why": "gold requires Midnight text"},
+    {"fg": "#FFFFFF", "bg": "#12B981", "why": "use Green 700 for small white text"},
+    {"fg": "#F04452", "bg": "#FFFFFF", "why": "use Crimson 700 for text on light; Crimson 500 is mainly graphic/on-dark"}
   ],
-  "font": {"display":"Baloo 2 (600/700/800)","body":"Be Vietnam Pro (400/500/600/700/800)",
-           "fallback":"Nunito → system-ui","license":"SIL Open Font License 1.1",
-           "vietnamese":"Both families include full Vietnamese diacritics — always subset latin + latin-ext + vietnamese together"},
-  "radius": {"s":12,"m":20,"l":28,"pill":999},
-  "touchTargetMinPx": 48,
-  "logo": {"clearspace":"1x on all sides, x = G-bar height = 12.5% of mark width",
-           "minDigital":{"iconPx":24,"lockupPx":96},"minPrintMm":{"icon":8,"lockup":25}}
+  "journey": [
+    {"key": "zero", "name": "Zero", "xp": 0},
+    {"key": "awaken", "name": "Awaken", "xp": 100},
+    {"key": "explorer", "name": "Explorer", "xp": 300},
+    {"key": "guardian", "name": "Guardian", "xp": 700},
+    {"key": "hero", "name": "Hero", "xp": 1200},
+    {"key": "legend", "name": "Legend", "xp": 2000},
+    {"key": "forever", "name": "Forever", "xp": 3500}
+  ],
+  "font": {
+    "display": "Be Vietnam Pro ExtraBold",
+    "body": "Be Vietnam Pro 400/500/600/700",
+    "retiredFromPrimary": "Baloo 2 (v1 child/family system) — archive only",
+    "license": "SIL Open Font License 1.1",
+    "vietnamese": "Always ship latin + latin-ext + vietnamese subsets together"
+  },
+  "logo": {
+    "clearspace": "1x on all sides; x = G-bar height = 12.5% of mark width",
+    "minDigital": {"iconPx": 24, "lockupPx": 104},
+    "minPrintMm": {"icon": 8, "lockup": 28},
+    "mascot": "Gon Mầm retired from 18+ master brand"
+  },
+  "product": {"age": "18+", "embeddingDimensions": 768, "touchTargetMinPx": 48, "radius": {"s": 12, "m": 16, "l": 22, "pill": 999}}
 }

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="GON — Game Of Nurture: biến text, file, hình ảnh và liên kết thành hành trình học tập dạng game cho Hero 18+, với AI search, Brew Your Topic và Proof of Learning.">
+  <title>GON.org — Game Of Nurture for Heroes 18+</title>
+  <link rel="icon" href="assets/favicon.ico">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="toast" role="status" aria-live="polite"></div>
+
+  <!-- 18+ + demo sign-in gate -->
+  <section id="gate" class="gate" aria-labelledby="gate-title">
+    <div class="gate-card">
+      <div class="gate-brand">
+        <div class="logo-lockup light">
+          <img class="brand-icon" src="assets/gon-app-icon-v2.svg" alt="" aria-hidden="true">
+          <span><strong>GON</strong><small>GAME OF NURTURE · GON.ORG</small></span>
+        </div>
+        <p class="eyebrow">ZERO → HERO → FOREVER</p>
+        <h1 id="gate-title">Become the<br>Hero Within.</h1>
+        <p class="gate-copy">Đưa vào một ý tưởng, tài liệu, hình ảnh hoặc liên kết. GON biến nó thành một <strong>dự án học tập dạng game</strong>, truy tìm tri thức liên quan, “brew” module mới khi chưa có, rồi lưu lại bằng chứng tiến bộ của bạn.</p>
+        <div class="gate-points">
+          <span>✦ AI & Vector Search 768D</span>
+          <span>✦ Brew Your Topic</span>
+          <span>✦ Proof of Learning / POAP-ready</span>
+        </div>
+        <img class="gate-art" src="assets/gon-heroes-18plus.jpg" alt="Minh họa người trưởng thành khám phá bản đồ học tập, video, tài liệu và huy hiệu bằng chứng">
+      </div>
+      <form id="gate-form" class="gate-form">
+        <p class="eyebrow dark">DÀNH CHO NGƯỜI TRƯỞNG THÀNH 18+</p>
+        <h2>Bắt đầu hành trình</h2>
+        <label>Tên Hero của bạn
+          <input id="gate-name" type="text" autocomplete="name" placeholder="Ví dụ: Khánh Hero" maxlength="60">
+        </label>
+        <label>Email Google (demo, không gửi đi)
+          <input id="gate-email" type="email" autocomplete="email" placeholder="you@gmail.com" maxlength="100">
+        </label>
+        <label class="check-row">
+          <input id="age-confirm" type="checkbox" required>
+          <span>Tôi xác nhận mình <strong>đủ 18 tuổi</strong> và chỉ tải lên nội dung tôi có quyền sử dụng.</span>
+        </label>
+        <button class="google-btn" type="submit"><span class="google-g">G</span> Tiếp tục với Google <small>DEMO</small></button>
+        <button id="demo-enter" class="ghost-btn" type="button">Vào bằng tài khoản Hero Demo</button>
+        <p class="fineprint">Bản prototype chạy hoàn toàn trên trình duyệt: chưa gọi Google OAuth, Gemini hay ADK thật và không tải file lên máy chủ. Luồng production được mô tả trong <code>ARCHITECTURE.md</code>.</p>
+        <p class="fineprint warning">AI có thể sai. Nội dung sức khỏe chỉ để học tập, không thay thế tư vấn y tế. Tự khai 18+ không phải xác minh danh tính.</p>
+      </form>
+    </div>
+  </section>
+
+  <div id="app" class="app-shell" hidden>
+    <header class="topbar">
+      <button id="mobile-menu" class="icon-btn only-mobile" aria-label="Mở menu">☰</button>
+      <a class="logo-lockup" href="#" data-view-link="arena" aria-label="GON Arena">
+        <img class="brand-icon" src="assets/gon-app-icon-v2.svg" alt="" aria-hidden="true">
+        <span><strong>GON</strong><small>GAME OF NURTURE</small></span>
+      </a>
+      <div class="top-search" role="search">
+        <span aria-hidden="true">⌕</span>
+        <input id="project-search" type="search" placeholder="Tìm trong hành trình, proof, kỹ năng…" aria-label="Tìm trong hành trình">
+      </div>
+      <div class="xp-chip" title="Kinh nghiệm hành trình">
+        <span id="level-name">Zero</span><strong id="xp-value">0 XP</strong>
+        <span class="mini-progress"><i id="xp-bar"></i></span>
+      </div>
+      <button id="sign-out" class="avatar-btn" title="Đăng xuất demo"><span id="avatar-initial">H</span></button>
+    </header>
+
+    <aside id="sidebar" class="sidebar">
+      <button id="new-project" class="primary-btn wide">＋ Dự án học tập mới</button>
+      <nav class="main-nav" aria-label="Điều hướng chính">
+        <button class="nav-item active" data-view-link="arena"><span>◈</span> Learning Arena</button>
+        <button class="nav-item" data-view-link="journey"><span>⌁</span> Hành trình Hero</button>
+        <button class="nav-item" data-view-link="proofs"><span>⬡</span> Proof Vault <b id="proof-count" class="count">0</b></button>
+        <button class="nav-item" data-view-link="system"><span>⚙</span> AI System</button>
+      </nav>
+
+      <div class="side-section">
+        <div class="side-title"><span>Dự án của tôi</span><button id="reset-demo" class="text-btn">Reset demo</button></div>
+        <div id="project-list" class="project-list"></div>
+      </div>
+
+      <div class="side-section journey-mini">
+        <div class="side-title"><span>Zero to Forever</span><span id="next-level-label" class="muted"></span></div>
+        <div id="level-track" class="level-track"></div>
+      </div>
+
+      <div class="side-card">
+        <strong>Nguyên tắc bằng chứng</strong>
+        <p>Ảnh chứng chỉ hoặc link mạng xã hội mới là <em>manh mối bằng chứng</em>. GON chỉ nâng trạng thái “đã xác minh” khi đối chiếu được nguồn phát hành, hash hoặc chữ ký số.</p>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- ARENA VIEW -->
+      <section id="view-arena" class="view active" aria-labelledby="arena-title">
+        <div class="hero-panel">
+          <div>
+            <p class="eyebrow">LEARNING ARENA · FASTCHAT-STYLE, REBUILT FOR GROWTH</p>
+            <h1 id="arena-title">Hôm nay bạn muốn làm chủ điều gì?</h1>
+            <p>Nhập chủ đề hoặc thả vào bất kỳ nguồn nào. GON trích từ khóa, tìm bằng text + vector 768 chiều, đối chiếu hai lộ trình học và brew module mới nếu kho tri thức chưa có.</p>
+          </div>
+          <div class="mode-select" aria-label="Chọn chế độ Arena">
+            <label>Arena mode
+              <select id="arena-mode">
+                <option value="dual" selected>Side-by-side · Coach × Quest</option>
+                <option value="coach">AI Coach sâu</option>
+                <option value="quest">Game Quest nhanh</option>
+              </select>
+            </label>
+            <label>AI engine (mô phỏng)
+              <select id="engine-select">
+                <option value="gon-adk" selected>GON ADK Multi-Agent</option>
+                <option value="gemini">Gemini Research</option>
+                <option value="fastchat">FastChat Arena</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <form id="composer" class="composer" autocomplete="off">
+          <div class="composer-head">
+            <strong>Input là nội dung học tập của bạn</strong>
+            <span id="input-counter">0 nguồn</span>
+          </div>
+          <textarea id="prompt" rows="4" placeholder="Ví dụ: Tôi muốn hiểu hiến máu an toàn, cách phục hồi và xây thói quen sức khỏe để trở thành Guardian trong cộng đồng… hoặc dán link YouTube/Facebook/website vào đây."></textarea>
+          <div id="source-chips" class="source-chips" aria-live="polite"></div>
+          <div id="drop-zone" class="drop-zone" tabindex="0">
+            <strong>Thả file / hình ảnh / video vào đây</strong>
+            <span>Tệp text được đọc ngay trên trình duyệt. PDF, ảnh và video được ghi metadata; OCR/transcript thuộc pipeline production.</span>
+          </div>
+          <input id="file-input" type="file" multiple hidden accept=".txt,.md,.json,.csv,.html,.xml,.srt,.pdf,image/*,video/*">
+          <div class="composer-grid">
+            <label>Mục tiêu
+              <select id="goal-select">
+                <option value="master">Làm chủ một chủ đề</option>
+                <option value="skill">Xây kỹ năng thực hành</option>
+                <option value="health">Sức khỏe & thói quen</option>
+                <option value="impact">Tạo tác động cộng đồng</option>
+                <option value="game">Biến thành game GDevelop</option>
+                <option value="cert">Chuẩn bị chứng chỉ / bằng chứng</option>
+              </select>
+            </label>
+            <label>Độ sâu
+              <select id="depth-select">
+                <option value="sprint">Sprint · 20 phút</option>
+                <option value="deep" selected>Deep Dive · 2 giờ</option>
+                <option value="mastery">Mastery Roadmap · nhiều ngày</option>
+              </select>
+            </label>
+            <label>Quền riêng tư nguồn
+              <select id="privacy-select">
+                <option value="private" selected>Riêng tư — chỉ tôi</option>
+                <option value="guild">Guild của tôi</option>
+                <option value="public">Công khai sau kiểm duyệt</option>
+              </select>
+            </label>
+          </div>
+          <div class="composer-actions">
+            <div class="attach-actions">
+              <button type="button" id="attach-file" class="tool-btn">📎 File</button>
+              <button type="button" id="attach-image" class="tool-btn">🖼 Hình</button>
+              <button type="button" id="add-url" class="tool-btn">🔗 Link</button>
+              <button type="button" id="clear-input" class="tool-btn danger">Xóa</button>
+            </div>
+            <button id="analyze-btn" class="primary-btn large" type="submit">Phân tích & Tìm kiếm <span>↵</span></button>
+          </div>
+          <p class="hint">Mẹo: thử “vector embeddings”, “POAP Proof of Humanity”, “hiến máu” để thấy kết quả có sẵn; thử một chủ đề rất lạ để kích hoạt <strong>Brew Your Topic</strong>.</p>
+        </form>
+
+        <div id="suggestions" class="suggestion-grid" aria-label="Gợi ý chủ đề"></div>
+
+        <section id="pipeline" class="panel pipeline" hidden>
+          <div class="panel-head"><div><p class="eyebrow">GON INTELLIGENCE PIPELINE</p><h2 id="pipeline-title">Đang hiểu input của bạn…</h2></div><span id="pipeline-status" class="status-pill">Running</span></div>
+          <div id="agent-timeline" class="agent-timeline"></div>
+          <div class="pipeline-grid">
+            <div><h3>Từ khóa & khái niệm</h3><div id="keyword-cloud" class="chips"></div></div>
+            <div><h3>Vector 768 chiều <small id="vector-norm"></small></h3><canvas id="vector-canvas" width="520" height="120" aria-label="Biểu diễn 48 chiều đầu của embedding"></canvas><p class="hint">Demo dùng local deterministic embedder cùng giao diện 768D; production dùng <code>gemini-embedding-001</code>.</p></div>
+          </div>
+        </section>
+
+        <section id="results" class="panel" hidden>
+          <div class="panel-head"><div><p class="eyebrow">TEXT SEARCH × SEMANTIC VECTOR SEARCH</p><h2 id="results-title">Kết quả</h2></div><span id="search-verdict" class="status-pill"></span></div>
+          <div id="result-list" class="result-list"></div>
+          <div id="brew-panel" class="brew-panel" hidden>
+            <div><p class="eyebrow gold">NO STRONG MATCH · BREW YOUR TOPIC</p><h3>Kho GON chưa có module đủ sát. Brew một hành trình mới?</h3><p>11 agent sẽ kiểm tra phạm vi, nghiên cứu, thiết kế bài học, quest, quiz, nhiệm vụ đời thật và bằng chứng cần nộp.</p></div>
+            <button id="brew-btn" class="gold-btn" type="button">✦ Brew Your Topic</button>
+          </div>
+        </section>
+
+        <section id="arena-compare" class="compare-grid" hidden aria-label="So sánh hai lộ trình học">
+          <article class="compare-card coach">
+            <div class="compare-head"><span>MODEL A · AI COACH</span><strong>Hiểu sâu & có căn cứ</strong></div>
+            <div id="coach-path"></div>
+            <button class="secondary-btn path-btn" data-path="coach" type="button">Dùng lộ trình Coach</button>
+          </article>
+          <article class="compare-card quest">
+            <div class="compare-head"><span>MODEL B · QUEST ENGINE</span><strong>Học bằng hành động</strong></div>
+            <div id="quest-path"></div>
+            <button class="secondary-btn path-btn" data-path="quest" type="button">Dùng lộ trình Quest</button>
+          </article>
+          <button id="merge-path" class="merge-btn" type="button">🤝 Merge both — Coach dẫn đường, Quest tạo bằng chứng</button>
+        </section>
+
+        <section id="module-panel" class="panel module-panel" hidden>
+          <div id="module-content"></div>
+        </section>
+      </section>
+
+      <!-- JOURNEY VIEW -->
+      <section id="view-journey" class="view" aria-labelledby="journey-title">
+        <div class="page-head"><div><p class="eyebrow">PERSONAL GROWTH LEDGER</p><h1 id="journey-title">Hành trình Hero của bạn</h1><p>Mỗi input trở thành một dự án; mỗi quest tạo XP; mỗi bằng chứng đáng tin cậy làm hành trình có thể kiểm chứng.</p></div>
+        <div class="head-actions"><button id="export-json" class="secondary-btn" type="button">Xuất JSON</button><button id="export-md" class="secondary-btn" type="button">Xuất Markdown</button></div></div>
+        <div id="journey-stats" class="stats-grid"></div>
+        <div class="panel"><div class="panel-head"><h2>Zero → Forever</h2><span id="journey-next" class="status-pill"></span></div><div id="journey-levels" class="journey-levels"></div></div>
+        <div class="two-col">
+          <div class="panel"><div class="panel-head"><h2>Dòng thời gian phát triển</h2></div><div id="timeline" class="timeline"></div></div>
+          <div class="panel"><div class="panel-head"><h2>Cây kỹ năng từ bằng chứng</h2></div><div id="skill-tree" class="skill-tree"></div></div>
+        </div>
+      </section>
+
+      <!-- PROOF VIEW -->
+      <section id="view-proofs" class="view" aria-labelledby="proof-title">
+        <div class="page-head"><div><p class="eyebrow">PROOF OF LEARNING · PROOF OF HUMANITY</p><h1 id="proof-title">Proof Vault</h1><p>Lưu POAP, chứng chỉ, video, bài đăng và sản phẩm học tập — kèm cấp độ xác minh minh bạch.</p></div></div>
+        <div class="two-col proof-layout">
+          <form id="proof-form" class="panel proof-form">
+            <h2>Thêm bằng chứng</h2>
+            <label>Loại bằng chứng
+              <select id="proof-type">
+                <option value="poap">POAP / SBT</option><option value="certificate">Ảnh chứng chỉ / chứng nhận</option>
+                <option value="youtube">YouTube</option><option value="facebook">Facebook</option>
+                <option value="artifact">Sản phẩm / dự án</option><option value="source">Nguồn input đã học</option><option value="reflection">Bài phản tư</option>
+              </select></label>
+            <label>Tiêu đề *<input id="proof-title-input" required maxlength="120" placeholder="Ví dụ: POAP hiến máu tình nguyện 2026"></label>
+            <label>URL / Contract / Token ID<input id="proof-url" maxlength="500" placeholder="https://… hoặc token id"></label>
+            <label>Đơn vị phát hành / nguồn<input id="proof-issuer" maxlength="120" placeholder="Ví dụ: Hội Chữ thập đỏ, Coursera, POAP issuer…"></label>
+            <label>Gắn với dự án<select id="proof-project"></select></label>
+            <label>Ghi chú: bạn đã làm gì, học được gì?<textarea id="proof-notes" rows="3" maxlength="1000" placeholder="Mô tả hành động, kết quả và điều bạn rút ra…"></textarea></label>
+            <label>File/ảnh minh chứng<input id="proof-file" type="file" accept="image/*,.pdf,.txt,.md"></label>
+            <div id="proof-preview" class="proof-preview"></div>
+            <label class="check-row"><input id="proof-public" type="checkbox"><span>Cho phép hiển thị công khai trong hồ sơ Hero (demo chỉ lưu lựa chọn).</span></label>
+            <button class="primary-btn wide" type="submit">Lưu vào Proof Vault</button>
+            <p class="hint">File được hash SHA-256 trên trình duyệt khi khả dụng. Hash chứng minh file không đổi sau thời điểm ghi nhận — không tự chứng minh nội dung là thật.</p>
+          </form>
+          <div>
+            <div class="verification-legend panel"><h2>Thang xác minh</h2><div id="verification-legend"></div></div>
+            <div id="proof-list" class="proof-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SYSTEM VIEW -->
+      <section id="view-system" class="view" aria-labelledby="system-title">
+        <div class="page-head"><div><p class="eyebrow">PRODUCTION BLUEPRINT · FASTCHAT × WSIC × GON</p><h1 id="system-title">AI System của GON</h1><p>Prototype này mô phỏng toàn bộ vòng đời ở client. Phần dưới là hợp đồng triển khai production không chứa secret.</p></div></div>
+        <div class="system-flow" id="system-flow"></div>
+        <div class="grid three">
+          <article class="panel"><h2>Arena Interface</h2><p>Kế thừa mẫu FastChat: state hội thoại, chọn model/mode, hai panel side-by-side, vote/regenerate/share — nhưng vote ở GON chọn <strong>phong cách học</strong>, không xếp hạng con người.</p><ul><li>Composer đa phương thức: text/file/image/link</li><li>Coach Path đối đầu Quest Path</li><li>Regenerate = brew lại module theo độ sâu khác</li></ul></article>
+          <article class="panel"><h2>AI & Search</h2><p>Dựa trên kiến trúc WSIC đã đối chiếu code:</p><ul><li><code>gemini-embedding-001</code>, <code>SEMANTIC_SIMILARITY</code>, 768D</li><li>Text search + Convex vector index <code>by_embedding</code></li><li>Score &gt; 0.85: found; thấp hơn: related; không có: Brew</li><li>Google ADK SequentialAgent + QStash retry/idempotency</li></ul></article>
+          <article class="panel"><h2>Proof & Trust</h2><p>Mọi bằng chứng có provenance:</p><ul><li>Content hash + thời gian + chủ thể nộp</li><li>OCR/metadata chỉ là gợi ý trích xuất</li><li>Issuer/POAP/SBT verification ở server</li><li>Trạng thái hiển thị rõ self-declared → verified</li></ul></article>
+        </div>
+        <div class="panel"><div class="panel-head"><h2>11 Agent của Brew Pipeline (GON adaptation)</h2><span class="status-pill">ADK-ready contract</span></div><div id="agent-grid" class="agent-grid"></div></div>
+        <div class="panel"><h2>Trạng thái tích hợp trong prototype</h2><div id="integration-table"></div></div>
+      </section>
+    </main>
+
+    <aside class="rightbar">
+      <section class="profile-card">
+        <div class="profile-top"><span id="profile-avatar" class="avatar">H</span><div><strong id="profile-name">Hero Demo</strong><small id="profile-email">Google demo · 18+ self-declared</small></div></div>
+        <div class="profile-stats"><span><b id="stat-projects">0</b>Dự án</span><span><b id="stat-proofs">0</b>Proof</span><span><b id="stat-badges">0</b>Badge</span></div>
+      </section>
+      <section class="panel compact"><div class="panel-head"><h2>Daily Quest</h2><span class="status-pill gold">+30 XP</span></div><div id="daily-quest"></div></section>
+      <section class="panel compact"><div class="panel-head"><h2>Dự án đang mở</h2></div><div id="active-project"></div></section>
+      <section class="panel compact"><div class="panel-head"><h2>Badge gần nhất</h2></div><div id="recent-badges"></div></section>
+      <section class="panel compact safety"><h2>Trust & Safety</h2><p>Không thu thập mật khẩu Facebook/Google. Chỉ import nội dung qua OAuth chính thức hoặc link công khai do bạn cung cấp. Nội dung AI cần nguồn và kiểm chứng trước khi dùng cho quyết định sức khỏe/tài chính.</p></section>
+    </aside>
+  </div>
+
+  <dialog id="url-dialog">
+    <form method="dialog" id="url-form">
+      <h2>Thêm liên kết học tập</h2>
+      <p>Dán link YouTube, Facebook hoặc website. Production sẽ ingest ở server; prototype chỉ phân loại URL và lưu metadata bạn nhập.</p>
+      <label>URL *<input id="url-input" type="url" required placeholder="https://www.youtube.com/watch?v=…"></label>
+      <label>Tiêu đề / điều bạn muốn học từ link<input id="url-title" maxlength="160" placeholder="Ví dụ: Quy trình hiến máu an toàn"></label>
+      <div class="dialog-actions"><button value="cancel" class="ghost-btn" formnovalidate>Hủy</button><button id="url-save" value="default" class="primary-btn">Thêm nguồn</button></div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

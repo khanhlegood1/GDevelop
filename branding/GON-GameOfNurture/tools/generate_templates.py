@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""GON application templates (SVG masters with outlined text)."""
+"""GON 18+ Hero application templates (SVG masters with outlined text)."""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import generate_logos as gl
@@ -16,21 +16,21 @@ def cover():
     mark = f'<g transform="translate(90,120) scale(1.15)">{gl.mark_A()}</g>'
     gon, _ = gl.text_path("GON", gl.BALOO_XB, 150, 400, 262, INK)
     sub, _ = gl.text_path("GAME OF NURTURE", gl.BEVN_SB, 38, 404, 318, GREEN700, tracking=4)
-    tag, tw = gl.text_path("Chơi. Học. Lớn khôn.", gl.BALOO_XB, 64, 110, 560, INK)
-    tag2, _ = gl.text_path("Game giáo dục an toàn cho mọi lứa tuổi", gl.BEVN_SB, 40, 110, 630, "#44564F")
-    pill_t, pw = gl.text_path("Không quảng cáo · Không gây nghiện", gl.BEVN_B, 34, 150, 752, INK)
+    tag, tw = gl.text_path("Become the Hero Within.", gl.BALOO_XB, 62, 110, 560, INK)
+    tag2, _ = gl.text_path("Học tập dạng game cho Hero 18+", gl.BEVN_SB, 40, 110, 630, "#44586E")
+    pill_t, pw = gl.text_path("AI Search · Brew Your Topic · Proof", gl.BEVN_B, 34, 150, 752, INK)
     pill = f'<rect x="110" y="700" width="{pw+80:.0f}" height="74" rx="37" fill="{SUN}"/>' + pill_t
-    masc = f'<g transform="translate(1120,210) scale(2.0)">{gl.mascot()}</g>'
+    masc = f'<g transform="translate(1120,210) scale(2.0)">{gl.badge_B()}</g>'
     deco = dots([(1020,140,26,SUN),(1210,90,16,SKY),(1470,150,22,CORAL),(980,720,20,gl.GREEN300),(1560,620,16,BERRY),(700,150,14,SUN)])
     wave = f'<path d="M0 884 Q 205 824 410 884 T 820 884 T 1230 884 T 1640 884 L1640 924 L0 924 Z" fill="{GREEN}"/>'
     gl.save(OUT / "gon-social-cover-1640x924.svg", gl.svg_doc(W, H, deco + wave + mark + gon + sub + tag + tag2 + pill + masc, bg=PAPER))
 
 def square_post():
     W = H = 1080
-    masc = f'<g transform="translate(300,60) scale(2.0)">{gl.mascot()}</g>'
-    l1, _ = gl.text_path("Chơi mà học,", gl.BALOO_XB, 104, W/2, 660, WHITE, anchor="middle")
-    l2, _ = gl.text_path("học mà vui!", gl.BALOO_XB, 104, W/2, 772, SUN, anchor="middle")
-    sub, _ = gl.text_path("Rèn trí nhớ · Tập trung · Tư duy", gl.BEVN_SB, 40, W/2, 860, GREEN100, anchor="middle")
+    masc = f'<g transform="translate(300,60) scale(2.0)">{gl.badge_B()}</g>'
+    l1, _ = gl.text_path("Ingest. Learn.", gl.BALOO_XB, 96, W/2, 660, WHITE, anchor="middle")
+    l2, _ = gl.text_path("Prove. Become.", gl.BALOO_XB, 96, W/2, 772, SUN, anchor="middle")
+    sub, _ = gl.text_path("Quest · XP · Proof of Learning", gl.BEVN_SB, 40, W/2, 860, GREEN100, anchor="middle")
     foot, fw = gl.text_path("GON — Game Of Nurture", gl.BEVN_B, 34, W/2, 990, WHITE, anchor="middle")
     deco = dots([(120,140,22,SUN),(950,180,18,gl.SKY),(160,520,14,WHITE),(930,560,22,CORAL)])
     gl.save(OUT / "gon-social-post-1080.svg", gl.svg_doc(W, H, deco + masc + l1 + l2 + sub + foot, bg=GREEN700))
@@ -52,14 +52,14 @@ def certificate():
     frame = (f'<rect x="36" y="36" width="{W-72}" height="{H-72}" rx="36" fill="none" stroke="{GREEN700}" stroke-width="10"/>'
              f'<rect x="64" y="64" width="{W-128}" height="{H-128}" rx="26" fill="none" stroke="{SUN}" stroke-width="4"/>')
     badge = f'<g transform="translate({W/2-120},92)">{gl.badge_B()}</g>'
-    title, _ = gl.text_path("GIẤY KHEN", gl.BALOO_XB, 110, W/2, 470, INK, anchor="middle", tracking=2)
-    line1, _ = gl.text_path("Trao tặng người gieo mầm", gl.BEVN_SB, 44, W/2, 548, "#44564F", anchor="middle")
+    title, _ = gl.text_path("HERO PROOF", gl.BALOO_XB, 108, W/2, 470, INK, anchor="middle", tracking=2)
+    line1, _ = gl.text_path("Ghi nhận hành trình của Hero", gl.BEVN_SB, 44, W/2, 548, "#44586E", anchor="middle")
     name, _ = gl.text_path("Nguyễn Văn A", gl.BALOO_XB, 84, W/2, 668, GREEN700, anchor="middle")
     nline = f'<line x1="{W/2-380}" y1="696" x2="{W/2+380}" y2="696" stroke="{INK}" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/>'
-    line2, _ = gl.text_path("đã hoàn thành kỹ năng: Trí nhớ làm việc — Cấp Mầm", gl.BEVN_SB, 42, W/2, 786, INK, anchor="middle")
-    line3, _ = gl.text_path("trong GON — Game Of Nurture · Chơi. Học. Lớn khôn.", gl.BEVN_SB, 38, W/2, 850, "#44564F", anchor="middle")
+    line2, _ = gl.text_path("đã hoàn thành module và Boss Proof — cấp Guardian", gl.BEVN_SB, 42, W/2, 786, INK, anchor="middle")
+    line3, _ = gl.text_path("GON — Game Of Nurture · Become the Hero Within.", gl.BEVN_SB, 38, W/2, 850, "#44586E", anchor="middle")
     sig1, _ = gl.text_path("Ngày ... tháng ... năm ......", gl.BEVN_SB, 34, 300, 1010, INK)
-    sig2, _ = gl.text_path("Giáo viên / Phụ huynh", gl.BEVN_SB, 34, W-560, 1010, INK)
+    sig2, _ = gl.text_path("Issuer / Người xác minh", gl.BEVN_SB, 34, W-560, 1010, INK)
     sigl = f'<line x1="{W-560}" y1="1086" x2="{W-220}" y2="1086" stroke="{INK}" stroke-width="3" stroke-dasharray="2 10" stroke-linecap="round"/>'
     gl.save(OUT / "gon-certificate-a4-landscape.svg", gl.svg_doc(W, H, frame + badge + title + line1 + name + nline + line2 + line3 + sig1 + sig2 + sigl, bg=WHITE))
 

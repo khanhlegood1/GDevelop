@@ -1,39 +1,27 @@
-/* GON — Game Of Nurture · Design Tokens v1.0 (2026-10-21)
-   Source of truth for web / GDevelop HTML5 UI. See gon-tokens.json + Brandbook PDF. */
+/* GON — Game Of Nurture for Heroes 18+ · Design Tokens v2.0 (2026-10-21)
+   ZOFO-inspired repositioning: mature, heroic, proof-driven. */
 :root {
-  /* Nurture Green — primary */
-  --gon-green-50:#EAFBF2; --gon-green-100:#D3F5E3; --gon-green-200:#A7EAC9;
-  --gon-green-300:#6FD9A7; --gon-green-400:#3AC982; --gon-green-500:#18B26B;
-  --gon-green-600:#0E9455; --gon-green-700:#0C7746; --gon-green-800:#0B5C38;
-  --gon-ink:#12261E;            /* Forest Ink — text, never pure black for large areas */
-  /* Sunbeam — reward / sun leaf. Text on Sun must be Ink, never white */
-  --gon-sun-300:#FFDD7A; --gon-sun-400:#FFC93C; --gon-sun-500:#FFB020; --gon-sun-600:#E8930C;
-  /* Curiosity Sky — discovery, links, teen/adult accent */
-  --gon-sky-400:#38BDF8; --gon-sky-500:#1499D6; --gon-sky-600:#0B7AB8; --gon-sky-700:#0A5E8C;
-  /* Coral Bloom — play energy, use sparingly */
-  --gon-coral-400:#FF8A70; --gon-coral-500:#FF6B57; --gon-coral-600:#E64B38;
-  /* Berry — creativity accent for teens/adults only */
-  --gon-berry-500:#7C6BE0; --gon-berry-600:#6653C9;
-  /* Neutrals */
-  --gon-paper:#FFF9EE; --gon-cream:#FFF3D6; --gon-white:#FFFFFF;
-  --gon-body:#44564F; --gon-line:#DCE8E1; --gon-black:#000000;
-
-  /* Semantic (accessible pairs — verified ratios in Brandbook p.18) */
-  --gon-bg:var(--gon-paper); --gon-surface:var(--gon-white);
-  --gon-text:var(--gon-ink); --gon-text-muted:var(--gon-body);
-  --gon-primary:var(--gon-green-700);        /* white text: 5.61:1 AA */
-  --gon-primary-bright:var(--gon-green-500); /* graphics / Ink text only: Ink on it 5.76:1 */
-  --gon-on-primary:var(--gon-white);
-  --gon-accent:var(--gon-sun-400); --gon-on-accent:var(--gon-ink); /* 10.34:1 */
-  --gon-link:var(--gon-sky-700);             /* 7.02:1 on white */
-  --gon-focus:var(--gon-sky-500);
-
-  --gon-font-display:"Baloo 2","Be Vietnam Pro",system-ui,sans-serif;
-  --gon-font-body:"Be Vietnam Pro","Nunito",system-ui,sans-serif;
-  --gon-radius-s:12px; --gon-radius-m:20px; --gon-radius-l:28px; --gon-radius-pill:999px;
-  --gon-touch-min:48px; /* kids/special-needs touch target minimum */
-  --gon-shadow-card:0 8px 24px rgba(18,38,30,.10);
+  --gon-midnight:#07111F; --gon-midnight-2:#0A1A2E; --gon-panel:#0E2237; --gon-panel-2:#122B45;
+  --gon-green-50:#ECFDF5; --gon-green-100:#D1FAE5; --gon-green-300:#6EE7B7; --gon-green-400:#34D399;
+  --gon-green-500:#12B981; --gon-green-600:#059669; --gon-green-700:#047857; --gon-green-800:#063F2A;
+  --gon-gold:#FFB703; --gon-gold-600:#F59E0B;
+  --gon-crimson:#F04452; --gon-crimson-700:#BD2038;
+  --gon-cyan:#38D5F5; --gon-sky-500:#0EA5C6; --gon-sky-700:#0369A1;
+  --gon-violet:#8B7CF6;
+  --gon-paper:#F5F8FC; --gon-white:#FFFFFF; --gon-body:#44586E; --gon-muted:#A8BDD2; --gon-line:#D7E3F0;
+  --gon-ink:var(--gon-midnight);
+  --gon-bg:var(--gon-midnight); --gon-surface:var(--gon-panel); --gon-text:#EEF6FF; --gon-text-muted:var(--gon-muted);
+  --gon-primary:var(--gon-green-700); /* white text 5.48:1 */
+  --gon-on-primary:#FFFFFF;
+  --gon-accent:var(--gon-gold); --gon-on-accent:var(--gon-midnight); /* 10.84:1 */
+  --gon-humanity:var(--gon-crimson-700); /* white text 6.13:1 */
+  --gon-link:#7DE3FF; --gon-focus:var(--gon-cyan);
+  --gon-font-display:"Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+  --gon-font-body:"Be Vietnam Pro","Segoe UI",system-ui,sans-serif;
+  --gon-radius-s:12px; --gon-radius-m:16px; --gon-radius-l:22px; --gon-radius-pill:999px;
+  --gon-touch-min:48px;
+  --gon-shadow-card:0 18px 45px rgba(0,0,0,.28);
 }
 @media (prefers-reduced-motion: reduce) {
-  *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  *,*::before,*::after { animation-duration:.01ms!important; transition-duration:.01ms!important; scroll-behavior:auto!important; }
 }
