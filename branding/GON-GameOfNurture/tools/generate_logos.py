@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-GON — Game Of Nurture | Logo generator (vector masters)
+GON — Game Of Nurture for Heroes 18+ | Logo generator v2 (vector masters)
 Original geometric construction. Wordmark text is converted to outlines
-(SVG paths) from Baloo 2 (OFL) so logo files have no font dependency.
+(SVG paths) from Be Vietnam Pro (OFL) so logo files have no font dependency.
+V2 evolves the sprout into an ascent/flame mark for adult heroes.
 
 Run with the branding venv:
   /tmp/venv-branding/bin/python tools/generate_logos.py
@@ -19,22 +20,22 @@ TPL_DIR = ROOT / "04-Templates" / "svg"
 FONTS = ROOT / "tools" / "fonts-ttf"
 
 # ---------- GON palette (source of truth: 03-Color-Typography/tokens) ----------
-INK      = "#12261E"  # Forest Ink
-FOREST   = "#0B5C38"  # Green 800
-GREEN700 = "#0C7746"
-GREEN600 = "#0E9455"
-GREEN    = "#18B26B"  # Sprout — primary 500
-GREEN400 = "#3AC982"
-GREEN300 = "#6FD9A7"
-GREEN100 = "#D3F5E3"
-GREEN50  = "#EAFBF2"
-SUN      = "#FFC93C"  # Sunbeam 400
-SUN500   = "#FFB020"
-SKY      = "#1499D6"  # Curiosity Sky 500
-SKY700   = "#0A5E8C"
-CORAL    = "#FF6B57"  # Coral Bloom 500
+INK      = "#07111F"  # Midnight Hero
+FOREST   = "#063F2A"  # Deep Guardian Green
+GREEN700 = "#047857"
+GREEN600 = "#059669"
+GREEN    = "#12B981"  # Ascent Emerald — growth, secondary in v2
+GREEN400 = "#34D399"
+GREEN300 = "#6EE7B7"
+GREEN100 = "#D1FAE5"
+GREEN50  = "#ECFDF5"
+SUN      = "#FFB703"  # Hero Gold
+SUN500   = "#F59E0B"
+SKY      = "#0EA5C6"  # Proof Cyan
+SKY700   = "#0369A1"
+CORAL    = "#F04452"  # Humanity Crimson
 BERRY    = "#7C6BE0"
-PAPER    = "#FFF9EE"
+PAPER    = "#F5F8FC"  # Signal Paper
 WHITE    = "#FFFFFF"
 BLACK    = "#000000"
 
@@ -108,11 +109,17 @@ def leaf(x, y, length, width, angle_deg, fill):
 # G ring  = growth cycle / Game;  bar = soil line; sprout grows from it;
 # right leaf tip doubles as a soft Play pointer. Seed sun-dot at base.
 # ================================================================
-def mark_A(g_color=GREEN700, bar_color=None, leaf_l=GREEN400, leaf_r=SUN,
-           stem_color=GREEN, seed_color=SUN500, mono=None, small=False):
-    """v2: one-piece G (ring + mid bar same colour = reads as G instantly).
-    The sprout grows out of the G-bar itself; right leaf is Sunbeam yellow
-    and leans like a Play pointer; seed sun-dot sits on the bar."""
+def hero_spark(cx=198, cy=40, r=16, fill=SUN):
+    """Four-point ascent spark placed at the opening of the G orbit."""
+    return (f'<path d="M {cx} {cy-r} Q {cx+r*.16} {cy-r*.16} {cx+r} {cy} '
+            f'Q {cx+r*.16} {cy+r*.16} {cx} {cy+r} Q {cx-r*.16} {cy+r*.16} {cx-r} {cy} '
+            f'Q {cx-r*.16} {cy-r*.16} {cx} {cy-r} Z" fill="{fill}"/>')
+
+def mark_A(g_color=INK, bar_color=None, leaf_l=GREEN400, leaf_r=CORAL,
+           stem_color=GREEN, seed_color=SUN, mono=None, small=False):
+    """V2 Hero mark: one-piece midnight G orbit + ascent sprout/flame.
+    The mature evolution keeps the G silhouette but replaces the childlike
+    sun leaf with a crimson flame/Play pointer and a gold hero spark."""
     if bar_color is None:
         bar_color = g_color
     if mono:
@@ -133,9 +140,10 @@ def mark_A(g_color=GREEN700, bar_color=None, leaf_l=GREEN400, leaf_r=SUN,
     else:
         parts += [
             f'<path d="{stem}" fill="none" stroke="{stem_color}" stroke-width="10" stroke-linecap="round"/>',
-            leaf(stem_x, stem_top + 6, 46, 18, -46, leaf_l),    # left leaf
-            leaf(stem_x + 3, stem_top + 2, 52, 20, 48, leaf_r),  # right sun-leaf (play pointer)
+            leaf(stem_x, stem_top + 6, 46, 18, -46, leaf_l),    # growth leaf
+            leaf(stem_x + 3, stem_top + 2, 52, 20, 48, leaf_r),  # crimson flame / Play pointer
             f'<circle cx="{stem_x}" cy="{cy+2}" r="9" fill="{seed_color}"/>',
+            hero_spark(),
         ]
     return "".join(parts)
 
@@ -150,7 +158,7 @@ def save(path, content):
     print("wrote", path.relative_to(ROOT))
 
 # ---------- lockups ----------
-BALOO_XB = "Baloo2-ExtraBold.ttf"
+BALOO_XB = "BeVietnamPro-ExtraBold.ttf"  # v2 mature display (name kept for template compatibility)
 BEVN_SB  = "BeVietnamPro-SemiBold.ttf"
 BEVN_B   = "BeVietnamPro-Bold.ttf"
 
@@ -206,7 +214,7 @@ def blocks_C():
     return "".join(tiles) + sprout
 
 # ================================================================
-# Mascot — "Gon Mam" the sprout seed (kids contexts only)
+# Legacy mascot — "Gon Mam" (retired from the 18+ master brand; archive only)
 # ================================================================
 def mascot(body="#FFE9B8"):
     return (
@@ -258,7 +266,7 @@ def main():
     pb_text_w, _ = text_path("Powered by", BEVN_SB, 21, 156, 86, WHITE)
     pb_gon_w, _ = text_path("GON", BALOO_XB, 46, 156, 132, WHITE)
     powered_d = (f'<rect x="3" y="3" width="306" height="174" rx="26" fill="{INK}"/>'
-                 f'<g transform="translate(14,26) scale(0.53)">{mark_A(g_color=GREEN400, leaf_l=GREEN300, leaf_r=GREEN400, stem_color=GREEN300)}</g>' + pb_text_w + pb_gon_w)
+                 f'<g transform="translate(14,26) scale(0.53)">{mark_A(g_color=GREEN400, leaf_l=GREEN300, leaf_r=CORAL, stem_color=GREEN300)}</g>' + pb_text_w + pb_gon_w)
     save(SVG_DIR / "gon-powered-by-dark.svg", svg_doc(312, 180, powered_d))
     # "Made with GON" pill for GDevelop games
     mg_w = 84 + text_width("Made with GON", BEVN_B, 26) + 30

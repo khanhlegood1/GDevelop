@@ -1,15 +1,13 @@
-# Typography — GON
+# Typography v2 — GON for Heroes 18+
 
-| Vai trò | Font | Weights | Vì sao |
+| Vai trò | Font | Weights | Lý do |
 |---|---|---|---|
-| Display / Logo / Tiêu đề game | **Baloo 2** | 600 · 700 · 800 | Bo tròn, khỏe, thân thiện với trẻ nhưng đủ "thương hiệu" cho người lớn; **hỗ trợ đầy đủ tiếng Việt** |
-| Body / UI / Tài liệu | **Be Vietnam Pro** | 400 · 500 · 600 · 700 · 800 | Thiết kế cho tiếng Việt, dấu thanh chuẩn, đáng tin với phụ huynh/giáo viên |
-| Fallback UI | Nunito → system-ui | — | Khi không nhúng được font (HTML5 export nhẹ) |
+| Logo / Display / UI headings | **Be Vietnam Pro ExtraBold** | 800 | Trưởng thành, quyết đoán, hỗ trợ tiếng Việt hoàn chỉnh; thay Baloo 2 vốn mang cảm giác trẻ em |
+| Body / UI / tài liệu | **Be Vietnam Pro** | 400 · 500 · 600 · 700 | Dấu thanh chuẩn, đọc tốt ở dashboard và nội dung dài |
+| Số liệu/hash | System monospace | 400/600 | Dùng cho token ID, SHA-256, vector/metadata; không dùng cho headline |
 
-**Không dùng Rubik như POAP cho nội dung tiếng Việt** — bộ dấu tiếng Việt của Rubik không đầy đủ/ổn định bằng hai font trên.
-
-- Giấy phép: cả hai font theo **SIL Open Font License 1.1** (dùng thương mại được, không bán riêng font).
-- Tải chính thức: Google Fonts — `Baloo 2`, `Be Vietnam Pro`. Khi subset cho web phải gồm **latin + latin-ext + vietnamese** (thiếu sẽ rớt dấu).
-- Logo trong `01-Logo/svg/` đã **convert chữ thành outline** — mở/in không cần cài font.
-- File TTF trong `tools/fonts-ttf/` là bản merge subset (từ Fontsource) chỉ để build PDF/HTML trong repo này; để cài đặt thiết kế, hãy tải bản đầy đủ từ Google Fonts.
-- Quy tắc chữ cho trẻ: không dùng chữ <16px trong game cho trẻ <9 tuổi; line-height ≥1.4; không viết HOA cả câu dài; tránh font trang trí khó đọc cho nội dung học.
+- **Baloo 2 của v1 đã nghỉ hưu khỏi master brand 18+**; chỉ giữ file để tái tạo tài liệu lịch sử khi cần.
+- Giấy phép: Be Vietnam Pro theo **SIL Open Font License 1.1**. Khi subset phải gồm latin + latin-ext + vietnamese.
+- Logo SVG v2 đã convert chữ sang outline bằng Be Vietnam Pro ExtraBold nên không phụ thuộc font khi in/mở.
+- UI 18+: body tối thiểu 15–16px trên web; dữ liệu quan trọng không dưới 13px; line-height 1.5–1.7; không dùng chữ hoa toàn bộ cho đoạn dài.
+- Giọng chữ: headline ngắn, động từ mạnh (*Ingest. Learn. Prove. Become.*), tránh từ ngữ “bé”, “ngoan”, “phần thưởng kẹo” của hệ trẻ em v1.

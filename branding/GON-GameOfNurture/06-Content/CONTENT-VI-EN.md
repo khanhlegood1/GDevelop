@@ -1,50 +1,65 @@
-# Ngân hàng nội dung GON (VI + EN) — viết mới cho GON
-> Cảm hứng tính năng tham chiếu nurture.games, nhưng mọi câu chữ dưới đây là bản viết riêng cho GON,
-> mở rộng đối tượng từ "trẻ 4–8 có nhu cầu đặc biệt" thành **học suốt đời cho mọi lứa tuổi**.
-> Không sao chép câu chữ/hình ảnh của Nurture Games hay POAP.
+# Ngân hàng nội dung GON v2 — Heroes 18+ (VI/EN)
 
-## 1. Định vị một dòng
-- VI: **GON — Game Of Nurture: chơi mà học, học để lớn khôn mỗi ngày — cho trẻ em và người lớn ở mọi lứa tuổi.**
-- EN: **GON — Game Of Nurture: learn through play, grow every day — for kids and grown-ups of every age.**
-- Tagline chính VI: *Chơi. Học. Lớn khôn.* · EN: *Play. Learn. Grow.*
-- Cách đọc tên: "GON" đọc như "gôn" /ɡoːn/ trong quảng cáo tiếng Việt; viết luôn kèm "Game Of Nurture" ở lần xuất hiện đầu tiên.
+## 1. Định vị mới
 
-## 2. GON là gì? (FAQ — bản GON)
-**VI:** GON là nền tảng game giáo dục (mobile, web và desktop) biến thời gian chơi thành thời gian học. Mỗi trò chơi ngắn rèn một kỹ năng nền tảng — ghi nhớ, tập trung, lập kế hoạch, ngôn ngữ, toán học, sáng tạo — với độ khó tự điều chỉnh theo người chơi, từ bé 3 tuổi đến ông bà. GON không quảng cáo, không cơ chế gây nghiện; phụ huynh và giáo viên xem được lộ trình tiến bộ rõ ràng.
-**EN:** GON is an educational games platform (mobile, web, desktop) that turns playtime into learning time. Each short game trains a foundation skill — memory, focus, planning, language, maths, creativity — and adapts to the player, from age 3 to grandparents. No ads, no addictive loops; parents and teachers get a clear view of progress.
+**VI:** GON — Game Of Nurture là nền tảng học tập dạng game cho người trưởng thành 18+. Đưa vào bất cứ điều gì bạn muốn hiểu — chữ, file, ảnh, video hoặc link — GON tìm bằng AI 768 chiều, biến nó thành quest có AI Coach đồng hành, và lưu lại bằng chứng để bạn đi từ **Zero** thành **Hero**, rồi tiếp tục **Forever**.
 
-## 3. Sáu trụ cột tính năng (features)
-1. **Cá nhân hóa theo từng người học** — độ khó "uốn" theo nhịp của mỗi bé/người chơi, gồm trẻ có nhu cầu hỗ trợ đặc biệt (chữ lớn, giảm chuyển động, thêm thời gian, điều khiển đơn giản).
-   EN: *Adapts to every learner — including children who need extra support.*
-2. **Rèn kỹ năng điều hành (executive function)** — trí nhớ làm việc, ức chế xung động, linh hoạt nhận thức: nền cho học tập và công việc suốt đời.
-   EN: *Builds working memory and executive-function skills for school and life.*
-3. **Người lớn nhìn thấy tiến bộ thật** — báo cáo dễ hiểu cho phụ huynh/giáo viên: đã chơi gì, mạnh ở đâu, nên đồng hành thế nào (không xếp hạng gây áp lực).
-   EN: *Progress grown-ups can actually see — and celebrate.*
-4. **An toàn tuyệt đối: chỉ có game** — không quảng cáo, không chat lạ, không mua hàng ẩn, không nội dung bên ngoài. 
-   EN: *Nothing but games. No ads, no strangers, no sneaky purchases.*
-5. **Vui bằng tò mò, không bằng gây nghiện** — phần thưởng là huy hiệu "Hạt nắng" và cảm giác làm được, không loot-box, không đếm ngược dọa mất lượt.
-   EN: *Powered by curiosity — never by addictive tricks.*
-6. **Thiết kế dựa trên khoa học** — nguyên tắc từ nghiên cứu khoa học thần kinh học tập & sư phạm; minh bạch về bằng chứng (xem "Thang tuyên bố" trong Brandbook).
-   EN: *Designed with learning science — and honest about the evidence.*
+**EN:** GON — Game Of Nurture is a game-based learning platform for adults 18+. Bring anything you want to understand — text, a file, an image, a video or a link. GON searches with 768-dimensional AI, turns it into quests with an AI Coach, and preserves proof as you grow from **Zero** to **Hero** — and onward, **Forever**.
 
-## 4. Hero website (gợi ý)
-- H1 VI: *Mỗi phút chơi là một mầm học mới.* · Sub: Game giáo dục an toàn, thích ứng cho bé 3+ đến người lớn — rèn trí nhớ, tập trung và tư duy qua niềm vui thuần khiết. · CTA: *Chơi thử cùng con* / *Dành cho lớp học*
-- H1 EN: *Every minute of play grows a new skill.* · CTA: *Try it with your child* / *For classrooms*
+**Tagline chính:** *Become the Hero Within.*  
+**Tagline thao tác:** *Ingest. Learn. Prove. Become.* / **Nạp vào. Học sâu. Chứng minh. Thành Hero.**
 
-## 5. Hệ cấp độ "tăng trưởng" (gắn brand với game)
-Hạt (Seed 3–5) → Mầm (Sprout 6–8) → Chồi (Sapling 9–12) → Cây (Tree 13–17) → Vườn (Grove 18+, gồm phụ huynh/người cao tuổi luyện trí não).
-Tên dùng cho người chơi: "Người gieo mầm" — tránh gọi người lớn là "bé".
+> Việc lấy cảm hứng từ thông điệp Zero to Forever của ZOFO phải được xác nhận quyền sử dụng nếu GON và ZOFO không cùng một chủ thể/phạm vi được cấp phép. Không dùng số liệu, logo hay tuyên bố của ZOFO như của GON.
 
-## 6. Giọng nói — nên / không nên
+## 2. Hành trình và cấp độ
+
+| Cấp | XP mẫu | Ý nghĩa truyền thông |
+|---|---:|---|
+| Zero | 0 | Điểm bắt đầu; chưa phải thất bại |
+| Awaken | 100 | Nhận ra câu hỏi và nguồn đầu tiên |
+| Explorer | 300 | Tìm, so sánh, thử quest |
+| Guardian | 700 | Hoàn thành có trách nhiệm, bảo vệ cộng đồng/bằng chứng |
+| Hero | 1.200 | Tạo tác động thật và Boss Proof đạt chuẩn |
+| Legend | 2.000 | Dẫn dắt, mentor, đóng góp module chất lượng |
+| Forever | 3.500 | Học tập và phục vụ trở thành lối sống |
+
+## 3. Giọng thương hiệu
+
 | Nên | Không |
 |---|---|
-| "Con đã nhớ được 5 hình liên tiếp — tiến bộ hơn tuần trước!" | "Con bạn đang thua bạn bè!" (gây lo âu, so sánh) |
-| "Sai cũng là một bước học. Thử lại nhé?" | "Sai rồi! Mất lượt!" (trừng phạt) |
-| "GON hỗ trợ rèn luyện kỹ năng" | "GON chữa/trị liệu tăng động, tự kỷ" (tuyên bố y khoa — cấm khi chưa có chứng cứ & phê duyệt) |
-| "Dành cho mọi lứa tuổi, mọi khả năng" | Nhãn dán kỳ thị: "trẻ chậm", "trẻ bình thường" |
+| Mạnh, rõ, tôn trọng người lớn: “Chốt bằng chứng”, “Vào quest”, “Kiểm chứng nguồn” | Trẻ con hoá: “bé ngoan”, “kẹo thưởng”, “cô khen” |
+| Truyền lực nhưng trung thực về giới hạn AI/xác minh | “AI biết mọi thứ”, “chứng chỉ đã verified” khi mới tải ảnh |
+| Nhân văn, hướng cộng đồng; hiến máu là một hành trình mẫu | Gây áp lực/xấu hổ bằng dữ liệu sức khỏe hoặc leaderboard |
+| Nói rõ demo/prototype và nguồn | Dùng số liệu ZOFO/Nurture hoặc phần trăm cải thiện không có nghiên cứu của GON |
 
-## 7. Thang tuyên bố (claim ladder)
-- **Được nói ngay:** an toàn/không quảng cáo; thích ứng độ khó; báo cáo phụ huynh; thiết kế tham chiếu nguyên tắc khoa học (nêu nguồn khi đăng).
-- **Chỉ nói khi có dữ liệu của GON:** "cải thiện X% sau Y tuần", "được trường/chuyên gia kiểm chứng" — phải có nghiên cứu, mẫu, phương pháp lưu hồ sơ.
-- **Không nói:** chẩn đoán, điều trị, thay thế giáo viên/trị liệu; "học viện chứng nhận" không có thật; mượn số liệu/thành tích của Nurture Games hay đơn vị khác.
-GON là sản phẩm hỗ trợ học tập, **không phải thiết bị y tế**.
+## 4. Mẫu copy theo màn hình
+
+### Cổng vào
+- VI: “Dành cho Hero 18+. Đăng nhập bằng Google để biến tò mò thành hành trình có bằng chứng.”
+- EN: “For Heroes 18+. Sign in with Google and turn curiosity into a provable journey.”
+
+### Search trống
+- VI: “Chưa có module đủ sát — đây không phải ngõ cụt. Brew Your Topic?”
+- EN: “No close module yet — this is not a dead end. Brew Your Topic?”
+
+### Arena
+- VI: “AI Coach dẫn đường bằng giải thích. Quest Path ép bạn hành động. Chọn một, hoặc hợp nhất cả hai.”
+- EN: “The AI Coach explains the route. The Quest Path makes you move. Pick one — or merge both.”
+
+### Proof
+- VI: “Ảnh/link giúp truy vết. Issuer mới quyết định mức xác minh.”
+- EN: “A file or link creates traceability. Only issuer checks create verification.”
+
+### Sức khỏe/hiến máu
+- “GON giúp bạn chuẩn bị và ghi lại hành trình. Điều kiện hiến máu do cơ quan y tế/điểm hiến quyết định; AI Coach không chẩn đoán.”
+- Không dùng: “hiến máu giúp chữa…”, “đạt chuẩn sức khỏe nhờ XP”, hay ép người dùng công khai thông tin hiến máu.
+
+## 5. Claim ladder
+
+| Mức | Được nói | Điều kiện |
+|---|---|---|
+| Mô tả | “Tìm 768D”, “Brew module”, “lưu proof” | Tính năng có thật ở môi trường đang nói; ghi Demo nếu là prototype |
+| Trải nghiệm | “Học qua quest/quiz/flashcards” | Module thực tế có các block đó |
+| Tác động | “Giúp ghi nhớ/tự phát triển” | Diễn đạt như mục tiêu thiết kế; muốn khẳng định hiệu quả cần nghiên cứu người dùng |
+| Y khoa/giáo dục mạnh | Cải thiện bệnh/trí tuệ/điểm số | Không dùng cho tới khi có bằng chứng, chuyên môn và phê duyệt pháp lý |
+| Web3/tài chính | POAP-ready, lưu provenance | Không hứa giá trị đầu tư; chỉ nói “đã neo/verified” khi pipeline kiểm chứng hoạt động |

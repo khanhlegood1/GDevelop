@@ -1,22 +1,25 @@
-# Logo GON — Hướng dẫn nhanh (chi tiết: Brandbook PDF, mục 02)
+# Logo GON v2 — Heroes 18+
 
-**Ý tưởng "Mầm Chơi":** chữ **G** liền khối (vòng tăng trưởng/Game) — thanh ngang chữ G là "mặt đất", từ đó **mầm cây** mọc lên; lá bên phải màu nắng nghiêng như nút **Play**; chấm nắng là hạt giống. Đọc được ở kích thước nhỏ, vẽ lại được bằng hình học, khác biệt với rosette của POAP.
+**Ý tưởng “G Orbit / Ascent Sprout”:** giữ silhouette chữ **G** của v1 để không phá vỡ nhận biết, nhưng chuyển sang vòng **Midnight** trưởng thành. Thanh G là điểm tựa; mầm xanh là tăng trưởng, lá **Crimson** là ngọn lửa/Play của hành động nhân văn, chấm **Gold** là hạt bằng chứng và tia **Hero Spark** ở cửa mở chữ G là khoảnh khắc bứt phá từ Zero thành Hero. Wordmark dùng Be Vietnam Pro ExtraBold thay cho Baloo 2.
 
-| File (svg/ + png/) | Dùng khi |
+| File | Dùng khi |
 |---|---|
-| `gon-logo-horizontal.svg` | Mặc định: web header, tài liệu, slide |
-| `gon-logo-stacked.svg` | Không gian vuông/hẹp, bìa, avatar kèm chữ |
-| `gon-icon.svg` | Đã có chữ GON ở ngữ cảnh, social avatar |
-| `gon-icon-small.svg` | <32px: favicon, tab, HUD nhỏ (chỉ 1 lá) |
-| `gon-app-icon.svg` / `-green` | Icon app iOS/Android (xuất 1024px từ SVG) |
-| `gon-logo-horizontal-reverse.svg` | Trên nền Forest Ink/tối |
-| `gon-*-mono-black/white/green` | In 1 màu, khắc, fax, watermark |
-| `gon-powered-by(-dark).svg` | Đối tác tích hợp GON (xem mục 07) |
-| `gon-made-with.svg` | Gắn ở credits game làm bằng GON/GDevelop |
-| `gon-badge-achievement.svg` | Huy hiệu thành tích "Hạt nắng" trong game/giấy khen |
-| `gon-mascot-gon-mam.svg` | Linh vật Gon Mầm — **chỉ ngữ cảnh trẻ em/gia đình** |
-| `exploration/` | 3 phương án A/B/C lưu trữ — **không dùng B/C làm logo chính** |
+| `gon-logo-horizontal.svg` | Mặc định trên nền sáng: web, tài liệu, đối tác |
+| `gon-logo-horizontal-reverse.svg` | Trên Midnight/nền tối |
+| `gon-logo-stacked.svg` | Không gian vuông/hẹp, bìa, hồ sơ Hero |
+| `gon-icon.svg` | Avatar, app, watermark khi đã có ngữ cảnh GON |
+| `gon-icon-small.svg` / `gon-favicon.svg` | <32px, favicon, tab, HUD |
+| `gon-app-icon.svg` / `gon-app-icon-green.svg` | iOS/Android/PWA; xuất từ SVG, không phóng PNG nhỏ |
+| `gon-badge-achievement.svg` | Hero Proof Badge, giấy chứng nhận số, đầu mối POAP-ready (chưa đồng nghĩa đã mint) |
+| `gon-powered-by(-dark).svg` | Đối tác tích hợp module/AI của GON |
+| `gon-made-with.svg` | Credits của game/module tạo bằng GON, đặt cạnh ghi nhận GDevelop nếu dùng engine |
+| `gon-mascot-gon-mam.svg` | **Legacy v1 — không dùng trong master brand 18+** |
+| `exploration/concept-C-gon-blocks.svg` | **Legacy trẻ em — không dùng** |
 
-Quy tắc tối thiểu: khoảng thở = 1x quanh logo (x = chiều cao thanh G); icon ≥24px / 8mm, lockup ≥96px / 25mm; không kéo giãn, đổi màu lá, thêm bóng/gradient, đặt trên nền rối (xem trang Don'ts).
+## Quy tắc tối thiểu
+- Khoảng thở 1x quanh logo, `x` = chiều cao thanh G (12,5% bề rộng mark).
+- Icon ≥24px/8mm; lockup ≥104px/28mm. Dưới 32px dùng bản small không tia spark.
+- Không đổi lá Crimson thành màu tùy ý, không thêm mặt cười/linh vật vào logo, không đặt logo Midnight trực tiếp lên nền tối (dùng reverse/app tile), không kéo giãn/xoay/thêm gradient ngoài token.
+- Logo không chứng minh một thành tích là thật. Khi gắn cạnh POAP/chứng chỉ, luôn hiển thị issuer và cấp xác minh.
 
-SVG là file gốc (master). PNG xuất bằng `tools/render_pngs.js`. Cần PDF/EPS cho in: mở SVG bằng Illustrator/Inkscape rồi xuất — không vẽ lại từ PNG.
+SVG là master. Tái tạo bằng `tools/generate_logos.py` + `tools/render_pngs.js`; xem README ở thư mục gốc của gói.

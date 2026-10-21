@@ -1,23 +1,40 @@
-# Áp dụng GON trong game GDevelop (repo này)
+# Chuyển module GON sang GDevelop — bản Heroes 18+
 
-Repo `GDevelop` là game engine no-code (Core/GDJS/newIDE). Bộ GON này là **brand layer cho game/ứng dụng giáo dục xây trên GDevelop** — không thay đổi thương hiệu GDevelop upstream, không sửa logo GDevelop.
+Prototype `apps/gon-web` có nút **Xuất GDevelop blueprint**. File xuất là đặc tả Markdown để dựng game; chưa phải project `.json` của GDevelop và không nên quảng cáo là “one-click export” cho tới khi converter được xây/kiểm thử.
 
-## Ánh xạ token → game
-- Màu: lấy từ `03-Color-Typography/gon-tokens.css|json`. Nút chính: nền **Green 700 `#0C7746`** + chữ trắng; nền cảnh: Paper `#FFF9EE`; chữ: Ink `#12261E`; thưởng: Sun `#FFC93C` + chữ Ink. **Không** đặt chữ trắng lên Green 500 (2.76:1).
-- Font trong game: nhúng Baloo 2 (tiêu đề/mức điểm) + Be Vietnam Pro (hướng dẫn/hộp thoại) dạng webfont/bitmap font có dấu tiếng Việt; kiểm tra chuỗi thử: `Ă Â Đ Ê Ô Ơ Ư ă â đ ê ô ơ ư á à ả ã ạ 0123456789`.
-- UI trẻ em: nút/vùng chạm ≥48px (khuyến nghị 56–64px cho <6 tuổi), bo góc 20–28px, icon + chữ đi cùng nhau (không chỉ màu để phân biệt đúng/sai), mỗi màn hình 1 mục tiêu.
-- Âm thanh/chuyển động: tôn trọng giảm chuyển động, tắt nhạc nền độc lập với hiệu ứng, không chớp sáng >3 lần/giây.
-- Vòng học theo brand: Hạt → Mầm → Chồi → Cây → Vườn; huy hiệu `gon-badge-achievement.svg` khi hoàn thành kỹ năng; màn hình kết thúc phiên gợi ý nghỉ (session lành mạnh) thay vì "chơi nữa kẻo mất chuỗi".
+## Ánh xạ module → game
 
-## Xuất icon cho store/export
-Từ `gon-app-icon.svg`: iOS 1024×1024 (không bo góc sẵn khi nộp App Store — xuất bản vuông nền Paper), Android adaptive icon (foreground = icon G ở vùng an toàn 66%, background Paper/Green), favicon 32/16 từ `gon-icon-small.svg`, PWA 192/512. Script: `tools/render_pngs.js` (resvg) xuất sẵn thư mục `01-Logo/png/`.
+| GON module | GDevelop |
+|---|---|
+| Learning outcome | Objective text + biến `OutcomeName`, điều kiện thắng Boss |
+| Source Artifact | Scene mở đầu: tóm tắt nguồn, hash/provenance, nút mở nguồn được phép |
+| 3–5 concepts | 3–5 màn/level hoặc node trên bản đồ quest |
+| 5 quests | External events/quest objects; biến `Quest_01..05_Done` dạng boolean |
+| Flashcards | Card scene có lật thẻ và nút Nhớ/Chưa nhớ; lưu lịch ôn |
+| Reorder | Draggable objects + kiểm tra mảng thứ tự |
+| Quiz | Biến `QuizScore`, điều kiện `>= 2/3` (hoặc rubric của module) |
+| AI Coach vs Quest Path | Hai tuyến route trên map; lựa chọn ghi vào `ArenaPath`, không khóa người học khỏi nội dung lõi |
+| XP/level | Global variables `XP`, `HeroLevel`; ngưỡng Zero 0 / Awaken 100 / Explorer 300 / Guardian 700 / Hero 1200 / Legend 2000 / Forever 3500 |
+| Boss Proof | Scene nộp sản phẩm/giải thích; chỉ hoàn thành khi đạt rubric, không chỉ bấm nút |
+| Proof/badge | Biến `BadgeID`, `ProofHash`, `VerificationLevel`; hiển thị cấp xác minh đúng sự thật |
 
-## Ghi công trong game
-Màn hình credits: dùng `gon-made-with.svg` ("Made with GON") **cạnh** ghi nhận GDevelop theo giấy phép MIT của engine — hai logo không lồng vào nhau, khoảng cách ≥1x (xem mục Co-branding).
+## Quy tắc hình ảnh/UI 18+
 
-## Checklist trước khi publish game GON
-- [ ] Tương phản chữ ≥4.5:1 (cỡ lớn ≥3:1) ở mọi state (hover/disabled vẫn đọc được)
-- [ ] Không quảng cáo/IAP ẩn hướng tới trẻ; cổng phụ huynh (parent gate) cho link ra ngoài
-- [ ] Không thu thập dữ liệu trẻ ngoài mức cần thiết; rà soát COPPA/GDPR-K & Nghị định 13/2023 (PDPD) với tư vấn pháp lý — tài liệu này không thay thế tư vấn pháp lý
-- [ ] Mọi tuyên bố hiệu quả học tập khớp "Thang tuyên bố" (`06-Content/CONTENT-VI-EN.md`)
-- [ ] Test với trẻ thật + phụ huynh/giáo viên, gồm người dùng có nhu cầu hỗ trợ, trước khi gắn nhãn "hòa nhập"
+- Dùng tokens trong `../03-Color-Typography/gon-tokens.css`: Midnight nền chủ đạo, Emerald tiến trình, Gold thành tựu/Brew, Crimson hành động nhân văn, Cyan dữ liệu/proof.
+- Font Be Vietnam Pro (ExtraBold cho title). Test chuỗi: `Ă Â Đ Ê Ô Ơ Ư ă â đ ê ô ơ ư á à ả ã ạ 0123456789`.
+- Vùng chạm ≥48px, focus rõ, không dùng màu đơn độc để báo đúng/sai; hỗ trợ giảm chuyển động.
+- Không dùng mascot Gon Mầm, blocks trẻ em hay ảnh trong `assets-illustration/legacy-v1-children/` cho bản 18+.
+- Made-with phải tôn trọng ghi công của GDevelop và asset bên thứ ba; “Made with GON” không thay thế credit engine.
+
+## Kết nối backend (production)
+
+Game nên nhận module qua JSON có schema và gửi event về endpoint có xác thực: `quest_completed`, `quiz_submitted`, `flashcard_reviewed`, `boss_proof_submitted`. Server—not client—mới quyết định XP/chứng nhận chính thức; chống sửa biến/điểm ở client. Dữ liệu cá nhân và proof công khai cần consent riêng.
+
+## Checklist phát hành
+
+- [ ] Chạy hết quest/quiz/Boss trong bản export thật, không chỉ preview editor
+- [ ] XP không cộng lặp khi tải lại scene/retry request (idempotency)
+- [ ] Nguồn/tác giả của ảnh, nhạc, video có giấy phép; credit hiển thị
+- [ ] Mọi khẳng định AI có trạng thái nguồn/cảnh báo chưa kiểm chứng khi cần
+- [ ] Proof chỉ ghi “verified” sau đối chiếu issuer; ảnh tự tải là Source-linked
+- [ ] Kiểm thử với người dùng 18+ và người dùng công nghệ hỗ trợ trước khi gắn nhãn accessible
