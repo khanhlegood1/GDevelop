@@ -61,4 +61,8 @@ node --check apps/gon-web/app.js
 
 White Paper về Lifelong Level/XP/Token: [`GON-WHITEPAPER.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.md) · [bản PDF](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.pdf). Kiến trúc đích và hợp đồng dữ liệu: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requirement V2.1 về 10+ output, trend, footprint, Arena vote và Journey Fork: [`GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md). Tài liệu thương hiệu: [`../../branding/GON-GameOfNurture/`](../../branding/GON-GameOfNurture/).
 
+## Quy trình phát triển và Gate 0
+
+GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). Tài liệu chính đang trình duyệt: [`Gate 0 — Source & Architecture Charter`](docs/01-architecture/GATE0-SOURCE-ARCHITECTURE-CHARTER.md).
+
 > Không nhập mật khẩu Google thật vào prototype. Không dùng dữ liệu mẫu trong app làm bằng chứng y khoa, pháp lý hay thành tích thật.
