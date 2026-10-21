@@ -34,9 +34,20 @@ test("Brew creates a complete interactive module contract", () => {
   assert.ok(module.flashcards.length >= 3);
 });
 
-test("ZOFO levels progress from Zero to Forever", () => {
+test("numeric levels are lifelong and Forever is an open-ended Era", () => {
+  assert.equal(gon.XP_PER_LEVEL, 100);
+  assert.equal(gon.calculateLevel(0).numericLevel, 0);
   assert.equal(gon.calculateLevel(0).current.name, "Zero");
+  assert.equal(gon.calculateLevel(99).next.xp, 100);
+  assert.equal(gon.calculateLevel(100).numericLevel, 1);
+  assert.equal(gon.calculateLevel(1250).numericLevel, 12);
   assert.equal(gon.calculateLevel(1250).current.name, "Hero");
-  assert.equal(gon.calculateLevel(9999).current.name, "Forever");
-  assert.equal(gon.calculateLevel(9999).next, null);
+  assert.equal(gon.calculateLevel(3499).current.name, "Legend");
+  assert.equal(gon.calculateLevel(3500).numericLevel, gon.FOREVER_LEVEL);
+  assert.equal(gon.calculateLevel(3500).current.name, "Forever");
+  assert.equal(gon.calculateLevel(3500).next.numericLevel, 36);
+  assert.equal(gon.calculateLevel(9999).numericLevel, 99);
+  assert.equal(gon.calculateLevel(9999).next.xp, 10000);
+  assert.equal(gon.calculateLevel(123456).numericLevel, 1234);
+  assert.equal(gon.calculateLevel(123456).nextEra, null);
 });

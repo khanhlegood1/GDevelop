@@ -1,8 +1,8 @@
 {
   "meta": {
     "name": "GON — Game Of Nurture for Heroes 18+",
-    "version": "2.0",
-    "date": "2026-10-21",
+    "version": "2.2",
+    "date": "2026-10-22",
     "positioning": "Adult learning quests, AI search, Brew Your Topic and Proof of Learning; inspired by ZOFO Zero to Forever, not a copy of ZOFO identity.",
     "note": "CMYK/print values must be proofed physically. No Pantone match is claimed."
   },
@@ -29,15 +29,36 @@
     {"fg": "#FFFFFF", "bg": "#12B981", "why": "use Green 700 for small white text"},
     {"fg": "#F04452", "bg": "#FFFFFF", "why": "use Crimson 700 for text on light; Crimson 500 is mainly graphic/on-dark"}
   ],
-  "journey": [
-    {"key": "zero", "name": "Zero", "xp": 0},
-    {"key": "awaken", "name": "Awaken", "xp": 100},
-    {"key": "explorer", "name": "Explorer", "xp": 300},
-    {"key": "guardian", "name": "Guardian", "xp": 700},
-    {"key": "hero", "name": "Hero", "xp": 1200},
-    {"key": "legend", "name": "Legend", "xp": 2000},
-    {"key": "forever", "name": "Forever", "xp": 3500}
-  ],
+  "progression": {
+    "formulaVersion": "gon-level-v1",
+    "whitepaper": "../07-Product-AI/GON-WHITEPAPER.md",
+    "xpPerLevel": 100,
+    "levelBasis": "LifetimeXP",
+    "numericLevel": {
+      "formula": "floor(LifetimeXP / 100)",
+      "labelFormat": "Lv.{numericLevel} · {era}",
+      "minimum": 0,
+      "maximum": null,
+      "unbounded": true,
+      "nextLevelFormula": "(numericLevel + 1) * 100 LifetimeXP"
+    },
+    "tokenAccounting": {
+      "status": "not issued in prototype; future legal-gated design",
+      "proposedEarnedRatio": "1 validated XP : 1 Lifetime Earned Learning Token Credit",
+      "levelBasis": "LifetimeXP / LifetimeEarnedToken from validated learning events",
+      "spendableBalanceAffectsLevel": false,
+      "purchasedOrTransferredBalanceAffectsLevel": false
+    },
+    "eras": [
+      {"key": "zero", "name": "Zero", "startLevel": 0, "endLevel": 0, "rangeLabel": "Lv.0", "startXP": 0, "xp": 0},
+      {"key": "awaken", "name": "Awaken", "startLevel": 1, "endLevel": 2, "rangeLabel": "Lv.1–2", "startXP": 100, "xp": 100},
+      {"key": "explorer", "name": "Explorer", "startLevel": 3, "endLevel": 6, "rangeLabel": "Lv.3–6", "startXP": 300, "xp": 300},
+      {"key": "guardian", "name": "Guardian", "startLevel": 7, "endLevel": 11, "rangeLabel": "Lv.7–11", "startXP": 700, "xp": 700},
+      {"key": "hero", "name": "Hero", "startLevel": 12, "endLevel": 19, "rangeLabel": "Lv.12–19", "startXP": 1200, "xp": 1200},
+      {"key": "legend", "name": "Legend", "startLevel": 20, "endLevel": 34, "rangeLabel": "Lv.20–34", "startXP": 2000, "xp": 2000},
+      {"key": "forever", "name": "Forever", "startLevel": 35, "endLevel": null, "rangeLabel": "Lv.35+", "startXP": 3500, "xp": 3500, "openEnded": true}
+    ]
+  },
   "font": {
     "display": "Be Vietnam Pro ExtraBold",
     "body": "Be Vietnam Pro 400/500/600/700",

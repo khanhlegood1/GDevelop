@@ -1,6 +1,6 @@
 # Chuyển module GON sang GDevelop — bản Heroes 18+
 
-Prototype `apps/gon-web` có nút **Xuất GDevelop blueprint**. File xuất là đặc tả Markdown để dựng game; chưa phải project `.json` của GDevelop và không nên quảng cáo là “one-click export” cho tới khi converter được xây/kiểm thử. Requirement đích V2.1 nằm tại [`../07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`](../07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md).
+Prototype `apps/gon-web` có nút **Xuất GDevelop blueprint**. File xuất là đặc tả Markdown để dựng game; chưa phải project `.json` của GDevelop và không nên quảng cáo là “one-click export” cho tới khi converter được xây/kiểm thử. Requirement đích V2.1 nằm tại [`../07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`](../07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md). Công thức level chuẩn nằm tại [`GON-WHITEPAPER.md`](../07-Product-AI/GON-WHITEPAPER.md): mỗi 100 Lifetime XP bằng một Numeric Level vô hạn; Forever là Era mở ở Lv.35+.
 
 ## Nguyên tắc đích: một Canonical Module Graph, nhiều renderer
 
@@ -29,7 +29,7 @@ Khi user sửa game, thay outcome hoặc thêm scene, thay đổi trở thành m
 | Arena vote | Hai bản game/output được so sánh theo rubric; kết quả lưu `ArenaMatchID`, không biến vote sở thích thành điểm đúng/sai |
 | Journey Fork | Project copy có `UpstreamModuleID`, `BranchID`, `ParentCommitID`; scene/event sửa đổi được ghi thành Branch Commit |
 | Trend/Creator | Hiển thị attribution và số liệu chỉ khi backend có dữ liệu thật; game không tự tăng Creator Score ở client |
-| XP/level | Global variables `XP`, `HeroLevel`; ngưỡng Zero 0 / Awaken 100 / Explorer 300 / Guardian 700 / Hero 1200 / Legend 2000 / Forever 3500 |
+| Lifelong XP/level | Biến hiển thị cache `LifetimeXP`, `NumericLevel = floor(LifetimeXP / 100)`, `EraKey`, `XPInLevel`, `NextLevelXP`; mốc Era Zero Lv.0 / Awaken Lv.1 / Explorer Lv.3 / Guardian Lv.7 / Hero Lv.12 / Legend Lv.20 / **Forever Lv.35+ ∞**. Không có max level; số dư Learning Token chi tiêu/mua/chuyển nhượng không được dùng làm đầu vào level |
 | Boss Proof | Scene nộp sản phẩm/giải thích; chỉ hoàn thành khi đạt rubric, không chỉ bấm nút |
 | Proof/badge | Biến `BadgeID`, `ProofHash`, `VerificationLevel`; hiển thị cấp xác minh đúng sự thật |
 
@@ -43,12 +43,14 @@ Khi user sửa game, thay outcome hoặc thêm scene, thay đổi trở thành m
 
 ## Kết nối backend (production)
 
-Game nên nhận Canonical Module Graph qua JSON có schema/version và gửi event về endpoint có xác thực: `game_started`, `choice_made`, `quest_completed`, `quiz_submitted`, `flashcard_reviewed`, `artifact_created`, `boss_proof_submitted`. Mỗi event có `event_id`, `branch_id`, `output_version` và idempotency key. Server—not client—mới quyết định XP/chứng nhận/Creator Score chính thức; chống sửa biến/điểm ở client. Dữ liệu cá nhân và proof công khai cần consent riêng.
+Game nên nhận Canonical Module Graph qua JSON có schema/version và gửi event về endpoint có xác thực: `game_started`, `choice_made`, `quest_completed`, `quiz_submitted`, `flashcard_reviewed`, `artifact_created`, `boss_proof_submitted`. Mỗi event có `event_id`, `branch_id`, `output_version` và idempotency key. Server—not client—mới quyết định XP/chứng nhận/Creator Score chính thức; chống sửa biến/điểm ở client. Mỗi XP award được ghi vào XP Ledger với `formula_version=gon-level-v1`, rule version và idempotency; server trả lại `lifetimeXP`, `numericLevel`, `era`, `nextLevelXP` để game chỉ hiển thị/cache. Nếu có Learning Token tương lai, chỉ `LifetimeEarnedToken` từ event học hợp lệ mới đối chiếu level; tiêu token không tụt cấp. Dữ liệu cá nhân và proof công khai cần consent riêng.
 
 ## Checklist phát hành
 
 - [ ] Chạy hết quest/quiz/Boss trong bản export thật, không chỉ preview editor
 - [ ] XP không cộng lặp khi tải lại scene/retry request (idempotency)
+- [ ] Vector level đạt: 0 XP→Lv.0 Zero; 1.250 XP→Lv.12 Hero; 3.500 XP→Lv.35 Forever; 9.999 XP→Lv.99 Forever và vẫn còn Lv.100
+- [ ] UI không có “MAX/final level”; thanh progress tính theo 100 XP của level số hiện tại, Era roadmap hiển thị Forever `Lv.35+`
 - [ ] Cùng module graph render được ít nhất web path và GDevelop path mà không lệch nguồn/outcome
 - [ ] Có bản text/web tương đương cho user không chơi game; video/ảnh có caption/alt text
 - [ ] Fork giữ upstream/attribution và thay đổi scene/event được ghi thành Branch Commit

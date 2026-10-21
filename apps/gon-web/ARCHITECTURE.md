@@ -1,6 +1,6 @@
 # Kiến trúc đích — GON.org AI Learning Arena
 
-Tài liệu này ánh xạ prototype `apps/gon-web` sang hệ thống production lấy cảm hứng từ **WSIC** (search 768D + Brew) và **FastChat/Arena** (so sánh hai đáp án), đồng thời bổ sung requirement V2.1 về 10+ output ứng viên, trend, dấu chân cá nhân hoá, Journey Fork và render đa định dạng. Đặc tả requirement đầy đủ nằm tại `../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`.
+Tài liệu này ánh xạ prototype `apps/gon-web` sang hệ thống production lấy cảm hứng từ **WSIC** (search 768D + Brew) và **FastChat/Arena** (so sánh hai đáp án), đồng thời bổ sung requirement V2.1 về 10+ output ứng viên, trend, dấu chân cá nhân hoá, Journey Fork và render đa định dạng. Đặc tả requirement đầy đủ nằm tại `../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`. Mô hình level/XP/token chuẩn nằm tại `../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.md` và dùng công thức `gon-level-v1`: `Lv = floor(Lifetime XP / 100)`, không có trần.
 
 ## 1. Luồng nghiệp vụ
 
@@ -24,7 +24,7 @@ flowchart LR
   K --> S[Fork Journey Branch]
   S --> T[Render web/GDevelop/infographic/video/task]
   T --> M[Quest/quiz/flashcards + mastery gate]
-  M --> N[XP + Hero level]
+  M --> N[Lifetime XP → Lv.N · Era ∞]
   M --> O[Proof Vault]
   O --> P[Issuer/on-chain verification khi đủ điều kiện]
   O --> Q
@@ -92,6 +92,7 @@ Trước pipeline: `topic-checker` chặn input rỗng/lặp/nguy hiểm. Lỗi 
 - `candidate_outputs`, `output_versions`, `arena_matches`, `arena_votes`, `ranking_snapshots`
 - `journey_branches`, `branch_commits`, `branch_merges`, `branch_lineage`
 - `trend_snapshots`, `mastery_states`, `creator_attributions`, `reward_ledger`
+- `xp_ledger_entries`, `level_snapshots`; nếu có token trong tương lai: `learning_token_ledger` với trường earned/spendable tách riêng
 - `media_renders`, `gdevelop_exports`, `game_sessions`
 
 ## 6. Proof of Learning không được “tự phong”
@@ -110,7 +111,16 @@ Trước pipeline: `topic-checker` chặn input rỗng/lặp/nguy hiểm. Lỗi 
 
 Recommender chạy hai tầng: retrieval hợp nhất vector 768D, topic/fork graph, creator/guild, trend và evergreen; reranking kết hợp relevance, personal fit, predicted learning gain, trend đã trọng số theo completion/proof, source quality, creator trust và diversity. Mọi lần xếp hạng lưu feature/ranking snapshot cùng lý do hiển thị cho user. Trend được tính theo cửa sổ thời gian từ learner độc lập hoàn thành, Fork tạo artifact, mastery và proof; view/like/share có trọng số thấp và phải qua anti-bot/quality gate.
 
-Mỗi output/Success Path có version bất biến. Khi user Fork, backend tạo `journey_branch` trỏ về upstream version; các bước học có ý nghĩa thành `branch_commit`; merge phải hiển thị diff concept/nguồn/artifact và xử lý mâu thuẫn thay vì ghi đè âm thầm. Creator Score và mọi reward tương lai đọc từ attribution graph + ledger, ưu tiên downstream mastery/proof hơn tương tác bề mặt. XP nội bộ tách hoàn toàn khỏi token/tiền.
+Mỗi output/Success Path có version bất biến. Khi user Fork, backend tạo `journey_branch` trỏ về upstream version; các bước học có ý nghĩa thành `branch_commit`; merge phải hiển thị diff concept/nguồn/artifact và xử lý mâu thuẫn thay vì ghi đè âm thầm. Creator Score và mọi reward tương lai đọc từ attribution graph + ledger, ưu tiên downstream mastery/proof hơn tương tác bề mặt. Lifetime XP là sổ cái reputational nội bộ; Numeric Level tính từ Lifetime XP/Lifetime Earned hợp lệ, trong khi số dư token có thể chi tiêu/mua/chuyển nhượng không bao giờ quyết định level.
+
+### 7.1 Hợp đồng Lifelong Numeric Level
+
+- `XP_PER_LEVEL = 100`, `numericLevel = floor(LifetimeXP / 100)`, `xpInLevel = LifetimeXP mod 100`; luôn tồn tại `Lv.N+1`.
+- `Era` chỉ là lớp bản sắc: Zero Lv.0, Awaken Lv.1–2, Explorer Lv.3–6, Guardian Lv.7–11, Hero Lv.12–19, Legend Lv.20–34, Forever Lv.35+.
+- Mỗi `xp_ledger_entries` có `source_event_id`, `xp_delta`, `lifetime_xp_after`, `formula_version=gon-level-v1`, `rule_version`, `idempotency_key`, trạng thái và liên kết reversal/evidence.
+- API/profile phải trả đồng thời `lifetimeXP`, `numericLevel`, `era`, `nextLevelXP`, `remainingXP`, `formulaVersion`; không trả `maxLevel` hay next rỗng vì chạm trần.
+- Nếu Learning Token được bật sau phê duyệt pháp lý, phát hành từ cùng sự kiện học có thể làm tăng `lifetimeEarnedToken`; `spendableTokenBalance`, token mua vào và token nhận chuyển nhượng không tham gia tính level. Chi tiêu không demote user.
+- Migration prototype: `state.xp` được hiểu là Lifetime XP; 3.500 XP trở thành điểm mở Forever Era ở Lv.35, không phải điểm hoàn tất hành trình.
 
 Module được lưu dưới dạng Canonical Module Graph có schema/version. Worker render cùng graph thành web lesson, project GDevelop, infographic, chuỗi hình ảnh, video script/storyboard và task. Game/GDevelop gửi event đã ký/xác thực về backend; XP/proof chính thức do server quyết định bằng idempotency.
 
@@ -124,15 +134,15 @@ FastChat cho hai chatbot trả lời song song rồi vote. GON mở rộng thàn
 - Không fetch URL nội bộ (SSRF), không tin MIME client khai, không thực thi file tải lên.
 - Tôn trọng robots/bản quyền/điều khoản YouTube/Facebook; chỉ lưu metadata/transcript khi có quyền/phương thức hợp lệ.
 - AI Coach về sức khỏe không chẩn đoán, kê đơn hay thay chuyên gia; nội dung hiến máu phải hướng về cơ quan y tế/điểm hiến chính thức.
-- Không biến proof/XP thành cam kết tài chính. Nếu có token ở tương lai, cần tư vấn pháp lý độc lập và cảnh báo rủi ro tương tự ZOFO.
+- Không biến proof/XP thành cam kết tài chính. Token chưa được phát hành bởi prototype; nếu triển khai, cần tư vấn pháp lý độc lập, sổ cái earned/spendable tách riêng và cấm mua level bằng số dư chuyển nhượng.
 - Ghi audit cho thay đổi cấp proof; có quy trình sửa/thu hồi khi bằng chứng sai.
 
 ## 10. Lộ trình triển khai
 
 1. **P0:** OAuth thật, project/source CRUD, upload an toàn, một embedding provider.
-2. **P1:** hybrid search có tập đánh giá, module player, XP/proof system-recorded.
+2. **P1:** hybrid search có tập đánh giá, module player, XP Ledger/`gon-level-v1` phía server và proof system-recorded.
 3. **P2:** Brew queue + ADK + grounding gate + thông báo realtime.
 4. **P3:** 10+ candidate outputs, Learning Mode/footprint có consent, Output Arena và Journey Fork nội bộ; trend đầu tiên chỉ dùng sự kiện học thật trong GON.
 5. **P4:** Canonical Module Graph, GDevelop exporter đã kiểm thử, infographic/video renderer và game telemetry.
 6. **P5:** Public Success Path, Guild/community và creator attribution sau khi có moderation, anti-cheat, chính sách bản quyền/dữ liệu nhạy cảm.
-7. **P6:** Reward ngoài XP/token/marketplace chỉ khi hoàn tất pháp lý, thuế/KYC áp dụng, chống gian lận và điều khoản creator.
+7. **P6:** Learning Token có số dư chi tiêu/reward ngoài XP/marketplace chỉ khi hoàn tất pháp lý, thuế/KYC áp dụng, chống gian lận và điều khoản creator; Numeric Level vẫn chỉ dựa trên Lifetime Earned.

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-GON Brandbook PDF builder v2 (ReportLab canvas, 16:9 landscape).
+GON Brandbook PDF builder v2.2 (ReportLab canvas, 16:9 landscape).
 The v2 book documents the adult 18+ repositioning: Midnight/Hero palette,
-Be Vietnam Pro display type, AI learning arena, Brew and Proof of Learning.
+Be Vietnam Pro display type, AI learning arena, Brew, Proof of Learning and lifelong numeric levels.
 Run: /tmp/venv-branding/bin/python tools/build_brandbook.py
 """
 import pathlib, math
@@ -131,18 +131,18 @@ def p01_cover(c):
     p.img(PNG / "gon-icon@512.png", 54, 118, w=96)
     y = p.title(["GON", "BRANDBOOK"], t=222, size=41)
     p.txt("GAME OF NURTURE", 56, y + 2, "BeVN-XB", 13, G700)
-    p.para("Bộ nhận diện và sản phẩm học tập dạng game cho người trưởng thành 18+: AI Search, Brew Your Topic, Quest và Proof of Learning.", 56, y + 30, 250, size=11, leading=16)
+    p.para("Bộ nhận diện và sản phẩm học tập dạng game cho người trưởng thành 18+: AI Search, Brew Your Topic, Quest, Proof of Learning và Level số suốt đời không trần.", 56, y + 30, 250, size=11, leading=16)
     p.pill("Become the Hero Within.", 56, y + 86)
-    p.txt("2026 — Phiên bản v2.0 · Ingest. Learn. Prove. Become.", 56, H - 62, "BeVN-SB", 9, BODY)
+    p.txt("2026 — Phiên bản v2.2 · Ingest. Learn. Prove. Become.", 56, H - 62, "BeVN-SB", 9, BODY)
     p.newpage()
 
 def p02_index(c):
     p = page(c, 2); p.kicker("MỤC LỤC · INDEX")
     y = p.title(["CHÀO MỪNG ĐẾN", "VỚI GON 18+"], size=26)
     p.para("Bản v2 bắt đầu từ một thay đổi dứt khoát: GON không còn là thương hiệu trẻ em. Đây là hệ cho những Hero trưởng thành muốn biến tò mò thành năng lực và bằng chứng.", 54, y, 330, size=11, leading=16)
-    p.para("Sách giữ khung nhận diện khóa cứng của v1 nhưng bổ sung kiến trúc AI, Brew, Proof và an toàn dữ liệu. Nguồn cảm hứng ZOFO được ghi rõ; số liệu và tài sản của ZOFO không được dùng như của GON.", 54, y + 88, 330, size=10, leading=15)
+    p.para("Sách giữ khung nhận diện khóa cứng của v1 nhưng bổ sung kiến trúc AI, Brew, Proof, an toàn dữ liệu và mô hình Lifelong Numeric Level từ White Paper 1.0. Nguồn cảm hứng ZOFO được ghi rõ; số liệu và tài sản của ZOFO không được dùng như của GON.", 54, y + 88, 330, size=10, leading=15)
     p.pill("Đọc kèm: README.md + gon-tokens.css", 54, y + 176, fill=G100, color=G800)
-    rows = [("01", "Nền tảng thương hiệu", "GON là gì · sứ mệnh · Zero đến Forever", "03"),
+    rows = [("01", "Nền tảng thương hiệu", "GON là gì · sứ mệnh · Level số vô hạn · Forever Lv.35+", "03"),
             ("02", "Logo", "cấu tạo · khoảng thở · đơn sắc · đừng làm", "07"),
             ("03", "Typography", "Be Vietnam Pro cho toàn hệ 18+", "13"),
             ("04", "Màu sắc", "bảng màu · tương phản WCAG", "15"),
@@ -164,7 +164,7 @@ def p03_what(c):
     p.para("Khác biệt của GON là không có ngõ cụt: nếu kho nội dung chưa có module đủ sát, Brew Your Topic dùng multi-agent để tạo quest, flashcards, quiz và Boss Proof được cá nhân hoá.", 54, y + 98, 360, size=11, leading=16)
     yy = y + 188
     yy = p.bullet("Nuôi dưỡng (Nurture)", "Không ép học thuộc; thiết kế nhịp, phản hồi và bằng chứng để năng lực lớn bền.", 54, yy, 360, G500)
-    yy = p.bullet("Bằng hành động (Game)", "XP chỉ có ý nghĩa khi gắn với quest thật và kết quả kiểm chứng được.", 54, yy, 360, SUN500)
+    yy = p.bullet("Bằng hành động (Game)", "Lifetime XP chỉ có ý nghĩa khi gắn với quest thật và kết quả kiểm chứng được; mỗi 100 XP tăng một Numeric Level không trần.", 54, yy, 360, SUN500)
     x = 470
     feats = [("Mọi input là một quest", "Text/file/ảnh/video/link đều trở thành Source Artifact có provenance.", G500),
              ("AI Coach + Quest Path", "Hai lộ trình song song kiểu Arena: giải thích hoặc hành động.", SKY),
@@ -199,18 +199,19 @@ def p04_mission(c):
     p.newpage()
 
 def p05_audience(c):
-    p = page(c, 5); p.kicker("01 · CHỈ 18+ — HERO JOURNEY")
-    y = p.title(["ZERO ĐẾN", "FOREVER"], size=27)
-    p.para("ZOFO truyền cảm hứng cho một hành trình dài thay cho các cấp cây/trẻ em của v1. GON giữ tinh thần ấy nhưng gắn mỗi cấp với năng lực học tập và bằng chứng cụ thể.", 54, y, 350, size=10.5, leading=15.5)
-    p.para("Cổng 18+ không phải trang trí: sản phẩm có tài khoản, dữ liệu hành trình, proof công khai và chủ đề sức khỏe/cộng đồng. Chính sách tuổi production cần được thiết kế hợp pháp theo thị trường.", 54, y + 92, 350, size=10.5, leading=15.5)
-    p.para("XP mẫu ở prototype giúp kiểm thử game loop; không có giá trị tiền tệ và không nói lên tình trạng y tế của người dùng.", 54, y + 196, 350, size=10.5, leading=15.5)
-    tiers = [("ZERO", "0 XP", "Bắt đầu một câu hỏi", HexColor("#64748B")),
-             ("AWAKEN", "100 XP", "Có project và nguồn đầu tiên", SKY),
-             ("EXPLORER", "300 XP", "Hoàn thành quest khám phá", G500),
-             ("GUARDIAN", "700 XP", "Chứng minh có trách nhiệm", G700),
-             ("HERO", "1.200 XP", "Tạo tác động thật", CORAL),
-             ("LEGEND", "2.000 XP", "Mentor và đóng góp module", BERRY),
-             ("FOREVER", "3.500 XP", "Học/phục vụ thành lối sống", SUN500)]
+    p = page(c, 5); p.kicker("01 · CHỈ 18+ — LIFELONG NUMERIC LEVEL")
+    y = p.title(["LEVEL SỐ", "SUỐT ĐỜI"], size=27)
+    p.para("Học tập không có cấp cuối. Numeric Level là trục chính ngay từ XP đầu tiên: Lv = floor(Lifetime XP / 100). Các tên Zero đến Forever là Era kể chuyện trên cùng trục số.", 54, y, 350, size=10.5, leading=15.5)
+    p.para("Forever không phải đích đến: Era này mở ở Lv.35 (3.500 XP), rồi tiếp tục Lv.36, Lv.37, Lv.100... Mỗi thêm 100 Lifetime XP là một level mới, không reset theo mùa.", 54, y + 92, 350, size=10.5, leading=15.5)
+    p.para("Prototype chưa phát hành token. Nếu có Learning Token, level chỉ đối chiếu Lifetime Earned từ học tập hợp lệ; mua/chuyển token không lên cấp, tiêu token không tụt cấp. XP không nói lên tình trạng y tế.", 54, y + 196, 350, size=10.5, leading=15.5)
+    p.pill("White Paper 1.0 · gon-level-v1 · không có max level", 54, y + 292, fill=G100, color=G800)
+    tiers = [("ZERO", "Lv.0 · 0+ XP", "Bắt đầu một câu hỏi", HexColor("#64748B")),
+             ("AWAKEN", "Lv.1–2 · 100+ XP", "Có project và nguồn đầu tiên", SKY),
+             ("EXPLORER", "Lv.3–6 · 300+ XP", "Hoàn thành quest khám phá", G500),
+             ("GUARDIAN", "Lv.7–11 · 700+ XP", "Chứng minh có trách nhiệm", G700),
+             ("HERO", "Lv.12–19 · 1.200+ XP", "Tạo tác động thật", CORAL),
+             ("LEGEND", "Lv.20–34 · 2.000+ XP", "Mentor và đóng góp module", BERRY),
+             ("FOREVER", "Lv.35+ · 3.500+ XP", "Era mở vô hạn: Lv.36, 37, 100...", SUN500)]
     t = 96
     for name, sub, desc, col in tiers:
         p.rect(460, t, 436, 48, fill=white, stroke=LINE, r=12)
@@ -428,10 +429,10 @@ def p15_color_primary(c):
     p.newpage()
 
 def p16_color_secondary(c):
-    p = page(c, 16); p.kicker("04 · MÀU PHỤ & MÀU THEO CẤP")
+    p = page(c, 16); p.kicker("04 · MÀU PHỤ & MÀU THEO ERA")
     y = p.title(["LỬA NHÂN VĂN,", "ÁNH SÁNG PROOF"], size=27)
-    p.para("Màu phụ mang ngữ nghĩa sản phẩm: Crimson = hiến máu/hành động nhân văn, Cyan = dữ liệu/proof/nguồn, Violet = sáng tạo cấp cao. Mỗi cấp Hero có một dấu màu nhưng không biến giao diện thành cầu vồng.", 54, y, 360, size=10.5, leading=15.5)
-    tiers = [("Zero", "#64748B"), ("Awaken", "#0EA5C6"), ("Explorer", "#12B981"), ("Guardian", "#047857"), ("Hero", "#F04452"), ("Legend", "#7C6BE0"), ("Forever", "#FFB703")]
+    p.para("Màu phụ mang ngữ nghĩa sản phẩm: Crimson = hiến máu/hành động nhân văn, Cyan = dữ liệu/proof/nguồn, Violet = sáng tạo cấp cao. Mỗi Era có một dấu màu; Numeric Level vẫn tăng vô hạn, riêng Forever dùng Gold cho toàn bộ Lv.35+.", 54, y, 360, size=10.5, leading=15.5)
+    tiers = [("Zero Lv.0", "#64748B"), ("Awaken", "#0EA5C6"), ("Explorer", "#12B981"), ("Guardian", "#047857"), ("Hero", "#F04452"), ("Legend", "#7C6BE0"), ("Forever 35+", "#FFB703")]
     xx = 54
     for lb, hx in tiers:
         p.circle(xx + 20, y + 128, 20, fill=HexColor(hx), stroke=LINE)
@@ -533,7 +534,7 @@ def p22_content(c):
     y = p.title(["SÁU CỘT TRỤ", "CỦA GON.ORG"], size=28)
     p.para("Mọi trang web và màn hình của GON xoay quanh sáu cột trụ gắn với ZOFO nhưng viết cho sản phẩm học tập AI: cộng đồng, sức khỏe, AI Coach, gamification, proof và hành trình dài hạn.", 54, y, 340, size=10.5, leading=15.5)
     promises = ["Hiến máu & hành động nhân văn", "Sức khỏe toàn diện bằng thói quen", "AI Coach cá nhân hoá",
-                "Zero to Hero: XP · Quest · Guild", "Brew Your Topic không ngõ cụt", "Proof of Learning truy vết được"]
+                "Lifelong Level: Lv.N · Era · Quest · Guild", "Brew Your Topic không ngõ cụt", "Proof of Learning truy vết được"]
     x, t = 450, 100
     for i, s in enumerate(promises):
         p.rect(x, t, 448, 42, fill=white, stroke=LINE, r=12)
@@ -605,14 +606,14 @@ def p26_product(c):
     y = p.title(["TỪ INPUT", "THÀNH GAME"])
     rules = [("Arena hai lộ trình", "AI Coach Path giải thích/roadmap; Quest Path biến kiến thức thành hành động. Người học có thể hợp nhất."),
              ("Module có hợp đồng", "Mỗi module có outcome, concepts, 5 quest, flashcards, reorder, quiz và Boss Proof."),
-             ("Server là trọng tài", "XP/badge chính thức được quyết định ở backend có idempotency, không tin biến client."),
+             ("Server là trọng tài", "Lifetime XP/Lv.N/badge chính thức do XP Ledger ở backend quyết định với idempotency; game chỉ hiển thị, không tự phong cấp."),
              ("Xuất GDevelop", "Prototype xuất blueprint scene/events/variables; converter tự động là việc production riêng.")]
     yy = y
     for h, b in rules: yy = p.bullet(h, b, 54, yy, 340)
     x, t, w, h = 520, 92, 300, 400
     p.rect(x, t, w, h, fill=INK, r=30); p.rect(x + 10, t + 10, w - 20, h - 20, fill=PAPER, r=24)
     p.img(PNG / "gon-app-icon-green@512.png", x + 24, t + 24, w=40)
-    p.txt("Guardian · Hiến máu", x + 74, t + 30, "BalooB", 13, INK)
+    p.txt("Lv.9 · Guardian Era", x + 74, t + 30, "BalooB", 13, INK)
     p.rect(x + 24, t + 84, w - 48, 96, fill=white, stroke=LINE, r=16)
     p.txt("Sắp xếp quy trình chuẩn bị", x + w / 2, t + 98, "BalooB", 13, INK, "middle")
     for i, col in enumerate([G500, SUN, SKY, CORAL]):
@@ -634,7 +635,7 @@ def p31_ai_system(c):
     p.pill("apps/gon-web/ARCHITECTURE.md", 54, yy + 4, fill=G100, color=G800)
     steps = [("⌁", "Ingest", "Text · file · ảnh · video · link"), ("◎", "Understand", "OCR/transcript · keyword · intent"),
              ("⬡", "Embed", "Gemini vector 768D + provenance"), ("⌕", "Search", "Found · related · missing"),
-             ("✦", "Brew", "Google ADK 11 bước"), ("♛", "Prove", "Quest · XP · Proof Vault")]
+             ("✦", "Brew", "Google ADK 11 bước"), ("♛", "Prove", "Quest · Lifetime XP · Lv.N vô hạn · Proof Vault")]
     x0, t0 = 470, 100
     for i, (icon, h, b) in enumerate(steps):
         x = x0 + (i % 2) * 216; t = t0 + (i // 2) * 112
@@ -707,7 +708,7 @@ def p29_governance(c):
     left = [("Nguồn duy nhất", "Mọi file lấy từ branding/GON-GameOfNurture trong repo; thay đổi qua pull request kèm ảnh so sánh trước/sau."),
             ("Đặt tên file", "gon-{loại}-{biến thể}@{kích thước}.png · SVG là bản gốc, PNG chỉ là bản xuất."),
             ("Phê duyệt", "Logo đối tác, tuyên bố hiệu quả/y tế, ảnh người thật và nâng cấp proof: cần duyệt thương hiệu + pháp lý/chuyên môn."),
-            ("Phiên bản", "Brandbook v2.0 · 21/10/2026. V1 chỉ còn giá trị lịch sử; ghi thay đổi vào README.")]
+            ("Phiên bản", "Brandbook v2.2 · 22/10/2026. Mô hình level theo GON White Paper 1.0/gon-level-v1; V1 chỉ còn giá trị lịch sử.")]
     yy = y
     for h, b in left: yy = p.bullet(h, b, 54, yy, 400)
     x = 520
@@ -715,7 +716,7 @@ def p29_governance(c):
     p.txt("LƯU Ý TRƯỚC KHI RA MẮT", x + 20, 128, "BeVN-XB", 11, RED)
     notes = ["Tra cứu & đăng ký nhãn hiệu GON / Game Of Nurture; kiểm tra quyền dùng thông điệp/tài sản ZOFO nếu không cùng chủ thể.",
              "Không dùng logo, số liệu hay câu chữ của ZOFO/POAP/Nurture như của GON.",
-             "OAuth/Gemini/ADK/POAP trong prototype là mô phỏng; không tiếp thị như đã tích hợp thật.",
+             "OAuth/Gemini/ADK/POAP/token trong prototype là mô phỏng hoặc chưa phát hành; không tiếp thị như đã tích hợp thật, không cho mua level bằng token.",
              "Be Vietnam Pro theo OFL 1.1. Minh họa AI cần kiểm tra/vẽ lại rõ quyền trước thương mại hoá.",
              "Rà soát tuổi 18+, dữ liệu cá nhân, bản quyền ingest và nội dung sức khỏe theo thị trường."]
     t = 154
@@ -729,7 +730,7 @@ def p30_back(c):
     p.txt("GON", W / 2, 216, "BalooXB", 44, white, "middle")
     p.txt("GAME OF NURTURE", W / 2, 264, "BeVN-XB", 13, G300, "middle")
     p.txt("Become the Hero Within. — Ingest. Learn. Prove. Become.", W / 2, 300, "BalooB", 15, SUN, "middle")
-    p.para("GON BRANDBOOK 2026 — Heroes 18+ v2.0\nThiết kế tại Việt Nam, cho Hero trưởng thành ở khắp nơi.\nHệ nhận diện: branding/GON-GameOfNurture · Prototype: apps/gon-web",
+    p.para("GON BRANDBOOK 2026 — Heroes 18+ v2.2\nLv.35 mở Forever Era — học tập suốt đời, không có level cuối.\nThiết kế tại Việt Nam, cho Hero trưởng thành ở khắp nơi.\nHệ nhận diện: branding/GON-GameOfNurture · Prototype: apps/gon-web",
            W / 2 - 260, 350, 520, "BeVN", 10, G100, 15, "middle")
     p.txt("© 2026 GON — Game Of Nurture. Kiểm tra nhãn hiệu trước khi sử dụng thương mại.", W / 2, H - 56, "BeVN", 8.5, G300, "middle")
     p.footer()
@@ -744,9 +745,9 @@ PAGES = [p01_cover, p02_index, p03_what, p04_mission, p05_audience, p06_personal
 def main():
     from reportlab.pdfgen import canvas
     c = canvas.Canvas(str(OUT), pagesize=(W, H))
-    c.setTitle("GON — Game Of Nurture for Heroes 18+ · Brandbook 2026 v2.0")
+    c.setTitle("GON — Game Of Nurture for Heroes 18+ · Brandbook 2026 v2.2 · Lifelong Levels")
     c.setAuthor("GON Branding — Game Of Nurture 18+")
-    c.setSubject("Logo, brand system and AI product blueprint for GON.org — adult learning games 18+, Gemini 768D search, Brew and Proof")
+    c.setSubject("Logo, brand system and AI product blueprint for GON.org — adult learning games 18+, Gemini 768D search, Brew, Proof and unbounded lifelong numeric levels (Forever Era from Lv.35)")
     for fn in PAGES: fn(c)
     c.save(); print(f"Wrote {OUT} ({len(PAGES)} pages)")
 
