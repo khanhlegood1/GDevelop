@@ -1,0 +1,35 @@
+{
+  "meta": {"name": "GON — Game Of Nurture", "version": "1.0", "date": "2026-10-21",
+           "note": "CMYK are straightforward conversions — proof against a physical swatch before print. No Pantone code is claimed."},
+  "color": {
+    "green": {"50":"#EAFBF2","100":"#D3F5E3","200":"#A7EAC9","300":"#6FD9A7","400":"#3AC982",
+              "500":"#18B26B","600":"#0E9455","700":"#0C7746","800":"#0B5C38"},
+    "ink": "#12261E",
+    "sun": {"300":"#FFDD7A","400":"#FFC93C","500":"#FFB020","600":"#E8930C"},
+    "sky": {"400":"#38BDF8","500":"#1499D6","600":"#0B7AB8","700":"#0A5E8C"},
+    "coral": {"400":"#FF8A70","500":"#FF6B57","600":"#E64B38"},
+    "berry": {"500":"#7C6BE0","600":"#6653C9"},
+    "neutral": {"paper":"#FFF9EE","cream":"#FFF3D6","white":"#FFFFFF","body":"#44564F","line":"#DCE8E1","black":"#000000"}
+  },
+  "accessiblePairs": [
+    {"fg":"#12261E","bg":"#FFF9EE","ratio":15.16,"use":"body text on paper"},
+    {"fg":"#FFFFFF","bg":"#0C7746","ratio":5.61,"use":"primary buttons (AA)"},
+    {"fg":"#12261E","bg":"#18B26B","ratio":5.76,"use":"bright-green chips with Ink text"},
+    {"fg":"#12261E","bg":"#FFC93C","ratio":10.34,"use":"reward/sun surfaces"},
+    {"fg":"#0A5E8C","bg":"#FFFFFF","ratio":7.02,"use":"links / sky text"},
+    {"fg":"#0B5C38","bg":"#FFFFFF","ratio":8.07,"use":"green headings"},
+    {"fg":"#44564F","bg":"#FFFFFF","ratio":7.81,"use":"muted body text"}
+  ],
+  "forbiddenPairs": [
+    {"fg":"#FFFFFF","bg":"#18B26B","ratio":2.76,"why":"fails WCAG for text — use Green 700 or Ink text"},
+    {"fg":"#FFFFFF","bg":"#FFC93C","why":"yellow + white never"},
+    {"fg":"#FFFFFF","bg":"#FF6B57","ratio":"<3","why":"coral is graphic accent only for small text"}
+  ],
+  "font": {"display":"Baloo 2 (600/700/800)","body":"Be Vietnam Pro (400/500/600/700/800)",
+           "fallback":"Nunito → system-ui","license":"SIL Open Font License 1.1",
+           "vietnamese":"Both families include full Vietnamese diacritics — always subset latin + latin-ext + vietnamese together"},
+  "radius": {"s":12,"m":20,"l":28,"pill":999},
+  "touchTargetMinPx": 48,
+  "logo": {"clearspace":"1x on all sides, x = G-bar height = 12.5% of mark width",
+           "minDigital":{"iconPx":24,"lockupPx":96},"minPrintMm":{"icon":8,"lockup":25}}
+}
