@@ -3,6 +3,7 @@ import {
   chunkText,
   classifyUrlKind,
   detectFile,
+  MAX_DOCUMENT_BYTES,
   MAX_FILES_PER_PROJECT,
   MAX_PROJECT_UPLOAD_BYTES,
   MAX_TEXT_ARTIFACT_CHARS,
@@ -345,7 +346,7 @@ export class GonService {
     providerSubject: string;
     email?: string | null;
     displayName?: string | null;
-    authUserId?: string;
+    authUserId?: string | number;
   }): UserRecord {
     const subject = input.providerSubject.trim();
     if (!subject) throw validationError("Provider subject không được để trống.");
@@ -354,7 +355,9 @@ export class GonService {
     if (existingLink) {
       const user = this.store.users.get(existingLink.userId);
       if (!user) throw unauthorized("Identity link không còn hợp lệ.");
-      if (input.authUserId) user.authUserId = input.authUserId;
+      if (input.authUserId !== undefined && input.authUserId !== null && input.authUserId !== "") {
+        user.authUserId = String(input.authUserId);
+      }
       const profile = this.store.profiles.get(user.id);
       if (profile && input.displayName && (profile.displayName === "Người học GON" || profile.displayName === "GON Learner")) {
         profile.displayName = truncateText(input.displayName, 120);
@@ -371,7 +374,9 @@ export class GonService {
       createdAt: now,
       deletedAt: null,
       roles: ["learner"],
-      authUserId: input.authUserId,
+      authUserId: input.authUserId === undefined || input.authUserId === null || input.authUserId === ""
+        ? undefined
+        : String(input.authUserId),
     };
     this.store.users.set(user.id, user);
     this.store.identityLinks.set(key, {
@@ -392,7 +397,7 @@ export class GonService {
     return user;
   }
 
-  ensureGoogleUser(input: { providerSubject: string; email?: string | null; displayName?: string | null; authUserId?: string }): UserRecord {
+  ensureGoogleUser(input: { providerSubject: string; email?: string | null; displayName?: string | null; authUserId?: string | number }): UserRecord {
     return this.ensureIdentityUser({ provider: "google", ...input });
   }
 
@@ -408,8 +413,9 @@ export class GonService {
     });
   }
 
-  findUserIdByAuthUserId(authUserId: string): string | undefined {
-    return [...this.store.users.values()].find((user) => user.authUserId === authUserId)?.id;
+  findUserIdByAuthUserId(authUserId: string | number): string | undefined {
+    const normalized = String(authUserId);
+    return [...this.store.users.values()].find((user) => user.authUserId === normalized)?.id;
   }
 
   createDevSession(userId: string): { token: string; expiresAt: string } {
@@ -1355,7 +1361,7 @@ export class GonService {
     };
   }
 
-  acceptLocalUpload(artifactId: string, token: string | null, bytes: Uint8Array, contentType: string | null): JsonRecord {
+  private requireLocalUploadSession(artifactId: string, token: string | null) {
     const session = this.store.uploadSessions.get(artifactId);
     const artifact = this.store.artifacts.get(artifactId);
     if (!session || !artifact || artifact.deletedAt) throw notFound("Upload session không tồn tại.");
@@ -1365,6 +1371,21 @@ export class GonService {
     if (Date.parse(session.expiresAt) <= this.clock().getTime() || session.completedAt) {
       throw conflict("UPLOAD_SESSION_EXPIRED", "Upload session đã hết hạn hoặc hoàn tất", "Hãy khởi tạo upload session mới.");
     }
+    return { session, artifact };
+  }
+
+  authorizeLocalUpload(artifactId: string, token: string | null): { artifactId: string; maxByteSize: number } {
+    const { session } = this.requireLocalUploadSession(artifactId, token);
+    return {
+      artifactId,
+      // Authorization happens before the HTTP adapter reads the body, so an
+      // unauthenticated caller cannot force the process to buffer an upload.
+      maxByteSize: Math.min(session.declaredByteSize, MAX_DOCUMENT_BYTES),
+    };
+  }
+
+  acceptLocalUpload(artifactId: string, token: string | null, bytes: Uint8Array, contentType: string | null): JsonRecord {
+    const { session } = this.requireLocalUploadSession(artifactId, token);
     const buffer = Buffer.from(bytes);
     if (buffer.length === 0) throw validationError("File upload rỗng.");
     if (buffer.length > session.declaredByteSize) {

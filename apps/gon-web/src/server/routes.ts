@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireActor } from "./actor";
+import { readConfig } from "./config";
 import { notFound } from "./errors";
 import {
   assertMutation,
   createRequestId,
+  getRequestOrigin,
   jsonData,
   jsonPage,
   parseCookies,
@@ -15,10 +17,11 @@ import { getGonService } from "./runtime";
 import { paginationFromSearchParams } from "./validation";
 
 function requestOrigin(request: Request): string {
-  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  if (forwardedProto && forwardedHost) return `${forwardedProto}://${forwardedHost}`;
-  return new URL(request.url).origin;
+  const config = readConfig();
+  return getRequestOrigin(request, {
+    trustProxyHeaders: config.trustProxyHeaders,
+    publicOrigin: config.publicOrigin,
+  });
 }
 
 function splitActionSegment(segment: string, action: string): string | null {
@@ -37,10 +40,10 @@ export async function handleV1(request: Request, rawSegments: string[]): Promise
   });
   const method = request.method.toUpperCase();
   const url = new URL(request.url);
-  const service = getGonService();
 
   try {
     const actor = await requireActor(request, requestId);
+    const service = getGonService();
 
     if (segments[0] === "me") {
       if (method === "GET" && segments[1] === "bootstrap" && segments.length === 2) {

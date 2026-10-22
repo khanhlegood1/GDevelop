@@ -2,12 +2,13 @@
 
 > **Mục đích:** Khu vực tài liệu kỹ thuật chính thức cho quá trình phát triển GON theo AI-Agile/HITL. Đây là nơi lưu quyết định kiến trúc, truy vết nguồn mở, tiêu chí từng gate và bằng chứng bàn giao.<br>
 > **Repository sản xuất:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
-> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 APPROVED · P04 IN PROGRESS (VS1)**<br>
+> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 APPROVED · P04 APPROVED · P05 IN REVIEW — NOT YET PASS**<br>
 > **Product Owner:** Người sở hữu dự án GON trong cuộc trao đổi phê duyệt.<br>
 > **Gate 0 được PO duyệt:** 22/10/2026 tại commit `5482dac`<br>
 > **P01 được PO duyệt:** 22/10/2026 tại commit `9a09fa2`, gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
 > **P02 được PO duyệt:** 22/10/2026 tại commit `33c2641`, gồm toàn bộ `D-P02-01`…`D-P02-12`<br>
-> **P03 được PO duyệt:** 22/10/2026 tại commit `b4e6ec2`, gồm toàn bộ `D-P03-01`…`D-P03-14`
+> **P03 được PO duyệt:** 22/10/2026 tại commit `b4e6ec2`, gồm toàn bộ `D-P03-01`…`D-P03-14`<br>
+> **P04 được PO duyệt:** 22/10/2026 cho PR #13, implementation head `76eac20`, merge `ef594de`; PO đồng thời cho phép bắt đầu P05
 
 ## Trạng thái các gate
 
@@ -17,15 +18,23 @@
 | P01 | Requirement Intelligence | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `9a09fa2` |
 | P02 | Frontend UX Agreement | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `33c2641` |
 | P03 | API Contract & Data Model First | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `b4e6ec2` |
-| P04 | Vertical Slice Build | **IN PROGRESS — VS1** | Hoàn thành các slice trong phạm vi Private Alpha và được PO duyệt trước P05 |
-| P05 | NFR & Well-Architected Review | Chưa bắt đầu | Các vertical slice trong phạm vi release hoàn tất |
+| P04 | Vertical Slice Build | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 cho PR #13/head `76eac20`/merge `ef594de` |
+| P05 | NFR & Well-Architected Review | **IN REVIEW — NOT YET PASS** | Đóng các blocker production và được PO duyệt sau re-review |
 | P06 | Cloud Deployment | Chưa bắt đầu | P05 đạt và PO ra quyết định Go-Live riêng |
 | R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
 
-## Tài liệu P04 đang triển khai
+## Tài liệu P05 đang review
 
-1. [P04 — Vertical Slice Build: kế hoạch, spike và bằng chứng VS1](05-build/README.md) — **IN PROGRESS**
-2. [Production GON Web application](../src/README.md) — Next.js/TypeScript modular monolith đang được dựng theo P03
+1. [P05 — NFR & Well-Architected Review: cổng gói và blockers](06-nfr/README.md) — **IN REVIEW — NOT YET PASS**
+2. [Đặc tả NFR và kết quả đo](06-nfr/NFR-SPECIFICATION-AND-RESULTS.md)
+3. [Threat model, kiểm chứng bảo mật và findings](06-nfr/SECURITY-THREAT-MODEL-AND-VERIFICATION.md)
+4. [Performance, Accessibility và AI Evaluation](06-nfr/PERFORMANCE-ACCESSIBILITY-AND-AI-EVALUATION.md)
+5. [Reliability, Observability, DR và Well-Architected gaps](06-nfr/RELIABILITY-OBSERVABILITY-AND-WELL-ARCHITECTED.md)
+
+## Tài liệu P04 đã được phê duyệt
+
+1. [P04 — Vertical Slice Build: baseline, spike và bằng chứng VS1](05-build/README.md) — **APPROVED**
+2. [Production GON Web application](../src/README.md) — Next.js/TypeScript modular monolith theo P03; vẫn là local/test increment, không phải deployment
 3. [PostgreSQL schema & migrations](../db/README.md) — SQL-first schema đã có; chưa chạy trên PostgreSQL thật trong sandbox
 4. [GON ADK contract service](../../gon-adk/README.md) — Python/FastAPI/ADK harness; local provider đã test, Gemini thật chưa chạy
 
@@ -97,7 +106,7 @@ Các lựa chọn sau đã được PO xác nhận trong phiên làm việc ngà
 - Tái sử dụng code **có chọn lọc sau Audit**; không fork nguyên FastChat/WSIC thành production.
 - Mã production của GON nằm trong **`khanhlegood1/GDevelop`**.
 
-PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2`, P02 tại `33c2641` và P03 tại `b4e6ec2`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`, `D-P02-*`, `D-P03-*` tương ứng và cho phép bắt đầu P04 với VS1. P05 vẫn là gate riêng và chỉ bắt đầu sau khi P04 hoàn thành/được duyệt.
+PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2`, P02 tại `33c2641`, P03 tại `b4e6ec2` và P04 cho PR #13/head `76eac20`/merge `ef594de`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`, `D-P02-*`, `D-P03-*` tương ứng. PO đã cho phép bắt đầu P05; P05 hiện **IN REVIEW — NOT YET PASS**, còn P06 chưa bắt đầu và vẫn cần P05 APPROVED cộng quyết định Go-Live riêng.
 
 ## Tài liệu sản phẩm đã có
 

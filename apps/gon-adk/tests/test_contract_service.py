@@ -29,20 +29,27 @@ def load_example(name: str) -> dict:
     return json.loads((EXAMPLES_DIR / name).read_text(encoding="utf-8"))
 
 
-def make_settings(provider: str = "local", model_id: str | None = None) -> Settings:
-    return Settings(
-        service_token=TOKEN,
-        allow_unauthenticated_local=False,
-        provider=provider,
-        model_id=model_id,
-        contracts_dir=CONTRACTS_DIR,
-        request_timeout_seconds=10,
-        max_body_bytes=2_500_000,
-    )
+def make_settings(
+    provider: str = "local", model_id: str | None = None, **overrides: object
+) -> Settings:
+    values: dict[str, object] = {
+        "service_token": TOKEN,
+        "allow_unauthenticated_local": False,
+        "provider": provider,
+        "model_id": model_id,
+        "contracts_dir": CONTRACTS_DIR,
+        "request_timeout_seconds": 10,
+        "max_body_bytes": 2_500_000,
+        "environment": "local",
+    }
+    values.update(overrides)
+    return Settings(**values)  # type: ignore[arg-type]
 
 
-def make_client(provider: str = "local", model_id: str | None = None) -> TestClient:
-    return TestClient(create_app(make_settings(provider, model_id)))
+def make_client(
+    provider: str = "local", model_id: str | None = None, **overrides: object
+) -> TestClient:
+    return TestClient(create_app(make_settings(provider, model_id, **overrides)))
 
 
 def test_health_reports_no_database_or_publish_access() -> None:
@@ -125,6 +132,40 @@ def test_local_assessment_keeps_criterion_ids_and_reviews_copy_similarity() -> N
     assert {
         item["criterionId"] for item in body["criteria"]
     } == {item["id"] for item in payload["rubric"]["criteria"]}
+
+
+def test_oversized_declared_and_streamed_bodies_are_rejected() -> None:
+    client = make_client(max_body_bytes=16)
+
+    declared = client.post(
+        "/v1/topic-check",
+        headers={**HEADERS, "Content-Type": "application/json"},
+        content=b"x" * 17,
+    )
+    assert declared.status_code == 413
+    assert declared.json()["code"] == "REQUEST_TOO_LARGE"
+
+    streamed = client.post(
+        "/v1/topic-check",
+        headers={**HEADERS, "Content-Type": "application/json"},
+        content=iter([b"x" * 10, b"x" * 10]),
+    )
+    assert streamed.status_code == 413
+    assert streamed.json()["code"] == "REQUEST_TOO_LARGE"
+
+
+def test_unauthenticated_local_flag_is_ignored_outside_local() -> None:
+    client = make_client(
+        service_token=None,
+        allow_unauthenticated_local=True,
+        environment="staging",
+    )
+    assert client.get("/healthz").json()["status"] == "degraded"
+    response = client.post(
+        "/v1/topic-check", json=load_example("agent-topic-check-input.json")
+    )
+    assert response.status_code == 503
+    assert response.json()["code"] == "SERVICE_AUTH_NOT_CONFIGURED"
 
 
 def test_google_provider_fails_closed_without_a_model() -> None:

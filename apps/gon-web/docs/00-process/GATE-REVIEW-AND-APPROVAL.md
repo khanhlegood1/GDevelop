@@ -151,6 +151,7 @@ Dùng khi quyết định chưa đủ lớn để thành ADR riêng:
 | 22/10/2026 | **APPROVED P01** và toàn bộ `D-P01-01`…`D-P01-14`, cho phép bắt đầu P02 | PO | Commit `9a09fa2` | Tại thời điểm đó, P02 vẫn cần phê duyệt riêng trước P03 (đã được duyệt ngay bên dưới) |
 | 22/10/2026 | **APPROVED P02** và toàn bộ `D-P02-01`…`D-P02-12`, cho phép bắt đầu P03 | PO | Commit `33c2641` | Không có điều kiện cụ thể ngoài mẫu “<nếu có>”; usability test người dùng thật vẫn chưa thực hiện và được ghi là kiểm chứng còn mở trước P04 |
 | 22/10/2026 | **APPROVED P03** và toàn bộ `D-P03-01`…`D-P03-14`, cho phép bắt đầu P04 với VS1 | PO | Commit `b4e6ec2` | Không có điều kiện cụ thể ngoài mẫu “<nếu có>”; các spike S-P03-01…04 và usability test thật vẫn phải xử lý trong P04 trước khi khóa production UI/release |
+| 22/10/2026 | **APPROVED P04** toàn bộ và cho phép bắt đầu P05 | PO | PR #13; head `76eac200703ea0ac72907b43989b5a3dc73308d2`; merge `ef594dea3512f32dabe5c88b83ee6cb4ab24cc62` | PO để trống trường commit và không nêu điều kiện cụ thể ngoài mẫu “<nếu có>”; không suy diễn thêm mã quyết định `D-P04-*`. P05 và Go-Live vẫn cần duyệt riêng |
 
 ## 6. Quy tắc escalated decision
 

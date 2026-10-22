@@ -91,7 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     "A valid X-GON-Service-Token header is required.",
                 )
             return None
-        if active_settings.allow_unauthenticated_local:
+        if active_settings.unauthenticated_local_enabled:
             return None
         return problem(
             503,
@@ -101,14 +101,32 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
 
     async def parse_body(request: Request) -> dict[str, Any] | JSONResponse:
-        raw = await request.body()
-        if len(raw) > active_settings.max_body_bytes:
+        def too_large() -> JSONResponse:
             return problem(
                 413,
                 "REQUEST_TOO_LARGE",
                 "Request body too large",
                 f"Body exceeds {active_settings.max_body_bytes} bytes.",
             )
+
+        declared_length = request.headers.get("content-length")
+        if declared_length:
+            try:
+                if int(declared_length) > active_settings.max_body_bytes:
+                    return too_large()
+            except ValueError:
+                pass
+
+        # Do not call request.body() first: chunked requests must be stopped
+        # as soon as the streamed total crosses the configured limit.
+        raw_parts: list[bytes] = []
+        total_bytes = 0
+        async for chunk in request.stream():
+            total_bytes += len(chunk)
+            if total_bytes > active_settings.max_body_bytes:
+                return too_large()
+            raw_parts.append(chunk)
+        raw = b"".join(raw_parts)
         try:
             parsed = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError):
@@ -220,7 +238,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def healthz() -> dict[str, Any]:
         schemas_ready = catalog is not None
         auth_ready = bool(active_settings.service_token) or (
-            active_settings.allow_unauthenticated_local
+            active_settings.unauthenticated_local_enabled
         )
         return {
             "status": "ok" if schemas_ready and auth_ready else "degraded",

@@ -1,4 +1,4 @@
-import { readConfig } from "./config";
+import { assertRuntimeStoreAllowed, readConfig } from "./config";
 import { MemoryGonStore } from "./memory-store";
 import { GonService } from "./service";
 
@@ -17,6 +17,7 @@ export function getGonService(): GonService {
       "GON_STORE=postgres is reserved for the PostgreSQL repository increment. The VS1 first increment only wires the explicit local/test memory adapter; refusing to silently fall back.",
     );
   }
+  assertRuntimeStoreAllowed(config);
 
   const store = new MemoryGonStore();
   if (config.devInviteCode) store.seedInvite(config.devInviteCode);

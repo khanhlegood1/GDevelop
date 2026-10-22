@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { readConfig } from "./config";
 import { ApiError, validationError } from "./errors";
 import { timingSafeStringEqual } from "./hash";
 import { createId } from "./ids";
 
 export const CSRF_COOKIE_NAME = "gon_csrf";
 export const DEV_SESSION_COOKIE_NAME = "gon_dev_session";
+export const MAX_JSON_BODY_BYTES = 2_500_000;
 
 export function parseCookies(cookieHeader: string | null): Record<string, string> {
   const cookies: Record<string, string> = {};
@@ -86,17 +88,68 @@ export function problemResponse(error: unknown, requestId: string): NextResponse
   return response;
 }
 
-export async function readJsonBody(request: Request): Promise<unknown> {
-  const text = await request.text();
-  if (!text.trim()) return {};
-  if (Buffer.byteLength(text, "utf8") > 2_500_000) {
-    throw new ApiError({
-      status: 413,
-      code: "REQUEST_TOO_LARGE",
-      title: "Nội dung yêu cầu quá lớn",
-      detail: "JSON body vượt giới hạn xử lý của API.",
-    });
+function requestTooLarge(maxBytes: number): ApiError {
+  return new ApiError({
+    status: 413,
+    code: "REQUEST_TOO_LARGE",
+    title: "Nội dung yêu cầu quá lớn",
+    detail: `Body vượt giới hạn ${maxBytes} bytes của API.`,
+  });
+}
+
+/**
+ * Read a request body without first materializing an unbounded payload.
+ * The declared Content-Length is only an early-exit hint; the streaming byte
+ * count is authoritative because chunked requests may omit or misstate it.
+ */
+export async function readBoundedBody(request: Request, maxBytes: number): Promise<Uint8Array> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+    throw new Error("maxBytes must be a positive safe integer");
   }
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) throw requestTooLarge(maxBytes);
+  if (!request.body) return new Uint8Array();
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel("request body exceeds configured limit").catch(() => undefined);
+        throw requestTooLarge(maxBytes);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+export async function readJsonBody(request: Request, maxBytes = MAX_JSON_BODY_BYTES): Promise<unknown> {
+  const bytes = await readBoundedBody(request, maxBytes);
+  if (bytes.byteLength === 0) return {};
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw validationError("Body phải được mã hóa UTF-8 hợp lệ.", [
+      { field: "body", code: "invalid_encoding", message: "Cần gửi JSON UTF-8 hợp lệ." },
+    ]);
+  }
+  if (!text.trim()) return {};
   try {
     return JSON.parse(text) as unknown;
   } catch {
@@ -106,10 +159,30 @@ export async function readJsonBody(request: Request): Promise<unknown> {
   }
 }
 
+export interface RequestOriginOptions {
+  trustProxyHeaders?: boolean;
+  publicOrigin?: string;
+}
+
+export function getRequestOrigin(request: Request, options: RequestOriginOptions = {}): string {
+  if (options.publicOrigin) return options.publicOrigin;
+  const trustProxyHeaders = options.trustProxyHeaders ?? readConfig().trustProxyHeaders;
+  const requestUrl = new URL(request.url);
+  const forwardedHost = trustProxyHeaders
+    ? request.headers.get("x-forwarded-host")?.split(",")[0]?.trim()
+    : undefined;
+  const host = forwardedHost || request.headers.get("host")?.trim() || requestUrl.host;
+  const forwardedProto = trustProxyHeaders
+    ? request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLocaleLowerCase()
+    : undefined;
+  const protocol = forwardedProto === "http" || forwardedProto === "https"
+    ? `${forwardedProto}:`
+    : requestUrl.protocol;
+  return `${protocol}//${host}`;
+}
+
 function requestHost(request: Request): string {
-  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
-  if (forwardedHost) return forwardedHost;
-  return new URL(request.url).host;
+  return new URL(getRequestOrigin(request)).host;
 }
 
 export function assertSameOrigin(request: Request): void {

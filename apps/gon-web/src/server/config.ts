@@ -3,6 +3,7 @@ export const PRIVACY_VERSION = "privacy-alpha-v1";
 
 export interface GonConfig {
   storeKind: string;
+  production: boolean;
   requireInvite: boolean;
   brewEnabled: boolean;
   arenaEnabled: boolean;
@@ -12,6 +13,9 @@ export interface GonConfig {
   devInviteCode?: string;
   googleConfigured: boolean;
   databaseConfigured: boolean;
+  trustProxyHeaders: boolean;
+  allowMemoryStoreInProduction: boolean;
+  publicOrigin?: string;
 }
 
 function envFlag(value: string | undefined, defaultValue: boolean): boolean {
@@ -19,9 +23,31 @@ function envFlag(value: string | undefined, defaultValue: boolean): boolean {
   return ["1", "true", "yes", "on"].includes(value.toLocaleLowerCase());
 }
 
+function normalizePublicOrigin(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+    if (parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) return undefined;
+    return parsed.origin;
+  } catch {
+    return undefined;
+  }
+}
+
+export function assertRuntimeStoreAllowed(config: GonConfig): void {
+  if (config.production && config.storeKind === "memory" && !config.allowMemoryStoreInProduction) {
+    throw new Error(
+      "GON_STORE=memory is disabled in production. Configure a durable store or explicitly set " +
+        "GON_ALLOW_MEMORY_STORE_IN_PRODUCTION=1 only for an isolated non-production-data environment.",
+    );
+  }
+}
+
 export function readConfig(env: NodeJS.ProcessEnv = process.env): GonConfig {
   return {
     storeKind: env.GON_STORE ?? "memory",
+    production: env.NODE_ENV === "production",
     requireInvite: envFlag(env.GON_REQUIRE_INVITE, true),
     brewEnabled: envFlag(env.GON_BREW_ENABLED, true),
     arenaEnabled: envFlag(env.GON_ARENA_ENABLED, true),
@@ -35,6 +61,11 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GonConfig {
       (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
     ),
     databaseConfigured: Boolean(env.DATABASE_URL),
+    // Forwarded headers are client-controlled unless a trusted edge proxy
+    // overwrites them. They are therefore opt-in rather than implicit.
+    trustProxyHeaders: envFlag(env.GON_TRUST_PROXY_HEADERS, false),
+    allowMemoryStoreInProduction: envFlag(env.GON_ALLOW_MEMORY_STORE_IN_PRODUCTION, false),
+    publicOrigin: normalizePublicOrigin(env.GON_PUBLIC_ORIGIN),
   };
 }
 

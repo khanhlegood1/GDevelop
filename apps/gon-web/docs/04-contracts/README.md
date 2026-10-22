@@ -5,7 +5,7 @@
 > **Ngày trình duyệt:** 22/10/2026<br>
 > **Điều kiện vào gate:** P02 được PO duyệt tại commit `33c2641e8710a3792150827d93500f7a1b930315`, bao gồm toàn bộ `D-P02-01`…`D-P02-12`<br>
 > **Phạm vi contract:** VS1 và VS2 đầy đủ; điểm mở rộng có kỷ luật cho VS3–VS5<br>
-> **Gate tiếp theo:** P04 đang triển khai VS1; P05 NFR review và P06 deployment chưa bắt đầu
+> **Trạng thái tiếp theo:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline VS1 local/test; P05 NFR & Well-Architected Review đang **IN REVIEW — NOT YET PASS**; P06 deployment chưa bắt đầu.
 
 ## 1. P03 chốt điều gì?
 
@@ -170,4 +170,6 @@ Trường “Điều kiện kèm theo” không ghi điều kiện cụ thể ng
 
 ## 10. Bước tiếp theo
 
-P04 được phép bắt đầu. Vertical slice đầu tiên là **VS1 — Curiosity to Proof**, triển khai theo thứ tự spike → UI → API → data/job → kết quả thật → test → telemetry → tài liệu trong [`../05-build/README.md`](../05-build/README.md). P05 và P06 chưa được bắt đầu.
+P04 được phép bắt đầu. Vertical slice đầu tiên là **VS1 — Curiosity to Proof**, triển khai theo thứ tự spike → UI → API → data/job → kết quả thật → test → telemetry → tài liệu trong [`../05-build/README.md`](../05-build/README.md). P05 và P06 chưa được bắt đầu tại thời điểm khóa P03.
+
+> **Ghi chú hậu kỳ ngày 22/10/2026:** P04 về sau đã được PO duyệt cho baseline local/test và PO đã cho phép bắt đầu P05; P06 vẫn chưa bắt đầu. Cập nhật này không thay đổi bất kỳ quyết định `D-P03-*` nào.
