@@ -2,6 +2,8 @@
 
 Tài liệu này ánh xạ prototype `apps/gon-web` sang hệ thống production lấy cảm hứng từ **WSIC** (search 768D + Brew) và **FastChat/Arena** (so sánh hai đáp án), đồng thời bổ sung requirement V2.1 về 10+ output ứng viên, trend, dấu chân cá nhân hoá, Journey Fork và render đa định dạng. Đặc tả requirement đầy đủ nằm tại `../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`. Mô hình level/XP/token chuẩn nằm tại `../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.md` và dùng công thức `gon-level-v1`: `Lv = floor(Lifetime XP / 100)`, không có trần.
 
+> **Trạng thái quản trị — 22/10/2026:** Gate 0 đã được Product Owner phê duyệt và P01 đang IN REVIEW. Các lựa chọn như Next.js, Convex, QStash hay model cụ thể trong tài liệu này là **phương án tham chiếu từ WSIC/prototype**, chưa phải stack production đã khóa. Theo [ADR-0004](docs/01-architecture/adr/ADR-0004-DEFER-PRODUCTION-STACK-LOCK-IN.md), P03 sẽ quyết định bằng ADR/spike riêng. Phạm vi sản phẩm hiện hành để review nằm tại [GON PRD v1.0](docs/02-requirements/GON-PRD-V1.md).
+
 ## 1. Luồng nghiệp vụ
 
 ```mermaid
