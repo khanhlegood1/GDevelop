@@ -1,7 +1,7 @@
 # P01 Traceability Matrix
 
 > **Artifact:** P01-TRACE<br>
-> **Trạng thái:** IN REVIEW tại P01<br>
+> **Trạng thái:** APPROVED tại P01 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục đích:** nối tính năng Gate 0 (`GON-Fxx`) → requirement P01 (`REQ-*`) → user story (`US-*`) → BDD → gate triển khai. Khi P02/P03/P04 bắt đầu, các cột màn hình/API/schema/test/PR sẽ được bổ sung thay vì tạo ID mới tùy tiện.
 
 ## 1. Ma trận chính
@@ -58,7 +58,7 @@
 - Không đổi nghĩa một `REQ-*` đã được duyệt mà không ghi amendment.
 - Story mới phải trỏ về ít nhất một `REQ-*` hoặc ghi rõ là process/operations work.
 - BDD mới phải ghi Requirement IDs ở đầu scenario group.
-- P02 bổ sung Screen/Component IDs vào cùng ma trận hoặc artifact liên kết.
+- P02 bổ sung Screen/Component IDs vào [`P02-TRACEABILITY-MATRIX.md`](../03-ux/P02-TRACEABILITY-MATRIX.md) để nối tiếp ma trận này mà không đổi ID đã duyệt.
 - P03 bổ sung API operation, event, table/schema và ADR tương ứng.
 - P04 bổ sung PR/files/tests; một requirement chỉ được đánh dấu implemented khi BDD/evidence tương ứng đạt.
 - Requirement bị hoãn/bác vẫn giữ dòng với trạng thái `Deferred`/`Rejected`, không xóa lịch sử.

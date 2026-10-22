@@ -1,7 +1,7 @@
 # Acceptance Criteria dạng BDD
 
 > **Artifact:** P01-BDD<br>
-> **Trạng thái:** IN REVIEW tại P01<br>
+> **Trạng thái:** APPROVED tại P01 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục đích:** định nghĩa hành vi có thể kiểm chứng cho PRD. Các scenario này sẽ được chuyển thành UX states ở P02, contract/API tests ở P03/P04 và AI evals ở P05.
 
 ## Quy ước
