@@ -1,7 +1,7 @@
 # Metrics, Risks và Open Decisions
 
 > **Artifact:** P01-METRICS-RISK<br>
-> **Trạng thái:** IN REVIEW tại P01<br>
+> **Trạng thái:** APPROVED tại P01 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Nguyên tắc đo:** GON tối ưu cho **học thật được chứng minh**, không tối ưu cho thời gian lướt, like/share hoặc tổng XP vô nghĩa.
 
 ## 1. North-star Metric
@@ -61,7 +61,7 @@ Các chỉ số sau xấu đi thì không được “lấy tăng trưởng bù�
 
 ## 4. Mục tiêu số trong P01
 
-P01 **không bịa mục tiêu tăng trưởng** khi chưa có baseline người dùng thật. PO duyệt P01 là duyệt cách đo và các ngưỡng an toàn sau:
+P01 **không bịa mục tiêu tăng trưởng** khi chưa có baseline người dùng thật. Việc PO phê duyệt P01 vào ngày 22/10/2026 bao gồm cách đo và các ngưỡng an toàn sau:
 
 ### Ngưỡng bắt buộc không thương lượng
 
@@ -99,11 +99,11 @@ P01 **không bịa mục tiêu tăng trưởng** khi chưa có baseline người
 | R-14 | Creator kỳ vọng giàu/nổi tiếng nhanh | Trung bình-Cao | Copy minh bạch: cơ hội khám phá, không cam kết kết quả | P02 |
 | R-15 | User không hiểu Fork/Branch | Trung bình | UX dùng “Tạo hành trình của tôi”, lineage trực quan | P02 |
 
-## 6. Open Decisions cần PO duyệt tại P01
+## 6. Quyết định P01 đã được PO phê duyệt
 
-PO có thể ghi “Duyệt tất cả mặc định” hoặc sửa từng mã.
+Ngày 22/10/2026, Product Owner đã **duyệt tất cả mặc định `D-P01-01` đến `D-P01-14`** và cho phép bắt đầu P02. Bảng dưới đây được giữ làm hồ sơ quyết định; thay đổi sau này phải đi qua amendment/ADR được duyệt.
 
-| ID | Quyết định | Đề xuất P01 | Hệ quả nếu chọn khác |
+| ID | Quyết định | Nội dung đã duyệt | Hệ quả nếu sau này chọn khác |
 |---|---|---|---|
 | D-P01-01 | Hình thức phát hành đầu | **Private Alpha invite-only** | Public sớm cần legal/safety/ops mạnh hơn và kéo dài thời gian tới release |
 | D-P01-02 | Thị trường/ngôn ngữ đầu | **Việt Nam, tiếng Việt trước; sẵn sàng i18n** | Đa ngôn ngữ ngay làm tăng chi phí content/QA |

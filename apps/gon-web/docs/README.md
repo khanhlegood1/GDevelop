@@ -2,28 +2,41 @@
 
 > **Mục đích:** Khu vực tài liệu kỹ thuật chính thức cho quá trình phát triển GON theo AI-Agile/HITL. Đây là nơi lưu quyết định kiến trúc, truy vết nguồn mở, tiêu chí từng gate và bằng chứng bàn giao.<br>
 > **Repository sản xuất:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
-> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 IN REVIEW**<br>
+> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 IN REVIEW**<br>
 > **Product Owner:** Người sở hữu dự án GON trong cuộc trao đổi phê duyệt.<br>
 > **Gate 0 được PO duyệt:** 22/10/2026 tại commit `5482dac`<br>
-> **Ngày trình P01:** 22/10/2026
+> **P01 được PO duyệt:** 22/10/2026 tại commit `9a09fa2`, gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
+> **Ngày trình P02:** 22/10/2026
 
 ## Trạng thái các gate
 
 | Gate | Tên | Trạng thái | Điều kiện mở gate tiếp theo |
 |---|---|---|---|
 | G0 | Source & Architecture Charter | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 |
-| P01 | Requirement Intelligence | **IN REVIEW** | PO duyệt phạm vi/persona/MoSCoW/BDD hoặc yêu cầu sửa |
-| P02 | Frontend UX Agreement | Chưa bắt đầu | P01 được duyệt |
+| P01 | Requirement Intelligence | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `9a09fa2` |
+| P02 | Frontend UX Agreement | **IN REVIEW** | PO duyệt IA/flow/wireframe/prototype và `D-P02-01`…`D-P02-12` |
 | P03 | API Contract & Data Model First | Chưa bắt đầu | P02 được duyệt |
 | P04 | Vertical Slice Build | Chưa bắt đầu | P03 được duyệt |
 | P05 | NFR & Well-Architected Review | Chưa bắt đầu | Các vertical slice trong phạm vi release hoàn tất |
 | P06 | Cloud Deployment | Chưa bắt đầu | P05 đạt và PO ra quyết định Go-Live riêng |
 | R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
 
-## Tài liệu P01 đang trình PO duyệt
+## Tài liệu P02 đang trình PO duyệt
 
-1. [P01 — Requirement Intelligence: cổng gói và checklist phê duyệt](02-requirements/README.md)
-2. [GON Product Requirements Document v1.0](02-requirements/GON-PRD-V1.md) — **tài liệu chính để duyệt**
+1. [P02 — Frontend UX Agreement: cổng gói, quyết định và checklist phê duyệt](03-ux/README.md) — **tài liệu chính để duyệt P02**
+2. [Information Architecture](03-ux/INFORMATION-ARCHITECTURE.md)
+3. [User Flows](03-ux/USER-FLOWS.md)
+4. [Wireframe & Screen Specification](03-ux/WIREFRAME-SCREEN-SPEC.md)
+5. [Design System, Responsive & Accessibility](03-ux/DESIGN-SYSTEM-RESPONSIVE-ACCESSIBILITY.md)
+6. [Interaction States & Content](03-ux/INTERACTION-STATES-AND-CONTENT.md)
+7. [P02 Traceability Matrix](03-ux/P02-TRACEABILITY-MATRIX.md)
+8. [Usability Review Plan](03-ux/USABILITY-REVIEW-PLAN.md)
+9. [Clickable mock-data prototype](../ux-prototype/README.md) — mở trực tiếp tại [`../ux-prototype/index.html`](../ux-prototype/index.html)
+
+## Tài liệu P01 đã được phê duyệt
+
+1. [P01 — Requirement Intelligence: cổng gói và kết quả phê duyệt](02-requirements/README.md)
+2. [GON Product Requirements Document v1.0](02-requirements/GON-PRD-V1.md) — **APPROVED**
 3. [Personas, Jobs-to-be-Done & Learning Modes](02-requirements/PERSONAS-JTBD-AND-LEARNING-MODES.md)
 4. [Backlog, MoSCoW & Vertical Slices](02-requirements/BACKLOG-MOSCOW-AND-VERTICAL-SLICES.md)
 5. [Acceptance Criteria dạng BDD](02-requirements/ACCEPTANCE-CRITERIA-BDD.md)
@@ -57,7 +70,7 @@ Các lựa chọn sau đã được PO xác nhận trong phiên làm việc ngà
 - Tái sử dụng code **có chọn lọc sau Audit**; không fork nguyên FastChat/WSIC thành production.
 - Mã production của GON nằm trong **`khanhlegood1/GDevelop`**.
 
-PO đã duyệt Gate 0 ngày 22/10/2026 tại commit `5482daca3d8ef424e9d7aa81102f0d135c55de84` và cho phép bắt đầu P01. P01 vẫn là một gate riêng: P02 chỉ bắt đầu sau khi PO duyệt PRD/backlog/BDD của P01.
+PO đã duyệt Gate 0 tại commit `5482daca3d8ef424e9d7aa81102f0d135c55de84`, sau đó duyệt P01 tại commit `9a09fa21fd8a27536eddb97ad179d14db3aab7ac` cùng toàn bộ `D-P01-01`…`D-P01-14` và cho phép bắt đầu P02. P02 vẫn là gate riêng: P03 chỉ bắt đầu sau khi PO duyệt gói UX này.
 
 ## Tài liệu sản phẩm đã có
 

@@ -1,7 +1,7 @@
 # Backlog, MoSCoW và Vertical Slices
 
 > **Artifact:** P01-BACKLOG<br>
-> **Trạng thái:** IN REVIEW tại P01<br>
+> **Trạng thái:** APPROVED tại P01 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** biến PRD thành thứ tự xây dựng có thể kiểm chứng mà không phình Private Alpha thành toàn bộ tầm nhìn dài hạn.
 
 ## 1. Cách dùng MoSCoW trong GON
@@ -119,7 +119,7 @@ Các mục sau bị loại có chủ đích để bảo vệ phạm vi:
 - GDevelop exporter tổng quát cho mọi loại topic/game.
 - Native iOS/Android app.
 
-## 4. Vertical Slices đề xuất
+## 4. Vertical Slices đã được duyệt làm thứ tự triển khai
 
 Thứ tự dưới đây là để P02 thiết kế và P03 khóa contract; chưa phải lịch cam kết.
 

@@ -3,7 +3,8 @@
 > **Artifact:** P01-PRD<br>
 > **Phiên bản:** 1.0<br>
 > **Ngày:** 22/10/2026<br>
-> **Trạng thái:** **IN REVIEW — chờ Product Owner phê duyệt P01**<br>
+> **Trạng thái:** **APPROVED — Product Owner đã duyệt ngày 22/10/2026**<br>
+> **Commit được duyệt:** `9a09fa21fd8a27536eddb97ad179d14db3aab7ac`<br>
 > **Gate nền:** Gate 0 APPROVED tại commit `5482dac`<br>
 > **Sản phẩm:** GON — Game Of Nurture cho người trưởng thành 18+
 
@@ -13,7 +14,7 @@ GON biến bất kỳ điều gì người trưởng thành tò mò — một c�
 
 Người dùng đưa input vào GON. Hệ thống tìm module phù hợp bằng search ngữ nghĩa; nếu chưa có kết quả đủ tốt, GON đề xuất **Brew Your Topic**. Từ cùng input, GON mở nhiều hướng output khác nhau để người học so sánh bằng Arena, chọn hoặc hợp nhất, rồi **Fork** thành hành trình riêng. Người học tiến bộ qua nhiệm vụ truy hồi, áp dụng, sáng tạo và Boss Proof. XP chỉ được ghi khi hành động đạt rubric; Numeric Level tăng suốt đời theo `floor(LifetimeXP / 100)`.
 
-### Đề xuất phát hành đầu tiên
+### Phát hành đầu tiên đã được duyệt
 
 **GON Private Alpha** phục vụ một nhóm người dùng 18+ được mời, ưu tiên tiếng Việt. Mục tiêu không phải chứng minh mọi tính năng xã hội/token/game cùng lúc, mà chứng minh bốn điều:
 
@@ -82,7 +83,7 @@ Cùng một tài khoản có thể đổi **Learning Mode** theo phiên: Deep Ma
 - Nội dung nguồn tiếng Anh được phép dùng khi có citation và phần tóm tắt/giải thích phù hợp ngôn ngữ user chọn.
 - Kiến trúc nội dung phải lưu `language/locale` để mở English UX ở giai đoạn sau mà không viết lại module graph.
 
-Đây là đề xuất P01 cần PO duyệt; không phải tuyên bố đã nghiên cứu thị trường định lượng.
+Phạm vi thị trường/ngôn ngữ này đã được PO duyệt tại P01; nó không phải tuyên bố đã nghiên cứu thị trường định lượng.
 
 ## 5. Hành trình sản phẩm cốt lõi
 
@@ -345,15 +346,15 @@ Các giả định này phải được kiểm chứng trong P02/P04 hoặc pilo
 - Nguồn nghiên cứu/media bên ngoài chỉ dùng qua phương thức/API được phép, tôn trọng bản quyền và điều khoản nền tảng.
 - Mọi quyết định lưu dữ liệu thật, external social connection, public profile, token/reward ngoài XP hoặc production deployment cần phê duyệt riêng theo gate tương ứng.
 
-## 12. Tiêu chí P01 được coi là xong để trình duyệt
+## 12. Tiêu chí hoàn thành P01 đã đạt khi được phê duyệt
 
-- PRD này xác định MVP, non-goals và functional requirements có ID.
-- Personas/JTBD/Learning Modes được mô tả riêng.
-- Backlog có MoSCoW, stories và vertical slices.
-- Hành vi lõi có BDD kiểm chứng được.
-- Metrics/guardrails/risks/open decisions được ghi riêng.
-- Traceability nối `GON-Fxx` → `REQ-*` → story/BDD/gate.
+- [x] PRD này xác định MVP, non-goals và functional requirements có ID.
+- [x] Personas/JTBD/Learning Modes được mô tả riêng.
+- [x] Backlog có MoSCoW, stories và vertical slices.
+- [x] Hành vi lõi có BDD kiểm chứng được.
+- [x] Metrics/guardrails/risks và quyết định `D-P01-*` được ghi riêng.
+- [x] Traceability nối `GON-Fxx` → `REQ-*` → story/BDD/gate.
 
-## 13. Câu hỏi quyết định cho PO
+## 13. Quyết định P01 đã được phê duyệt
 
-Các lựa chọn còn mở và đề xuất mặc định nằm tại [`METRICS-RISKS-AND-OPEN-DECISIONS.md`](METRICS-RISKS-AND-OPEN-DECISIONS.md). PO có thể duyệt toàn bộ mặc định hoặc yêu cầu sửa từng mã `D-P01-*`.
+Ngày 22/10/2026, Product Owner đã duyệt P01 và **toàn bộ mặc định `D-P01-01` đến `D-P01-14`** trong [`METRICS-RISKS-AND-OPEN-DECISIONS.md`](METRICS-RISKS-AND-OPEN-DECISIONS.md), đồng thời cho phép bắt đầu P02. Thay đổi các quyết định này sau P01 phải được ghi thành amendment hoặc ADR được duyệt.

@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="GON P02 UX prototype — mock-data frontend agreement prototype for Private Alpha.">
+  <title>GON P02 — UX Prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Bỏ qua tới nội dung chính</a>
+  <div class="prototype-banner" role="note">
+    <strong>P02 UX PROTOTYPE</strong>
+    <span>Dữ liệu mô phỏng để duyệt trải nghiệm. Không gọi Google, Gemini, Google ADK hay backend thật.</span>
+    <span class="banner-state">Gate 0 + P01: APPROVED · P02: IN REVIEW</span>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="#" data-nav="home" aria-label="GON — về màn hình bắt đầu">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span><strong>GON</strong><small>GAME OF NURTURE · 18+</small></span>
+    </a>
+    <div class="top-search" role="search">
+      <span aria-hidden="true">⌕</span>
+      <input id="global-search" type="search" placeholder="Tìm trong dự án, hành trình, bằng chứng…" aria-label="Tìm trong GON">
+    </div>
+    <div class="level-chip" aria-label="Tiến bộ suốt đời hiện tại">
+      <span id="header-level">Lv.12 · Hero</span>
+      <strong id="header-xp">1.280 Lifetime XP</strong>
+      <span class="mini-progress" aria-hidden="true"><i id="header-xp-bar" style="width:80%"></i></span>
+    </div>
+    <button class="avatar-button" type="button" data-nav="progress" aria-label="Mở hồ sơ, hành trình và quyền riêng tư">KH</button>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar" aria-label="Điều hướng prototype P02">
+      <p class="nav-label">Luồng duyệt P02</p>
+      <nav class="side-nav">
+        <button type="button" class="nav-item active" data-nav="onboarding" aria-current="page"><span>01</span>18+ & Consent</button>
+        <button type="button" class="nav-item" data-nav="home"><span>02</span>Input học tập</button>
+        <button type="button" class="nav-item" data-nav="search"><span>03</span>Search / Brew</button>
+        <button type="button" class="nav-item" data-nav="outputs"><span>04</span>Hướng học</button>
+        <button type="button" class="nav-item" data-nav="arena"><span>05</span>Arena ẩn danh</button>
+        <button type="button" class="nav-item" data-nav="learn"><span>06</span>Học & Boss Proof</button>
+        <button type="button" class="nav-item" data-nav="progress"><span>07</span>Hành trình & Privacy</button>
+      </nav>
+
+      <section class="side-card" aria-labelledby="side-project-title">
+        <p class="eyebrow">Project đang duyệt</p>
+        <h2 id="side-project-title">Hiểu hiện tượng viral</h2>
+        <p>Một input mẫu dùng xuyên suốt prototype để PO kiểm tra tính liên tục của flow.</p>
+        <dl class="side-meta">
+          <div><dt>Quyền riêng tư</dt><dd>Riêng tư</dd></div>
+          <div><dt>Trạng thái</dt><dd id="side-project-state">Chưa bắt đầu</dd></div>
+          <div><dt>Mode</dt><dd id="side-mode">Create / Publish</dd></div>
+        </dl>
+      </section>
+
+      <section class="side-card trust-card">
+        <h2>Nguyên tắc hiển thị</h2>
+        <ul>
+          <li><strong>Level</strong> khác <strong>Mastery</strong> và khác <strong>Proof</strong>.</li>
+          <li>Vote nói về mức phù hợp, không xác minh sự thật.</li>
+          <li>Hành trình mặc định là riêng tư.</li>
+        </ul>
+      </section>
+    </aside>
+
+    <main id="main" class="main" tabindex="-1">
+      <div id="live-status" class="sr-only" role="status" aria-live="polite"></div>
+
+      <!-- SCR-01 -->
+      <section id="screen-onboarding" class="screen active" data-screen="SCR-01" aria-labelledby="onboarding-title">
+        <div class="screen-heading">
+          <p class="eyebrow">SCR-01 · Onboarding</p>
+          <h1 id="onboarding-title" tabindex="-1">Bắt đầu hành trình học của người trưởng thành</h1>
+          <p>GON dành cho người từ 18 tuổi. Ở bản Private Alpha, đây là bước tự xác nhận — không phải xác minh giấy tờ.</p>
+        </div>
+
+        <div class="grid two">
+          <article class="panel hero-copy">
+            <p class="eyebrow">Search anything · Prove you became</p>
+            <h2>Biến tò mò thành bằng chứng tiến bộ</h2>
+            <p>Đưa vào một ý tưởng, tài liệu, hình ảnh hoặc liên kết. GON giữ lại nguồn gốc, tìm hoặc Brew module, đề xuất nhiều hướng học và yêu cầu bạn chứng minh mức hiểu bằng hành động.</p>
+            <div class="promise-list">
+              <span>Không có trang “không có kết quả” trống</span>
+              <span>XP chỉ đến từ học thật</span>
+              <span>Riêng tư theo mặc định</span>
+            </div>
+          </article>
+
+          <form id="onboarding-form" class="panel light-panel" aria-describedby="onboarding-note">
+            <h2>Tham gia Private Alpha</h2>
+            <label class="check-row">
+              <input id="age-confirm" type="checkbox">
+              <span>Tôi xác nhận mình <strong>đủ 18 tuổi</strong>.</span>
+            </label>
+            <label class="check-row">
+              <input id="terms-confirm" type="checkbox">
+              <span>Tôi đồng ý điều khoản Private Alpha và chỉ đưa vào nội dung mình có quyền sử dụng.</span>
+            </label>
+            <fieldset>
+              <legend>Cá nhân hóa trong GON</legend>
+              <label class="radio-row"><input type="radio" name="personalization" value="on" checked><span><strong>Bật</strong> — dùng mục tiêu, lựa chọn, vote và tiến bộ trong GON để gợi ý phù hợp hơn.</span></label>
+              <label class="radio-row"><input type="radio" name="personalization" value="off"><span><strong>Tắt</strong> — chỉ dùng input hiện tại và tiêu chí chất lượng chung.</span></label>
+            </fieldset>
+            <p id="onboarding-error" class="inline-error" role="alert" hidden>Bạn cần xác nhận đủ 18 tuổi và đồng ý điều khoản alpha để tiếp tục.</p>
+            <button id="google-continue" class="primary-button large" type="submit"><span aria-hidden="true">G</span>Tiếp tục với Google <small>Mock</small></button>
+            <button id="age-decline" class="ghost-button" type="button">Tôi chưa đủ 18 tuổi</button>
+            <p id="onboarding-note" class="fineprint">Prototype không yêu cầu mật khẩu và không gửi dữ liệu đi. Production sẽ dùng nhà cung cấp đăng nhập được chốt tại P03.</p>
+            <p id="age-blocked" class="callout warning" hidden>GON hiện dành cho người từ 18 tuổi. Bạn không thể vào Private Alpha bằng lựa chọn này.</p>
+          </form>
+        </div>
+      </section>
+
+      <!-- SCR-02 -->
+      <section id="screen-home" class="screen" data-screen="SCR-02" aria-labelledby="home-title" hidden>
+        <div class="screen-heading split">
+          <div>
+            <p class="eyebrow">SCR-02 · Universal Input</p>
+            <h1 id="home-title" tabindex="-1">Hôm nay bạn muốn làm chủ điều gì?</h1>
+            <p>Input của bạn vừa là câu hỏi tìm kiếm, vừa là tài sản khởi đầu của một dự án học.</p>
+          </div>
+          <span class="privacy-badge">🔒 Mặc định: Riêng tư</span>
+        </div>
+
+        <form id="input-form" class="panel composer">
+          <label class="field-label" for="topic-input">Điều bạn tò mò</label>
+          <textarea id="topic-input" rows="4">Vì sao một bài hát có thể viral chỉ sau một đêm, và tôi có thể học được gì để tạo nội dung giáo dục có giá trị?</textarea>
+
+          <div class="field-row three">
+            <label>Thêm URL YouTube / Facebook / Website
+              <input id="url-input" type="url" placeholder="https://…" value="https://www.youtube.com/watch?v=example-viral-song">
+            </label>
+            <label>Mục tiêu phiên này
+              <select id="goal-select">
+                <option>Hiểu một hiện tượng</option>
+                <option selected>Tạo nội dung / artifact</option>
+                <option>Áp dụng vào công việc</option>
+                <option>Chứng minh năng lực</option>
+              </select>
+            </label>
+            <label>Thời gian khả dụng
+              <select id="time-select">
+                <option>5–10 phút</option>
+                <option selected>20–30 phút</option>
+                <option>Một buổi sâu</option>
+                <option>Nhiều ngày</option>
+              </select>
+            </label>
+          </div>
+
+          <fieldset class="mode-picker">
+            <legend>Learning Mode cho phiên này</legend>
+            <div class="mode-grid" role="radiogroup" aria-label="Learning Mode">
+              <label><input type="radio" name="learning-mode" value="deep"><span><strong>Deep Mastery</strong><small>Nguồn, bản chất, phản biện</small></span></label>
+              <label><input type="radio" name="learning-mode" value="work"><span><strong>Apply at Work</strong><small>Case và artifact dùng ngay</small></span></label>
+              <label><input type="radio" name="learning-mode" value="create" checked><span><strong>Create / Publish</strong><small>Game, video, nội dung</small></span></label>
+              <label><input type="radio" name="learning-mode" value="fast"><span><strong>Fast & Entertaining</strong><small>Nhẹ, vui, vẫn có core value</small></span></label>
+              <label><input type="radio" name="learning-mode" value="impact"><span><strong>Prove & Impact</strong><small>Hành động và bằng chứng thật</small></span></label>
+            </div>
+          </fieldset>
+
+          <div class="artifact-area">
+            <div class="panel-head compact-head">
+              <div><h2>Nguồn đầu vào</h2><p class="hint">Prototype chỉ mô phỏng trạng thái trích xuất.</p></div>
+              <div class="button-row">
+                <button id="add-url-artifact" class="secondary-button" type="button">＋ Link</button>
+                <button id="add-file-artifact" class="secondary-button" type="button">＋ File mẫu</button>
+                <button id="add-image-artifact" class="secondary-button" type="button">＋ Ảnh mẫu</button>
+              </div>
+            </div>
+            <ul id="artifact-list" class="artifact-list">
+              <li><span class="artifact-icon">T</span><div><strong>Câu hỏi của bạn</strong><small>Text · Hash mock · Riêng tư</small></div><span class="status success">Đã đọc</span></li>
+              <li><span class="artifact-icon">▶</span><div><strong>Video YouTube mẫu</strong><small>Link artifact · Quyền sử dụng cần xác nhận ở production</small></div><span class="status warning">Metadata-only</span></li>
+            </ul>
+          </div>
+
+          <div class="form-footer">
+            <p class="hint">GON sẽ nói rõ phần nào đã đọc được. Artifact chưa trích xuất sẽ không bị AI giả vờ đã hiểu.</p>
+            <button class="primary-button large" type="submit">Tìm hoặc Brew →</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- SCR-03 + SCR-04 -->
+      <section id="screen-search" class="screen" data-screen="SCR-03 SCR-04" aria-labelledby="search-title" hidden>
+        <div class="screen-heading split">
+          <div>
+            <p class="eyebrow">SCR-03/04 · Search & Brew</p>
+            <h1 id="search-title" tabindex="-1">GON đang đối chiếu tri thức hiện có</h1>
+            <p id="search-topic-summary">Chủ đề: cơ chế viral của âm nhạc và bài học cho creator giáo dục.</p>
+          </div>
+          <span class="status info">Mock pipeline</span>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Xem trước trạng thái cho P02</h2><p class="hint">PO có thể chuyển trạng thái để duyệt copy và hành động tiếp theo.</p></div>
+          </div>
+          <div class="segmented" role="group" aria-label="Trạng thái tìm kiếm mẫu">
+            <button type="button" data-search-state="found">Found</button>
+            <button type="button" data-search-state="related" class="active" aria-pressed="true">Related</button>
+            <button type="button" data-search-state="missing">Missing</button>
+            <button type="button" data-search-state="clarify">Cần làm rõ</button>
+            <button type="button" data-search-state="blocked">Bị chặn</button>
+          </div>
+
+          <div id="search-state-panel" class="state-panel related" aria-live="polite">
+            <div>
+              <p class="eyebrow" id="search-state-kicker">RELATED · Liên quan một phần</p>
+              <h2 id="search-state-title">Đã có nền tảng, nhưng thiếu góc creator giáo dục</h2>
+              <p id="search-state-copy">Module sẵn có giải thích lan truyền xã hội. Phần còn thiếu là cách biến hiểu biết đó thành nội dung học có bằng chứng.</p>
+            </div>
+            <span id="search-state-badge" class="status warning">Chưa khớp hoàn toàn</span>
+          </div>
+
+          <div id="search-results" class="result-list">
+            <article class="result-card">
+              <span class="result-icon" aria-hidden="true">◈</span>
+              <div>
+                <h3>Cơ chế lan truyền trong mạng xã hội</h3>
+                <p>Khớp phần “vì sao nội dung lan nhanh”. Chưa có quest tạo artifact giáo dục và Boss Proof cho creator.</p>
+                <div class="meta-row"><span>Module v3</span><span>4 nguồn</span><span>Web lesson</span><span>25 phút</span></div>
+              </div>
+              <button class="secondary-button" type="button" data-nav="outputs">Xem hướng học</button>
+            </article>
+          </div>
+
+          <div id="clarify-panel" class="callout" hidden>
+            <strong>Bạn muốn tập trung vào điều gì nhất?</strong>
+            <div class="button-row">
+              <button type="button" class="chip-button" data-clarify="Giải thích cơ chế viral">Giải thích cơ chế</button>
+              <button type="button" class="chip-button" data-clarify="Tạo nội dung giáo dục">Tạo nội dung</button>
+              <button type="button" class="chip-button" data-clarify="Chơi game mô phỏng">Chơi game mô phỏng</button>
+            </div>
+          </div>
+
+          <div id="blocked-panel" class="callout danger" hidden>
+            <strong>Input này không thể xử lý an toàn trong bản mẫu.</strong>
+            <p>Production sẽ nêu nhóm lý do dễ hiểu, không thực thi file/URL nguy hiểm và gợi ý đường thay thế an toàn khi phù hợp.</p>
+          </div>
+
+          <section id="brew-panel" class="brew-panel" aria-labelledby="brew-title">
+            <div>
+              <p class="eyebrow gold">BREW YOUR TOPIC</p>
+              <h2 id="brew-title">Tạo module riêng từ phần còn thiếu?</h2>
+              <p>Brew chỉ chạy sau khi bạn xác nhận. Module mới ở trạng thái <strong>AI draft · riêng tư</strong>, có citation và không tự động public.</p>
+              <p class="hint">Quota/chi phí thật sẽ do P03 chốt; prototype không tiêu tốn AI credit.</p>
+            </div>
+            <div class="brew-actions">
+              <button id="start-brew" class="gold-button" type="button">✦ Bắt đầu Brew</button>
+              <button class="ghost-button dark" type="button" data-nav="home">Sửa input</button>
+            </div>
+            <div id="brew-progress" class="brew-progress" hidden>
+              <div class="progress-track" role="progressbar" aria-label="Tiến độ Brew mô phỏng" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="brew-progressbar"><i></i></div>
+              <p id="brew-step">Đang xếp hàng…</p>
+              <button id="brew-ready" class="primary-button" type="button" data-nav="outputs" hidden>Module đã sẵn sàng — xem hướng học</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- SCR-05 -->
+      <section id="screen-outputs" class="screen" data-screen="SCR-05" aria-labelledby="outputs-title" hidden>
+        <div class="screen-heading split">
+          <div>
+            <p class="eyebrow">SCR-05 · Output Explorer</p>
+            <h1 id="outputs-title" tabindex="-1">Chọn hướng học phù hợp với bạn lúc này</h1>
+            <p id="ranking-explanation">Đang ưu tiên hướng có artifact rõ vì bạn chọn Create / Publish. Đây là gợi ý, không phải kết luận hướng nào “đúng nhất”.</p>
+          </div>
+          <span id="candidate-count" class="status success">10 hướng</span>
+        </div>
+
+        <div class="panel controls-panel">
+          <div class="control-block">
+            <span class="field-label">Đổi Learning Mode</span>
+            <div class="segmented wrap" id="mode-switch" role="group" aria-label="Đổi Learning Mode">
+              <button type="button" data-mode="deep">Deep</button>
+              <button type="button" data-mode="work">Apply</button>
+              <button type="button" data-mode="create" class="active" aria-pressed="true">Create</button>
+              <button type="button" data-mode="fast">Fast</button>
+              <button type="button" data-mode="impact">Impact</button>
+            </div>
+          </div>
+          <label class="switch-row">
+            <input id="personalization-toggle" type="checkbox" checked>
+            <span><strong>Cá nhân hóa từ footprint trong GON</strong><small>Tắt thì ranking dùng chất lượng chung và input hiện tại.</small></span>
+          </label>
+          <div class="control-block">
+            <span class="field-label">Lọc cụm</span>
+            <div class="button-row" id="cluster-filters">
+              <button class="chip-button active" type="button" data-cluster="all">Tất cả</button>
+              <button class="chip-button" type="button" data-cluster="deep">Chuyên sâu</button>
+              <button class="chip-button" type="button" data-cluster="create">Sáng tạo</button>
+              <button class="chip-button" type="button" data-cluster="fast">Nhanh & vui</button>
+              <button class="chip-button" type="button" data-cluster="apply">Áp dụng</button>
+              <button class="chip-button" type="button" data-cluster="prove">Chứng minh</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="compare-tray" aria-live="polite">
+          <span id="compare-summary">Chọn 2 hướng bằng nút “So sánh” để mở Arena.</span>
+          <button id="open-arena" class="primary-button" type="button" disabled>Mở Arena</button>
+        </div>
+
+        <div id="candidate-grid" class="candidate-grid" aria-label="Danh sách hướng học"></div>
+        <p id="outputs-empty" class="empty-state" hidden>Bạn đã ẩn mọi hướng trong cụm này. Hãy chọn cụm khác hoặc đặt lại bằng cách tải lại prototype.</p>
+      </section>
+
+      <!-- SCR-06 -->
+      <section id="screen-arena" class="screen" data-screen="SCR-06" aria-labelledby="arena-title" hidden>
+        <div class="screen-heading split">
+          <div>
+            <p class="eyebrow">SCR-06 · Blind Arena</p>
+            <h1 id="arena-title" tabindex="-1">Hướng nào hợp với mục tiêu hiện tại?</h1>
+            <p>Tên model/agent/creator được ẩn. Vote giúp GON hiểu mức phù hợp cá nhân; vote không xác minh nội dung đúng sai.</p>
+          </div>
+          <span class="status info">Ẩn nhãn</span>
+        </div>
+
+        <div id="arena-pair" class="arena-grid"></div>
+
+        <div class="vote-bar" role="group" aria-label="Bình chọn Arena">
+          <button type="button" data-vote="left">⬅ Trái tốt hơn</button>
+          <button type="button" data-vote="tie">Hòa</button>
+          <button type="button" data-vote="bothbad">Cả hai chưa tốt</button>
+          <button type="button" data-vote="merge">Merge hai hướng</button>
+          <button type="button" data-vote="right">Phải tốt hơn ⮕</button>
+        </div>
+
+        <div id="arena-result" class="panel" hidden aria-live="polite">
+          <p class="eyebrow">Sau vote</p>
+          <h2 id="arena-result-title">Đã ghi nhận lựa chọn</h2>
+          <p id="arena-result-copy"></p>
+          <div class="button-row">
+            <button id="arena-fork" class="primary-button" type="button">Tạo hành trình của tôi</button>
+            <button class="secondary-button" type="button" data-nav="outputs">Quay lại hướng học</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCR-07 + SCR-08 + SCR-09 -->
+      <section id="screen-learn" class="screen" data-screen="SCR-07 SCR-08 SCR-09" aria-labelledby="learn-title" hidden>
+        <div class="screen-heading split">
+          <div>
+            <p class="eyebrow">SCR-07/08/09 · Journey & Learn</p>
+            <h1 id="learn-title" tabindex="-1">Hành trình: Mô phỏng “một đêm viral”</h1>
+            <p>Bạn không cần biết Git. “Hành trình của tôi” là một Fork riêng tư; bản gốc vẫn giữ version và attribution.</p>
+          </div>
+          <span class="privacy-badge">🔒 Private · Upstream v1</span>
+        </div>
+
+        <article class="panel branch-header">
+          <div>
+            <p class="eyebrow">Journey Branch của bạn</p>
+            <h2 id="branch-output-title">Game mô phỏng cơ chế viral</h2>
+            <p class="hint">Fork từ module mẫu · Creator attribution được giữ · Nội dung AI draft có nguồn mẫu trong prototype.</p>
+          </div>
+          <ol class="stepper" aria-label="Bước học">
+            <li class="current" data-step-label="concept">Khái niệm</li>
+            <li data-step-label="retrieval">Truy hồi</li>
+            <li data-step-label="transfer">Chuyển giao</li>
+            <li data-step-label="boss">Boss Proof</li>
+          </ol>
+        </article>
+
+        <div class="tabs" role="tablist" aria-label="Các bước học">
+          <button class="tab-button active" type="button" data-learn-tab="concept" role="tab" aria-selected="true">1 · Khái niệm</button>
+          <button class="tab-button" type="button" data-learn-tab="retrieval" role="tab" aria-selected="false">2 · Truy hồi</button>
+          <button class="tab-button" type="button" data-learn-tab="transfer" role="tab" aria-selected="false">3 · Chuyển giao</button>
+          <button class="tab-button" type="button" data-learn-tab="boss" role="tab" aria-selected="false">4 · Boss Proof</button>
+        </div>
+
+        <section class="learn-page active" data-learn-page="concept">
+          <div class="grid three">
+            <article class="panel"><p class="eyebrow">Concept 1</p><h2>Hook không phải toàn bộ câu chuyện</h2><p>Một mở đầu mạnh giúp người xem dừng lại, nhưng lan truyền bền cần giá trị có thể nhắc lại, remix và chia sẻ có ngữ cảnh.</p><span class="source-label">Nguồn mẫu A · đã gắn citation</span></article>
+            <article class="panel"><p class="eyebrow">Concept 2</p><h2>Mạng lưới quyết định tốc độ</h2><p>Người chia sẻ đầu tiên, cụm cộng đồng và thuật toán phân phối có thể làm cùng một nội dung có kết quả khác nhau.</p><span class="source-label">Nguồn mẫu B · đã gắn citation</span></article>
+            <article class="panel"><p class="eyebrow">Concept 3</p><h2>May mắn không sao chép được</h2><p>Thời điểm và bối cảnh văn hóa là biến số. Người học phải tách phần có thể thiết kế khỏi phần không kiểm soát.</p><span class="source-label warning">Claim mẫu C · cần kiểm chứng</span></article>
+          </div>
+          <div class="callout"><strong>Chỉ đọc tới đây là mức Exposed.</strong> Bạn chưa nhận XP cốt lõi cho tới khi tự truy hồi và áp dụng được. <button class="text-button" type="button" data-goto-tab="retrieval">Tiếp tục truy hồi →</button></div>
+        </section>
+
+        <section class="learn-page" data-learn-page="retrieval" hidden>
+          <form id="retrieval-form" class="panel">
+            <p class="eyebrow">Retrieval · Đáp án mẫu đang bị khóa</p>
+            <h2>Giải thích bằng lời của bạn</h2>
+            <label>Vì sao copy nguyên một video viral chưa chắc viral lại?
+              <textarea id="retrieval-answer" rows="6" placeholder="Nhắc tới ít nhất hai yếu tố: nội dung, mạng lưới, thời điểm/bối cảnh hoặc khả năng remix…"></textarea>
+            </label>
+            <p class="hint">Mock rubric: tối thiểu 80 ký tự và nêu được ít nhất hai nhóm yếu tố. Production dùng rubric được P03/P05 định nghĩa.</p>
+            <p id="retrieval-feedback" class="feedback" aria-live="polite"></p>
+            <div class="button-row"><button class="primary-button" type="submit">Kiểm tra mock</button><button class="secondary-button" type="button" data-goto-tab="transfer">Bỏ qua trong prototype</button></div>
+            <div id="sample-answer" class="sample-answer" hidden><strong>Đáp án tham chiếu:</strong> Nội dung chỉ là một phần. Mạng lưới người chia sẻ, thời điểm, bối cảnh văn hóa và khả năng remix thay đổi kết quả; sao chép bề mặt không sao chép được các điều kiện đó.</div>
+          </form>
+        </section>
+
+        <section class="learn-page" data-learn-page="transfer" hidden>
+          <form id="transfer-form" class="panel">
+            <p class="eyebrow">Transfer · Tình huống mới</p>
+            <h2>Áp dụng cho một ngách bạn quan tâm</h2>
+            <label>Chọn một ngách và mô tả cách bạn thiết kế hook, cộng đồng chia sẻ đầu tiên và phần giá trị học thật.
+              <textarea id="transfer-answer" rows="6" placeholder="Ví dụ: dạy an toàn hiến máu bằng thử thách 60 giây…"></textarea>
+            </label>
+            <p id="transfer-feedback" class="feedback" aria-live="polite"></p>
+            <div class="button-row"><button class="primary-button" type="submit">Lưu Branch Commit (mock)</button><button class="secondary-button" type="button" data-goto-tab="boss">Tới Boss Proof</button></div>
+          </form>
+        </section>
+
+        <section class="learn-page" data-learn-page="boss" hidden>
+          <form id="boss-form" class="panel light-panel">
+            <p class="eyebrow dark">SCR-09 · Boss Proof</p>
+            <h2>Tạo artifact của riêng bạn</h2>
+            <p>Rubric được thấy trước: artifact có mục tiêu học, nguồn/AI disclosure, giải thích core value và phần thay đổi của bạn so với nguồn cảm hứng.</p>
+            <label>Tên artifact<input id="boss-title" type="text" placeholder="Ví dụ: Game 60 giây dạy cơ chế lan truyền"></label>
+            <label>Mô tả artifact và quá trình tạo<textarea id="boss-description" rows="5" placeholder="Bạn đã tạo gì, dùng nguồn/AI ở đâu, thay đổi điều gì…"></textarea></label>
+            <fieldset><legend>Checklist rubric</legend>
+              <label class="check-row"><input type="checkbox" class="boss-check"><span>Có mục tiêu học và đối tượng rõ ràng</span></label>
+              <label class="check-row"><input type="checkbox" class="boss-check"><span>Có nguồn và khai báo hỗ trợ AI/remix</span></label>
+              <label class="check-row"><input type="checkbox" class="boss-check"><span>Giải thích được core value bằng lời của tôi</span></label>
+              <label class="check-row"><input type="checkbox" class="boss-check"><span>Artifact không sao chép nguyên trend</span></label>
+            </fieldset>
+            <p id="boss-feedback" class="feedback" aria-live="polite"></p>
+            <button class="gold-button" type="submit">Nộp Boss Proof (mock)</button>
+          </form>
+          <div id="boss-success" class="panel success-panel" hidden>
+            <p class="eyebrow">System-recorded · Mock</p>
+            <h2>Boss Proof đạt rubric mẫu</h2>
+            <p>Prototype cộng XP mô phỏng để duyệt phân cấp hiển thị. Production: XP chỉ được server ghi sau khi event/rubric được xác thực.</p>
+            <button class="primary-button" type="button" data-nav="progress">Xem hành trình & Proof Vault</button>
+          </div>
+        </section>
+      </section>
+
+      <!-- SCR-10 + SCR-11 + SCR-12 -->
+      <section id="screen-progress" class="screen" data-screen="SCR-10 SCR-11 SCR-12" aria-labelledby="progress-title" hidden>
+        <div class="screen-heading split">
+          <div>
+            <p class="eyebrow">SCR-10/11/12 · Journey, Proof & Privacy</p>
+            <h1 id="progress-title" tabindex="-1">Tiến bộ được nhìn thấy — và được phân biệt đúng</h1>
+            <p>Level là tích lũy XP hợp lệ. Mastery là năng lực theo concept. Proof là bằng chứng và cấp xác minh.</p>
+          </div>
+          <button class="secondary-button" type="button" id="open-report">Báo cáo nội dung</button>
+        </div>
+
+        <div class="grid three">
+          <article class="panel metric-panel gold-panel"><p class="eyebrow">Lifelong Level</p><strong id="progress-level">Lv.12 · Hero</strong><span id="progress-xp">1.280 Lifetime XP</span><div class="progress-track"><i id="progress-xp-bar" style="width:80%"></i></div><p id="progress-next">Còn 20 XP tới Lv.13 · Không có max level</p></article>
+          <article class="panel metric-panel"><p class="eyebrow">Topic Mastery</p><strong id="progress-mastery">Recall</strong><span>Concept: cơ chế lan truyền</span><div class="mastery-steps"><i class="done">Exposed</i><i class="done" id="mastery-recall">Recall</i><i id="mastery-apply">Apply</i><i id="mastery-create">Create</i><i>Teach</i></div><p>Chỉ xem nội dung không vượt quá Exposed.</p></article>
+          <article class="panel metric-panel"><p class="eyebrow">Proof mới nhất</p><strong id="latest-proof-level">Chưa có Boss Proof đạt</strong><span id="latest-proof-copy">Ảnh/link khi gắn vào sẽ không tự thành Issuer-verified.</span><span class="status info">Private</span></article>
+        </div>
+
+        <div class="grid two">
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Journey Map</p><h2>Nhánh hành trình</h2></div><span class="status success">Private</span></div>
+            <ol id="journey-timeline" class="timeline">
+              <li class="done"><span></span><div><strong>Input gốc</strong><p>Video + câu hỏi của bạn được lưu thành Source Artifacts.</p></div></li>
+              <li class="done"><span></span><div><strong>Fork hành trình</strong><p>Game mô phỏng cơ chế viral · Upstream v1.</p></div></li>
+              <li id="timeline-retrieval"><span></span><div><strong>Retrieval</strong><p>Chờ câu trả lời đạt rubric.</p></div></li>
+              <li id="timeline-transfer"><span></span><div><strong>Transfer</strong><p>Chờ áp dụng vào tình huống mới.</p></div></li>
+              <li id="timeline-boss"><span></span><div><strong>Boss Proof</strong><p>Chờ artifact đạt rubric.</p></div></li>
+            </ol>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head"><div><p class="eyebrow">Proof Vault</p><h2>Bằng chứng của bạn</h2></div><span class="status info">3 cấp trong Alpha</span></div>
+            <div class="proof-list">
+              <article class="proof-card"><span class="status warning">Source-linked</span><h3>Video nguồn về hiện tượng viral</h3><p>Đã gắn link và hash mô phỏng. Chưa đối chiếu quyền sở hữu hoặc issuer.</p></article>
+              <article class="proof-card"><span class="status">Self-declared</span><h3>Ảnh chứng chỉ mẫu</h3><p>Chỉ là ảnh do user gắn. Không hiển thị “đã xác minh”.</p></article>
+              <article class="proof-card" id="system-proof" hidden><span class="status success">System-recorded</span><h3>Boss Proof — artifact học tập</h3><p>GON ghi nhận artifact đạt rubric mẫu và liên kết về Journey Branch.</p></article>
+            </div>
+          </article>
+        </div>
+
+        <article class="panel privacy-panel">
+          <div class="panel-head"><div><p class="eyebrow">SCR-12 · Personalization Center</p><h2>Dữ liệu dùng để gợi ý cho bạn</h2></div><span id="privacy-state" class="status success">Đang bật</span></div>
+          <div class="grid three">
+            <div><h3>Được dùng khi bật</h3><ul><li>Mục tiêu và Learning Mode</li><li>Vote/chọn output</li><li>Completion, mastery, artifact</li><li>“Không quan tâm”</li></ul></div>
+            <div><h3>Không dùng mặc định</h3><ul><li>Dữ liệu ngoài GON/TikTok/Facebook</li><li>Thuộc tính nhạy cảm suy luận</li><li>Nội dung proof private để quảng bá</li></ul></div>
+            <div><h3>Quyền của bạn</h3><label class="switch-row"><input id="privacy-toggle" type="checkbox" checked><span><strong>Dùng footprint cho ranking</strong><small>Tắt không chặn học nội dung lõi.</small></span></label><button id="delete-footprint" class="danger-button" type="button">Yêu cầu xóa footprint</button><p id="delete-status" class="feedback" aria-live="polite"></p></div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <nav class="mobile-nav" aria-label="Điều hướng mobile">
+    <button type="button" data-nav="home">Bắt đầu</button>
+    <button type="button" data-nav="outputs">Hướng học</button>
+    <button type="button" data-nav="learn">Học</button>
+    <button type="button" data-nav="progress">Hành trình</button>
+  </nav>
+
+  <dialog id="report-dialog" aria-labelledby="report-title">
+    <form method="dialog" id="report-form">
+      <h2 id="report-title">Báo cáo nội dung</h2>
+      <p>Report liên kết tới đúng module/output version. Prototype chỉ mô phỏng tiếp nhận.</p>
+      <label>Lý do
+        <select><option>Thông tin sai hoặc thiếu nguồn</option><option>Nội dung nguy hiểm</option><option>Vi phạm bản quyền</option><option>Gian lận XP/proof</option><option>Khác</option></select>
+      </label>
+      <label>Chi tiết<textarea rows="4" placeholder="Bạn thấy vấn đề gì?"></textarea></label>
+      <div class="dialog-actions"><button class="ghost-button" value="cancel" formnovalidate>Hủy</button><button class="primary-button" id="submit-report" value="default">Gửi báo cáo mock</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>

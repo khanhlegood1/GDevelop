@@ -1,7 +1,7 @@
 # Personas, Jobs-to-be-Done và Learning Modes
 
 > **Artifact:** P01-PERSONAS<br>
-> **Trạng thái:** IN REVIEW tại P01<br>
+> **Trạng thái:** APPROVED tại P01 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Nguyên tắc:** Persona trong GON là **chế độ học theo phiên**, không phải nhãn cố định gắn cho một con người.
 
 ## 1. Vì sao GON dùng Learning Mode thay cho persona cứng?
