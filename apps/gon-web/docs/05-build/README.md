@@ -1,9 +1,9 @@
 # P04 — Vertical Slice Build
 
-> **Trạng thái:** **IN PROGRESS — VS1 local increment**<br>
+> **Trạng thái:** **APPROVED — VS1 local/test baseline**<br>
 > **Gate trước:** P03 được PO duyệt ngày 22/10/2026 tại commit `b4e6ec2`, gồm `D-P03-01`…`D-P03-14`<br>
-> **Chưa bắt đầu:** P05 NFR/Security Review và P06 Cloud Deployment<br>
-> **Quyết định phê duyệt P04:** chưa có. Tài liệu này là bằng chứng tiến độ, không tự đóng gate.
+> **Quyết định phê duyệt P04:** PO duyệt toàn bộ ngày 22/10/2026 và cho phép bắt đầu P05. Trường commit trong mẫu duyệt để trống nên baseline được neo vào PR #13: implementation head `76eac200703ea0ac72907b43989b5a3dc73308d2`, merge commit `ef594dea3512f32dabe5c88b83ee6cb4ab24cc62`. Không có điều kiện cụ thể ngoài chữ mẫu `<nếu có>` và không suy diễn mã `D-P04-*`.<br>
+> **Gate hiện tại:** [P05 NFR & Well-Architected Review](../06-nfr/README.md) đang **IN REVIEW — NOT YET PASS**; P06 chưa bắt đầu. Việc duyệt P04 không đồng nghĩa production-ready hoặc Go-Live.
 
 ## 1. Kết quả VS1 đã có
 
@@ -60,6 +60,8 @@ Dev/Google identity boundary
 **Giới hạn:** chưa gọi Gemini thật, chưa nối TypeScript worker sang service và chưa có durable queue. S-P03-03 chưa passed.
 
 ## 2. Bằng chứng đã chạy ngày 22/10/2026
+
+Bảng dưới đây giữ nguyên kết quả tại baseline P04 được duyệt. Các hardening/test bổ sung trong vòng P05 được ghi riêng tại [gói P05](../06-nfr/README.md), không viết lại bằng chứng lịch sử này.
 
 | Kiểm chứng | Kết quả | Ý nghĩa/không chứng minh |
 |---|---|---|
@@ -129,7 +131,9 @@ DATABASE_URL='postgresql://...' npm run db:migrate
 DATABASE_URL='postgresql://...' npm run spike:search
 ```
 
-## 6. Việc tiếp theo trong P04
+## 6. Hạn chế còn mở sau khi P04 được duyệt
+
+PO đã duyệt baseline VS1 local/test với các giới hạn được ghi minh bạch trong tài liệu này. Các mục sau không bị coi là đã hoàn thành chỉ vì P04 được duyệt; chúng được chuyển thành blocker/backlog tại P05 và các slice tiếp theo:
 
 1. Refactor domain service sang repository interface và implement PostgreSQL repositories theo transaction boundaries P03.
 2. Chạy migration + toàn bộ service tests trên PostgreSQL/pgvector thật; hoàn tất S-P03-01.
@@ -137,10 +141,11 @@ DATABASE_URL='postgresql://...' npm run spike:search
 4. Hoàn tất S-P03-02 bằng object storage/scan/extraction adapters ở mức đã cam kết.
 5. Kiểm chứng Google OAuth/database session/revoke thật cho S-P03-04; thực hiện usability validation P02 còn mở với người dùng thật.
 6. Bổ sung các operation P03 còn thiếu theo thứ tự VS1 → VS2 → VS3 → VS4 → VS5.
-7. Chỉ sau khi các slice trong release scope hoàn tất mới trình PO duyệt P04; P05 không bắt đầu tự động.
+7. Chỉ khi P05 được re-review/APPROVED và PO ra quyết định Go-Live riêng thì P06 mới được triển khai production.
 
 ## 7. Tài liệu liên quan
 
+- [P05 NFR & Well-Architected Review đang thực hiện](../06-nfr/README.md)
 - [P03 contracts đã duyệt](../04-contracts/README.md)
 - [Production source guide](../../src/README.md)
 - [PostgreSQL schema guide](../../db/README.md)

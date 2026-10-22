@@ -1,4 +1,4 @@
-import { createRequestId, jsonData, problemResponse } from "@/server/http";
+import { createRequestId, jsonData, problemResponse, readBoundedBody } from "@/server/http";
 import { getGonService } from "@/server/runtime";
 
 export const runtime = "nodejs";
@@ -12,10 +12,13 @@ export async function PUT(request: Request, context: RouteContext) {
   const requestId = createRequestId(request);
   try {
     const { artifactId } = await context.params;
-    const bytes = new Uint8Array(await request.arrayBuffer());
-    const result = getGonService().acceptLocalUpload(
+    const service = getGonService();
+    const uploadToken = request.headers.get("x-gon-upload-token");
+    const { maxByteSize } = service.authorizeLocalUpload(artifactId, uploadToken);
+    const bytes = await readBoundedBody(request, maxByteSize);
+    const result = service.acceptLocalUpload(
       artifactId,
-      request.headers.get("x-gon-upload-token"),
+      uploadToken,
       bytes,
       request.headers.get("content-type"),
     );

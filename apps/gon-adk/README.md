@@ -1,4 +1,4 @@
-# GON ADK Contract Service — P04 harness
+# GON ADK Contract Service — P04 harness + P05 hardening
 
 Python service tách riêng cho TopicCheck, GenerateModule và AssessAttempt theo P03/ADR-0005. Service **stateless**:
 
@@ -13,7 +13,8 @@ Python service tách riêng cho TopicCheck, GenerateModule và AssessAttempt the
 Đã implement và có thể test local:
 
 - FastAPI endpoints `/healthz`, `/v1/topic-check`, `/v1/generate-module`, `/v1/assess-attempt`;
-- service-token authentication và fail-closed nếu chưa cấu hình;
+- service-token authentication và fail-closed nếu chưa cấu hình; chế độ unauthenticated chỉ có hiệu lực khi `GON_ADK_ENV=local`;
+- request body được đếm theo stream và dừng ở `GON_ADK_MAX_BODY_BYTES`, không buffer toàn bộ trước khi kiểm giới hạn;
 - `local` deterministic provider cho contract tests;
 - citation/source allowlist theo evidence bundle;
 - Google ADK agent definitions cho checker/generator/assessor bằng `google-adk==2.12.0`.
@@ -23,7 +24,8 @@ Chưa được chứng minh:
 - chưa gọi Gemini thật vì sandbox không có Google credentials/model được PO cấu hình;
 - chưa nối TypeScript `GonService` sang HTTP provider này;
 - chưa có durable job worker/Cloud Tasks/Cloud Run deployment;
-- S-P03-03 vẫn **NOT RUN** cho tới khi chạy Google provider với credentials kiểm thử và ghi kết quả vào P04 evidence.
+- S-P03-03 vẫn **NOT RUN** cho tới khi chạy Google provider với credentials kiểm thử và ghi kết quả vào P05 staging evidence;
+- P05 `pip-audit` trên clean runtime ghi nhận `CVE-2026-114603` trong transitive `opentelemetry-api 1.42.1` do `google-adk 2.12.0` kéo theo. App không trực tiếp gắn OTel ASGI propagation middleware, nhưng đây vẫn là ngoại lệ dependency phải đóng hoặc được PO phê duyệt có điều kiện/hạn tại P05/P06.
 
 ## Chạy local
 
@@ -54,6 +56,7 @@ Không copy/sửa schema riêng trong service; P03 contracts là nguồn sự th
 ## Google provider
 
 ```bash
+GON_ADK_ENV='<staging|production>'
 GON_ADK_PROVIDER=google
 GON_ADK_MODEL='<model-id-được-cấu-hình-cho-môi-trường>'
 GON_ADK_SERVICE_TOKEN='<secret-từ-secret-manager>'
@@ -64,7 +67,7 @@ Nếu thiếu model hoặc credentials, endpoint trả `503 PROVIDER_NOT_CONFIGU
 
 Mỗi request Google tạo một ADK in-memory session mới với actor nội bộ `gon-worker`; không dùng user ID làm ADK session identity. Evidence/answer được dặn là dữ liệu không tin cậy trong instruction, nhưng lớp bảo vệ quyết định vẫn là schema/semantic validator và TypeScript policy service.
 
-## Ranh giới tích hợp còn lại trong P04
+## Ranh giới tích hợp còn lại sau P04/P05 review
 
 1. TypeScript worker tạo job command đã xác thực từ PostgreSQL outbox.
 2. Worker gọi service bằng service identity/token rotation ở P05/P06.

@@ -1,8 +1,8 @@
-# GON Web production source — P04 VS1 increment
+# GON Web production source — P04 VS1 increment + P05 hardening
 
 Đây là Next.js/TypeScript modular monolith cho GON Private Alpha. Nó không thay thế các prototype tĩnh ở `../index.html` và `../ux-prototype/`; prototype được giữ làm bằng chứng P02/lịch sử, còn thư mục này là nơi triển khai contract P03.
 
-> **Trạng thái:** local/test VS1 đang chạy end-to-end bằng memory store và deterministic adapters. Đây chưa phải production deployment: PostgreSQL repository, durable queue, Gemini/ADK thật, Google credentials thật và P05/P06 vẫn chưa hoàn tất.
+> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source vẫn chạy end-to-end bằng memory store và deterministic adapters; đây chưa phải production deployment vì PostgreSQL repository, durable queue, Gemini/ADK thật, Google credentials thật và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md).
 
 ## Cấu trúc
 
@@ -15,7 +15,7 @@
 | `app/api/auth/[...nextauth]/route.ts` | Auth.js handlers |
 | `app/api/csrf/route.ts` | Double-submit CSRF cookie/token |
 | `app/api/dev/session/route.ts` | Dev session chỉ khi không phải production và `GON_DEV_AUTH=1` |
-| `app/api/local-uploads/[artifactId]/route.ts` | Nhận bytes cho local signed-upload simulation bằng upload token đã hash |
+| `app/api/local-uploads/[artifactId]/route.ts` | Authorize upload token trước, sau đó mới đọc bytes theo stream trong giới hạn đã khai báo cho local signed-upload simulation |
 | `server/routes.ts` | Dispatcher cho tập VS1 endpoints hiện đã implement |
 | `server/service.ts` | Domain service đồng bộ cho increment đầu: identity, project/artifact, search, Brew local, candidates/ranking, journey/attempt, mastery/XP/proof/report |
 | `server/memory-store.ts` | Local/test store; không phải persistence production |
@@ -24,9 +24,9 @@
 | `server/assessment.ts` | Deterministic rubric, disclosure và human-review safeguards |
 | `server/embeddings.ts` | Biên `gon-semantic-v1` 768D; local hash provider và Gemini adapter chưa có bằng chứng chạy thật |
 | `server/auth.ts`, `actor.ts` | Auth.js Google boundary và actor resolution từ session server-side |
-| `server/http.ts` | Request ID, envelope, Problem Details, same-origin/CSRF, body limit, If-Match/Idempotency-Key parsing |
+| `server/http.ts` | Request ID, envelope, Problem Details, same-origin/CSRF, streamed body limits, proxy-header trust có điều kiện, If-Match/Idempotency-Key parsing |
 | `server/db.ts` | Optional `pg.Pool` cho Auth.js adapter khi có `DATABASE_URL` |
-| `server/runtime.ts` | Singleton local service; `GON_STORE=postgres` cố tình fail-fast vì repository chưa wired |
+| `server/runtime.ts` | Singleton local service; `GON_STORE=postgres` cố tình fail-fast vì repository chưa wired; memory bị cấm trong production nếu không có override cô lập tường minh |
 
 ## Chạy local
 
@@ -40,7 +40,7 @@ AUTH_SECRET='replace-with-a-local-secret' \
 npm run dev -- --hostname 0.0.0.0 --port 3000
 ```
 
-Dev Auth bị tắt trong `NODE_ENV=production` kể cả khi đặt biến môi trường. Production build vẫn có thể chạy UI/API với Google OAuth đã cấu hình, nhưng domain store hiện tại vẫn là memory process-local nên không được dùng làm dữ liệu thật.
+Dev Auth bị tắt trong `NODE_ENV=production` kể cả khi đặt biến môi trường. Production build có thể render UI và Auth boundary, nhưng domain API dùng memory sẽ fail-closed nếu không có `GON_ALLOW_MEMORY_STORE_IN_PRODUCTION=1`. Override này chỉ dành cho môi trường cô lập không chứa dữ liệu thật; nó không biến memory thành persistence production.
 
 Kiểm chứng:
 
@@ -56,9 +56,13 @@ npm run db:check
 | Biến | Ý nghĩa hiện tại |
 |---|---|
 | `GON_STORE=memory` | Store duy nhất đã wired. Giá trị `postgres` sẽ throw thay vì fallback. |
+| `GON_ALLOW_MEMORY_STORE_IN_PRODUCTION` | Mặc định tắt. Chỉ bật cho môi trường production-build cô lập không có dữ liệu thật; không dùng cho Private Alpha thật. |
 | `DATABASE_URL` | Bật Auth.js PG adapter/database sessions và là điều kiện để chạy migration; chưa bật domain repository. |
 | `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` hoặc `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` | Google OAuth credentials cho Auth.js. |
 | `AUTH_SECRET` hoặc `NEXTAUTH_SECRET` | Secret của Auth.js. |
+| `AUTH_TRUST_HOST` | Production mặc định không tin forwarded host. Chỉ bật sau khi P06 chứng minh edge proxy ghi đè các forwarded headers. |
+| `GON_TRUST_PROXY_HEADERS` | Mặc định tắt. Chỉ bật khi proxy tin cậy tự đặt `X-Forwarded-Host/Proto`; không bật cho traffic trực tiếp từ client. |
+| `GON_PUBLIC_ORIGIN` | Origin công khai dạng `https://...` không path/query; khi hợp lệ sẽ được ưu tiên hơn request host để tạo upload URL. |
 | `GON_REQUIRE_INVITE` | Mặc định bật; invite chỉ lưu SHA-256 hash. |
 | `GON_DEV_AUTH=1` | Chỉ có hiệu lực ngoài production. |
 | `GON_DEV_INVITE_CODE` | Seed một invite cho local dev; không dùng secret/code thật trong repo. |

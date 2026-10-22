@@ -1,6 +1,6 @@
 # GON.org — Web prototype 18+
 
-> **P04 production increment:** mã VS1 Next.js/TypeScript đang nằm trong [`src/`](src/README.md), PostgreSQL migrations trong [`db/`](db/README.md) và Python ADK harness tại [`../gon-adk/`](../gon-adk/README.md). Current trạng thái/bằng chứng nằm tại [`docs/05-build/README.md`](docs/05-build/README.md). Phần dưới mô tả prototype tĩnh lịch sử ở thư mục này, không phải production deployment.
+> **P04 VS1 increment đã được PO duyệt:** mã Next.js/TypeScript nằm trong [`src/`](src/README.md), PostgreSQL migrations trong [`db/`](db/README.md) và Python ADK harness tại [`../gon-adk/`](../gon-adk/README.md). Baseline/bằng chứng P04 nằm tại [`docs/05-build/README.md`](docs/05-build/README.md); gate hiện tại là [`P05 NFR & Well-Architected Review`](docs/06-nfr/README.md) — **IN REVIEW, NOT YET PASS**. Phần dưới mô tả prototype tĩnh lịch sử ở thư mục này, không phải production deployment.
 
 Prototype chạy ngay, không cần build hay API key. Nó biến ý tưởng của GON thành một hành trình tương tác:
 
@@ -69,8 +69,8 @@ node --check apps/gon-web/ux-prototype/app.js
 
 White Paper về Lifelong Level/XP/Token: [`GON-WHITEPAPER.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.md) · [bản PDF](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.pdf). Kiến trúc đích và hợp đồng dữ liệu: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requirement V2.1 về 10+ output, trend, footprint, Arena vote và Journey Fork: [`GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md). Tài liệu thương hiệu: [`../../branding/GON-GameOfNurture/`](../../branding/GON-GameOfNurture/).
 
-## Quy trình phát triển, Gate 0, P01, P02, P03 và P04
+## Quy trình phát triển, Gate 0, P01, P02, P03, P04 và P05
 
-GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). **Gate 0 đã được duyệt tại `5482dac`; P01 tại `9a09fa2`; P02 tại `33c2641`; P03 tại `b4e6ec2` cùng toàn bộ mặc định `D-P03-01`…`D-P03-14`.** P04 đang triển khai VS1 tại [`docs/05-build/README.md`](docs/05-build/README.md); mã production đang được dựng trong `src/` theo contract đã duyệt.
+GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). **Gate 0 đã được duyệt tại `5482dac`; P01 tại `9a09fa2`; P02 tại `33c2641`; P03 tại `b4e6ec2` cùng toàn bộ mặc định `D-P03-01`…`D-P03-14`; P04 cho PR #13/head `76eac20`/merge `ef594de`.** P05 đang ở trạng thái **IN REVIEW — NOT YET PASS** tại [`docs/06-nfr/README.md`](docs/06-nfr/README.md); P06 chưa bắt đầu.
 
 > Không nhập mật khẩu Google thật vào prototype. Không dùng dữ liệu mẫu trong app làm bằng chứng y khoa, pháp lý hay thành tích thật.

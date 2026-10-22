@@ -102,8 +102,17 @@ export class GeminiEmbeddingProvider implements EmbeddingProvider {
       throw new Error("Gemini embedding response did not contain a 768-dimensional vector");
     }
 
+    const numericValues = values.map(Number);
+    if (numericValues.some((value) => !Number.isFinite(value))) {
+      throw new Error("Gemini embedding response contained a non-finite vector value");
+    }
+    const vector = normalizeVector(numericValues);
+    if (vector.every((value) => value === 0)) {
+      throw new Error("Gemini embedding response contained a zero vector");
+    }
+
     return {
-      vector: normalizeVector(values.map(Number)),
+      vector,
       dimensions: EMBEDDING_DIMENSIONS,
       profile: EMBEDDING_PROFILE,
       providerModel: this.providerModel,

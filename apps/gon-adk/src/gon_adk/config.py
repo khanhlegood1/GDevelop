@@ -27,6 +27,13 @@ class Settings:
     contracts_dir: Path
     request_timeout_seconds: float
     max_body_bytes: int
+    environment: str = "local"
+
+    @property
+    def unauthenticated_local_enabled(self) -> bool:
+        """The local no-token mode must never become effective elsewhere."""
+
+        return self.allow_unauthenticated_local and self.environment.strip().lower() == "local"
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -45,6 +52,7 @@ class Settings:
                 os.getenv("GON_ADK_REQUEST_TIMEOUT_SECONDS", "120")
             ),
             max_body_bytes=int(os.getenv("GON_ADK_MAX_BODY_BYTES", "2500000")),
+            environment=os.getenv("GON_ADK_ENV", "local").strip().lower(),
         )
 
     @property

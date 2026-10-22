@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   apiPage,
   apiRequest,
@@ -98,6 +104,10 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Đã xảy ra lỗi không xác định.";
 }
 
+function nodeTabId(nodeId: string): string {
+  return `node-tab-${nodeId.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
+}
+
 interface Vs1AppProps {
   googleConfigured: boolean;
   devAuthEnabled: boolean;
@@ -162,6 +172,27 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
   const accountStatus = bootstrap?.account?.status as string | undefined;
   const isActive = accountStatus === "active";
   const currentProgress = (progress ?? bootstrap?.progress) as AnyRecord | undefined;
+
+  function handleNodeTabsKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowRight", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+    const tabs = Array.from(
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="tab"]:not(:disabled)'),
+    );
+    const currentIndex = tabs.indexOf(document.activeElement as HTMLButtonElement);
+    if (currentIndex < 0 || tabs.length === 0) return;
+
+    let nextIndex = currentIndex;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+
+    event.preventDefault();
+    const nextTab = tabs[nextIndex];
+    const nextNodeId = nextTab.dataset.nodeId;
+    if (nextNodeId) setActiveNodeId(nextNodeId);
+    nextTab.focus();
+  }
 
   async function run<T>(label: string, task: () => Promise<T>): Promise<T | undefined> {
     setBusy(label);
@@ -299,7 +330,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
   async function handleSignOut() {
     if (devAuthEnabled) {
       await run("sign-out", async () => {
-        await fetch("/api/dev/session", { method: "DELETE", credentials: "include" });
+        await apiRequest("/api/dev/session", { method: "DELETE", idempotency: false });
         globalThis.location.reload();
       });
       return;
@@ -574,7 +605,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
       <main className="page-shell" id="main-content">
         <section className="panel loading-card" aria-live="polite">
           <div>
-            <p className="eyebrow">GON · P04 VS1</p>
+            <p className="eyebrow">GON · VS1 · P05 REVIEW</p>
             <h1>Đang tải phiên học…</h1>
             <p className="muted">GON đang kiểm tra session và trạng thái tài khoản ở server.</p>
           </div>
@@ -635,8 +666,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                 <span className="badge">Lifelong Level không giới hạn</span>
               </div>
               <div className="callout" style={{ marginTop: 18 }}>
-                <strong>Trạng thái P04 hiện tại:</strong> bản VS1 đầu tiên chạy local deterministic embedding/Brew và memory store để kiểm chứng contract.
-                Chưa nối Gemini/ADK/PostgreSQL production hay Google credentials trong sandbox.
+                <strong>Trạng thái hiện tại:</strong> P04 VS1 đã được duyệt làm baseline local/test; P05 đang rà soát NFR và chưa đạt. Bản chạy này vẫn dùng deterministic embedding/Brew và memory store, chưa nối Gemini/ADK/PostgreSQL production hay Google credentials thật.
               </div>
             </article>
 
@@ -965,12 +995,29 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                       </div>
                       <h2>{String(graph.module.title)}</h2>
                       <p className="muted">{String(graph.module.summary)}</p>
-                      <div className="node-tabs" role="tablist" aria-label="Các bước học">
+                      <div
+                        className="node-tabs"
+                        role="tablist"
+                        aria-label="Các bước học"
+                        onKeyDown={handleNodeTabsKeyDown}
+                      >
                         {graphNodes.map((node, index) => {
                           const state = nodeStateById.get(String(node.id));
                           const locked = state?.status === "locked";
+                          const selected = activeNode.id === node.id;
                           return (
-                            <button key={String(node.id)} type="button" role="tab" aria-selected={activeNode.id === node.id} disabled={locked} onClick={() => setActiveNodeId(String(node.id))}>
+                            <button
+                              key={String(node.id)}
+                              id={nodeTabId(String(node.id))}
+                              data-node-id={String(node.id)}
+                              type="button"
+                              role="tab"
+                              aria-selected={selected}
+                              aria-controls="active-node-panel"
+                              tabIndex={selected ? 0 : -1}
+                              disabled={locked}
+                              onClick={() => setActiveNodeId(String(node.id))}
+                            >
                               {index + 1} · {String(node.title)}{locked ? " (đang khóa)" : ""}
                             </button>
                           );
@@ -979,7 +1026,13 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                       <p className="muted">Node hiện tại từ server: <code>{String(player.currentNodeId ?? "đã hoàn tất các node bắt buộc")}</code></p>
                     </section>
 
-                    <section className="panel stack" aria-labelledby="active-node-heading">
+                    <section
+                      className="panel stack"
+                      id="active-node-panel"
+                      role="tabpanel"
+                      aria-labelledby={nodeTabId(String(activeNode.id))}
+                      tabIndex={0}
+                    >
                       <div>
                         <p className="eyebrow">{String(activeNode.type)} · {Number(activeNode.estimatedMinutes ?? 0)} phút</p>
                         <h2 id="active-node-heading">{String(activeNode.title)}</h2>

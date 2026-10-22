@@ -1,7 +1,7 @@
 # Quy trình AI-Agile/HITL cho GON
 
 > **Phiên bản:** 1.0<br>
-> **Trạng thái:** Gate 0, P01, P02 và P03 APPROVED ngày 22/10/2026; P04 đang triển khai VS1<br>
+> **Trạng thái:** Gate 0, P01, P02, P03 và P04 APPROVED ngày 22/10/2026; P05 IN REVIEW — NOT YET PASS<br>
 > **Cơ sở:** `AI-Agile-Framework-Light_1.pdf` do Product Owner cung cấp<br>
 > **Repository nguồn sự thật:** `khanhlegood1/GDevelop`
 

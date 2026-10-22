@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readConfig } from "@/server/config";
 import { notFound } from "@/server/errors";
 import {
-  assertSameOrigin,
+  assertCsrf,
   createRequestId,
   DEV_SESSION_COOKIE_NAME,
   jsonData,
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   const requestId = createRequestId(request);
   try {
     requireDevAuth();
-    assertSameOrigin(request);
+    assertCsrf(request);
     const body = ensureRecord(await readJsonBody(request));
     const displayName = requiredString(body, "displayName", { minLength: 2, maxLength: 120 });
     const service = getGonService();
@@ -62,7 +62,7 @@ export async function DELETE(request: Request) {
   const requestId = createRequestId(request);
   try {
     requireDevAuth();
-    assertSameOrigin(request);
+    assertCsrf(request);
     const cookies = parseCookies(request.headers.get("cookie"));
     getGonService().revokeDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
     const response = new NextResponse(null, { status: 204 });
