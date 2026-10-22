@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-**Proposed — trình PO duyệt cùng gói Gate 0.**
+**Accepted — Product Owner đã duyệt Gate 0 ngày 22/10/2026 tại commit `5482dac`.**
 
 ## Bối cảnh
 
@@ -10,7 +10,7 @@ Gate 0 đã xác định nguồn tính năng và logical components. Tuy nhiên,
 
 WSIC dùng Next.js, Convex, PostgreSQL/Better Auth, QStash và ADK services. Đây là **ứng viên tham khảo**, không tự động trở thành stack production của GON chỉ vì GON học Brew/Search patterns từ WSIC. Tương tự, prototype GON tĩnh không tự động quyết định frontend production.
 
-## Quyết định đề xuất
+## Quyết định
 
 Tại Gate 0 chỉ khóa các contract cấp sản phẩm đã có:
 
@@ -49,7 +49,7 @@ Mỗi ứng viên phải được chấm tối thiểu theo:
 9. khả năng tích hợp GDevelop;
 10. tổng chi phí sở hữu và rủi ro lock-in.
 
-## Hệ quả nếu được duyệt
+## Hệ quả
 
 - P01/P02 không bị ép theo giới hạn của một vendor chưa chọn.
 - P03 có thể yêu cầu spike nhỏ trước ADR cuối, ví dụ Convex vector search so với PostgreSQL + pgvector, hoặc GDevelop project generation so với embedded runtime.

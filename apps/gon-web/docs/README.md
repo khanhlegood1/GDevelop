@@ -2,16 +2,17 @@
 
 > **Mục đích:** Khu vực tài liệu kỹ thuật chính thức cho quá trình phát triển GON theo AI-Agile/HITL. Đây là nơi lưu quyết định kiến trúc, truy vết nguồn mở, tiêu chí từng gate và bằng chứng bàn giao.<br>
 > **Repository sản xuất:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
-> **Trạng thái hiện tại:** **Gate 0 — IN REVIEW**<br>
+> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 IN REVIEW**<br>
 > **Product Owner:** Người sở hữu dự án GON trong cuộc trao đổi phê duyệt.<br>
-> **Ngày lập Gate 0:** 22/10/2026
+> **Gate 0 được PO duyệt:** 22/10/2026 tại commit `5482dac`<br>
+> **Ngày trình P01:** 22/10/2026
 
 ## Trạng thái các gate
 
 | Gate | Tên | Trạng thái | Điều kiện mở gate tiếp theo |
 |---|---|---|---|
-| G0 | Source & Architecture Charter | **IN REVIEW** | PO duyệt gói Gate 0 |
-| P01 | Requirement Intelligence | Chưa bắt đầu | G0 được duyệt |
+| G0 | Source & Architecture Charter | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 |
+| P01 | Requirement Intelligence | **IN REVIEW** | PO duyệt phạm vi/persona/MoSCoW/BDD hoặc yêu cầu sửa |
 | P02 | Frontend UX Agreement | Chưa bắt đầu | P01 được duyệt |
 | P03 | API Contract & Data Model First | Chưa bắt đầu | P02 được duyệt |
 | P04 | Vertical Slice Build | Chưa bắt đầu | P03 được duyệt |
@@ -19,11 +20,21 @@
 | P06 | Cloud Deployment | Chưa bắt đầu | P05 đạt và PO ra quyết định Go-Live riêng |
 | R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
 
-## Tài liệu Gate 0 cần PO duyệt
+## Tài liệu P01 đang trình PO duyệt
+
+1. [P01 — Requirement Intelligence: cổng gói và checklist phê duyệt](02-requirements/README.md)
+2. [GON Product Requirements Document v1.0](02-requirements/GON-PRD-V1.md) — **tài liệu chính để duyệt**
+3. [Personas, Jobs-to-be-Done & Learning Modes](02-requirements/PERSONAS-JTBD-AND-LEARNING-MODES.md)
+4. [Backlog, MoSCoW & Vertical Slices](02-requirements/BACKLOG-MOSCOW-AND-VERTICAL-SLICES.md)
+5. [Acceptance Criteria dạng BDD](02-requirements/ACCEPTANCE-CRITERIA-BDD.md)
+6. [Metrics, Risks & Open Decisions](02-requirements/METRICS-RISKS-AND-OPEN-DECISIONS.md)
+7. [P01 Traceability Matrix](02-requirements/P01-TRACEABILITY-MATRIX.md)
+
+## Tài liệu Gate 0 đã được phê duyệt
 
 1. [Quy trình AI-Agile/HITL cho GON](00-process/GON-AI-AGILE-PROCESS.md)
 2. [Cách review, yêu cầu sửa và phê duyệt gate](00-process/GATE-REVIEW-AND-APPROVAL.md)
-3. [Gate 0 — Source & Architecture Charter](01-architecture/GATE0-SOURCE-ARCHITECTURE-CHARTER.md) — **tài liệu chính để duyệt**
+3. [Gate 0 — Source & Architecture Charter](01-architecture/GATE0-SOURCE-ARCHITECTURE-CHARTER.md) — **APPROVED**
 4. [Ma trận Feature ↔ Source Traceability](01-architecture/FEATURE-SOURCE-TRACEABILITY.md)
 5. [Thẻ Audit FastChat](01-architecture/audits/FASTCHAT-AUDIT.md)
 6. [Thẻ Audit WSIC](01-architecture/audits/WSIC-AUDIT.md)
@@ -46,7 +57,7 @@ Các lựa chọn sau đã được PO xác nhận trong phiên làm việc ngà
 - Tái sử dụng code **có chọn lọc sau Audit**; không fork nguyên FastChat/WSIC thành production.
 - Mã production của GON nằm trong **`khanhlegood1/GDevelop`**.
 
-Việc PO duyệt gói Gate 0 xác nhận thêm: các biên hệ thống, phần GON phải tự xây, chính sách reuse, rủi ro và danh sách quyết định còn mở cho P01/P03.
+PO đã duyệt Gate 0 ngày 22/10/2026 tại commit `5482daca3d8ef424e9d7aa81102f0d135c55de84` và cho phép bắt đầu P01. P01 vẫn là một gate riêng: P02 chỉ bắt đầu sau khi PO duyệt PRD/backlog/BDD của P01.
 
 ## Tài liệu sản phẩm đã có
 

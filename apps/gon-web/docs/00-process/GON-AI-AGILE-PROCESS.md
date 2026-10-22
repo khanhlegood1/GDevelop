@@ -1,7 +1,7 @@
 # Quy trình AI-Agile/HITL cho GON
 
 > **Phiên bản:** 1.0<br>
-> **Trạng thái:** IN REVIEW tại Gate 0<br>
+> **Trạng thái:** Đã được dùng làm khung Gate 0; Gate 0 APPROVED ngày 22/10/2026, P01 đang IN REVIEW<br>
 > **Cơ sở:** `AI-Agile-Framework-Light_1.pdf` do Product Owner cung cấp<br>
 > **Repository nguồn sự thật:** `khanhlegood1/GDevelop`
 

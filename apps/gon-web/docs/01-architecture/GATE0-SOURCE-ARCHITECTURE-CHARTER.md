@@ -3,7 +3,8 @@
 > **Artifact:** G0-CHARTER<br>
 > **Phiên bản:** 1.0<br>
 > **Ngày:** 22/10/2026<br>
-> **Trạng thái:** **IN REVIEW — chờ Product Owner duyệt gói Gate 0**<br>
+> **Trạng thái:** **APPROVED — Product Owner đã duyệt ngày 22/10/2026**<br>
+> **Commit được duyệt:** `5482daca3d8ef424e9d7aa81102f0d135c55de84`<br>
 > **Repository đích:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
 > **Baseline khi Gate 0 bắt đầu:** `c1cd266e47117b37fe5158eddc0d51158b52561a`
 
@@ -232,21 +233,20 @@ Owner in GON:
 | Scope gồm search + social + game + proof + creator economy | Không ra được MVP | P01 MoSCoW và vertical slices; non-goals bắt buộc |
 | Token bị hiểu là cam kết tài chính | Pháp lý/danh tiếng | Không phát hành tại baseline; chỉ XP/credits nội bộ cho tới quyết định riêng |
 
-## 11. Tiêu chí PO duyệt Gate 0
+## 11. Kết quả phê duyệt Gate 0
 
-PO duyệt gói này khi đồng ý rằng:
+Product Owner đã phê duyệt gói này ngày 22/10/2026 tại commit `5482daca3d8ef424e9d7aa81102f0d135c55de84`:
 
-- [ ] FastChat được giao đúng phần Arena/voting/rating patterns.
-- [ ] WSIC được giao đúng phần Search 768D/Brew/ADK/queue patterns.
-- [ ] GDevelop là production monorepo và hướng game/export.
-- [ ] Các phần GON-owned ở mục 1 và 6 là đầy đủ ở mức Gate 0.
-- [ ] Không wholesale-fork upstream vào production.
-- [ ] Stack production sẽ được quyết tại P03, không suy diễn từ prototype/WSIC.
-- [ ] P01 chỉ bắt đầu sau khi Gate 0 được duyệt.
+- [x] FastChat được giao đúng phần Arena/voting/rating patterns.
+- [x] WSIC được giao đúng phần Search 768D/Brew/ADK/queue patterns.
+- [x] GDevelop là production monorepo và hướng game/export.
+- [x] Các phần GON-owned ở mục 1 và 6 là đầy đủ ở mức Gate 0.
+- [x] Không wholesale-fork upstream vào production.
+- [x] Stack production sẽ được quyết tại P03, không suy diễn từ prototype/WSIC.
+- [x] Cho phép bắt đầu P01.
 
-## 13. Hành động tiếp theo sau khi duyệt
+## 12. Hành động tiếp theo sau khi duyệt
 
-1. Đánh dấu Gate 0 `APPROVED` và baseline theo PR/merge được PO chỉ định.
-2. Mở P01 trên branch riêng.
-3. Tạo PRD, personas, MoSCoW, BDD acceptance criteria, success/guardrail metrics và đề xuất vertical slice đầu tiên.
-4. Không viết production code mới trong P01.
+1. Gate 0 được giữ làm baseline kiến trúc/nguồn; thay đổi sau này đi qua ADR hoặc amendment được duyệt.
+2. P01 tạo PRD, personas, MoSCoW, BDD acceptance criteria, success/guardrail metrics và đề xuất vertical slice đầu tiên.
+3. Không viết production code mới trong P01.

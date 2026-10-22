@@ -147,6 +147,7 @@ Dùng khi quyết định chưa đủ lớn để thành ADR riêng:
 | 22/10/2026 | FastChat cho Arena; WSIC cho Search/Brew/ADK; GDevelop cho GON/game | PO | Gate 0 | Reuse có chọn lọc |
 | 22/10/2026 | Production code ở `khanhlegood1/GDevelop` | PO | ADR-0001 | Không tạo repo production riêng tại Gate 0 |
 | 22/10/2026 | Không wholesale-fork FastChat/WSIC | PO | ADR-0002 | Mọi port cần Audit |
+| 22/10/2026 | **APPROVED Gate 0**, cho phép bắt đầu P01 | PO | Commit `5482dac` | P01 vẫn cần phê duyệt riêng trước P02 |
 
 ## 6. Quy tắc escalated decision
 

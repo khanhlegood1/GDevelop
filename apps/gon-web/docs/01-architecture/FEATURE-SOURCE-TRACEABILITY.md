@@ -1,8 +1,8 @@
 # Ma trận Feature ↔ Source Traceability
 
 > **Artifact:** G0-TRACE-001<br>
-> **Trạng thái:** IN REVIEW tại Gate 0<br>
-> **Mục đích:** Mỗi tính năng GON phải chỉ rõ nguồn tham chiếu/tái sử dụng, mức reuse và phần GON phải tự sở hữu. Ma trận này sẽ được nối với Requirement ID chính thức tại P01.
+> **Trạng thái:** APPROVED tại Gate 0 ngày 22/10/2026; đang được nối sang P01<br>
+> **Mục đích:** Mỗi tính năng GON phải chỉ rõ nguồn tham chiếu/tái sử dụng, mức reuse và phần GON phải tự sở hữu. P01 nối các `GON-Fxx` này sang Requirement ID, user story, BDD và MoSCoW tại `../02-requirements/P01-TRACEABILITY-MATRIX.md`.
 
 ## Cách đọc cột Reuse mode
 

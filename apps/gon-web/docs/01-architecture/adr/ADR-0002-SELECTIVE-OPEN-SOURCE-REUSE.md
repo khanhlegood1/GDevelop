@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-**Accepted as PO-selected direction — 22/10/2026.** Việc baseline ADR này trên nhánh chính vẫn tuân theo phê duyệt gói Gate 0/PR.
+**Accepted — Product Owner đã duyệt Gate 0 ngày 22/10/2026 tại commit `5482dac`.**
 
 ## Bối cảnh
 
