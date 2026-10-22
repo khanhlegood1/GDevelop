@@ -1,6 +1,6 @@
 # P03 — HTTP API Contract
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Contract máy đọc được:** [OpenAPI 3.1 `openapi.json`](openapi.json)<br>
 > **Base path:** `/v1`
 

@@ -2,13 +2,13 @@
 
 ## Trạng thái
 
-**Proposed — IN REVIEW tại P03 ngày 22/10/2026.** Chỉ chuyển Accepted khi PO duyệt P03.
+**Accepted — Product Owner đã duyệt P03 ngày 22/10/2026 tại commit `b4e6ec2e91f83a48ddb139e8981928eb99d3d8bb`.**
 
 ## Bối cảnh
 
 GON cần một web app/API có auth, authorization, search, jobs, Arena, Journey, XP và Proof. Prototype tĩnh hiện tại không phải production platform. WSIC gợi ý Next.js cho web và Python cho Google ADK; FastChat là Python/Gradio nhưng không phù hợp làm production web của GON.
 
-## Quyết định đề xuất
+## Quyết định
 
 - Tiến hóa `apps/gon-web` thành Next.js + TypeScript modular monolith cho Web UI và HTTP API `/v1`.
 - Domain modules tách theo identity, projects, search, generation, discovery, journeys, progress, safety và operations.
@@ -25,7 +25,7 @@ GON cần một web app/API có auth, authorization, search, jobs, Arena, Journe
 
 ## Phương án đã cân nhắc
 
-| Phương án | Lý do không đề xuất |
+| Phương án | Lý do không chọn |
 |---|---|
 | Giữ static prototype và thêm backend rời không có framework | Khó đạt auth/session/accessibility/SSR và tăng nợ tích hợp |
 | Python cho toàn bộ web/API | Tách khỏi TypeScript frontend và kinh nghiệm Next/GDevelop web trong repo |

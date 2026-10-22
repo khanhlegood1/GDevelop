@@ -1,6 +1,6 @@
 # P03 — Stack Evaluation, Cost Guardrails & Spike Plan
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Chọn baseline đủ chắc cho VS1/VS2 mà không biến WSIC/FastChat thành production nguyên trạng và không hứa chi phí chưa đo.
 
 ## 1. Tiêu chí từ ADR-0004

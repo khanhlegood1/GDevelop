@@ -1,6 +1,6 @@
 # P03 — State Machines & Business Rules
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Mọi màn P02 nhận trạng thái máy rõ ràng; client không tự suy ra quyền, XP, mastery hay verification từ màu sắc/thời gian xem.
 
 ## 1. Quy ước chuyển trạng thái
