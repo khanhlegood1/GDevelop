@@ -5,7 +5,7 @@
 > **Ngày trình duyệt:** 22/10/2026<br>
 > **Cơ sở đã khóa:** P01 được PO duyệt tại commit `9a09fa21fd8a27536eddb97ad179d14db3aab7ac`, bao gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
 > **Phạm vi thiết kế:** VS1 đầy đủ và các bề mặt UX cần thiết cho VS2 theo [Backlog đã duyệt](../02-requirements/BACKLOG-MOSCOW-AND-VERTICAL-SLICES.md)<br>
-> **Gate tiếp theo:** P03 API/Data Contract đang IN REVIEW; production backend chưa bắt đầu
+> **Gate tiếp theo:** P03 API/Data Contract đã được phê duyệt; P04 đang triển khai VS1 theo contract và vẫn phải hoàn thành usability test thật trước khi khóa production UI
 
 ## 1. P02 chốt điều gì?
 

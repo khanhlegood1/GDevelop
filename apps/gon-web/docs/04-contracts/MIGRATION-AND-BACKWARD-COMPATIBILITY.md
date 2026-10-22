@@ -1,6 +1,6 @@
 # P03 — Migration & Backward Compatibility Plan
 
-> **Trạng thái:** **IN REVIEW — chờ Product Owner phê duyệt P03**<br>
+> **Trạng thái:** **APPROVED — Product Owner đã duyệt P03 ngày 22/10/2026**<br>
 > **Quyết định liên quan:** `D-P03-14`<br>
 > **Mục đích:** cho phép P04 tiến hóa database/API/schema mà không phá Journey đang học, ModuleVersion đã Fork, XP Ledger, Proof, vote hoặc dữ liệu private cũ.
 

@@ -2,13 +2,13 @@
 
 ## Trạng thái
 
-**Proposed — IN REVIEW tại P03 ngày 22/10/2026.** Chỉ chuyển Accepted khi PO duyệt P03; việc triển khai thuộc VS4 sau spike.
+**Accepted — Product Owner đã duyệt P03 ngày 22/10/2026 tại commit `b4e6ec2e91f83a48ddb139e8981928eb99d3d8bb`.** Việc triển khai thuộc VS4 sau spike.
 
 ## Bối cảnh
 
 Module Graph cần biến thành game học tập mà không phụ thuộc vào việc sinh arbitrary GDevelop project/code cho mọi topic. Repository đã có GDJS runtime và nhiều game JSON mẫu có cấu trúc project/layout/object/event, nhưng chưa có bằng chứng một exporter tổng quát an toàn cho GON.
 
-## Quyết định đề xuất
+## Quyết định
 
 - VS4 dùng một hoặc hai GDevelop template cố định đã được kiểm thử.
 - Canonical Module Graph chỉ cung cấp cấu hình học tập: concept, prompt, choices/parameters, asset refs đã duyệt và event mapping.

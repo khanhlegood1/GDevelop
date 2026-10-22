@@ -2,7 +2,7 @@
 
 ## Trạng thái
 
-**Accepted — Product Owner đã duyệt Gate 0 ngày 22/10/2026 tại commit `5482dac`.**
+**Superseded — được thay thế bởi ADR-0005…ADR-0008 sau khi Product Owner duyệt P03 ngày 22/10/2026 tại commit `b4e6ec2e91f83a48ddb139e8981928eb99d3d8bb`.** ADR này vẫn giữ giá trị lịch sử cho quyết định tại Gate 0.
 
 ## Bối cảnh
 
@@ -63,4 +63,9 @@ Mỗi ứng viên phải được chấm tối thiểu theo:
 
 ## Điều kiện đóng ADR
 
-ADR này được thay bằng các ADR stack cụ thể tại P03. Các ADR-0005…ADR-0008 đang ở trạng thái Proposed trong gói P03 IN REVIEW; chỉ khi PO duyệt P03, trạng thái của ADR-0004 mới chuyển thành `Superseded` và liên kết tới từng quyết định thay thế.
+ADR này đã được đóng bởi P03 và được thay thế bởi:
+
+- [ADR-0005 — Modular monolith TypeScript cho web/API, Python ADK tách riêng](ADR-0005-TYPESCRIPT-MODULAR-MONOLITH-AND-PYTHON-ADK.md)
+- [ADR-0006 — PostgreSQL + pgvector là canonical datastore](ADR-0006-POSTGRESQL-PGVECTOR-CANONICAL-DATASTORE.md)
+- [ADR-0007 — Google identity và runtime Google Cloud-first](ADR-0007-GOOGLE-CLOUD-RUNTIME-AND-IDENTITY.md)
+- [ADR-0008 — GDevelop template-first integration](ADR-0008-GDEVELOP-TEMPLATE-FIRST-INTEGRATION.md)

@@ -1,6 +1,6 @@
 # P03 — Events, Jobs & Integrations
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Mọi tác vụ bất đồng bộ đều khôi phục được, không nhân đôi kết quả và không để client/agent trở thành nguồn sự thật.
 
 ## 1. Phân biệt bốn loại bản ghi

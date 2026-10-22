@@ -1,5 +1,7 @@
 # GON.org — Web prototype 18+
 
+> **P04 production increment:** mã VS1 Next.js/TypeScript đang nằm trong [`src/`](src/README.md), PostgreSQL migrations trong [`db/`](db/README.md) và Python ADK harness tại [`../gon-adk/`](../gon-adk/README.md). Current trạng thái/bằng chứng nằm tại [`docs/05-build/README.md`](docs/05-build/README.md). Phần dưới mô tả prototype tĩnh lịch sử ở thư mục này, không phải production deployment.
+
 Prototype chạy ngay, không cần build hay API key. Nó biến ý tưởng của GON thành một hành trình tương tác:
 
 1. **18+ + Google gate (mô phỏng)** — người dùng tự xác nhận đủ 18 tuổi. Đây *không phải* OAuth thật và không gửi credential đi đâu.
@@ -57,8 +59,8 @@ node --check apps/gon-web/ux-prototype/app.js
 |---|---|---|
 | Google login | form mô phỏng + 18+ self-attestation | Google OAuth/OIDC phía server, chính sách tuổi và quản trị tài khoản hợp lệ theo khu vực |
 | Embedding | deterministic 768D trong browser | Gemini `gemini-embedding-001`, `SEMANTIC_SIMILARITY`, 768D ở server/worker |
-| Search | 8 module cố định + hybrid score | Convex/DB index: full-text + vector, phân quyền, chống lộ dữ liệu riêng tư |
-| Brew | 11 bước UI + generator cục bộ | Google ADK bất đồng bộ qua queue, schema, citation/grounding, idempotency |
+| Search | 8 module cố định + hybrid score | PostgreSQL + pgvector/FTS/trigram theo ADR-0006; authorization filter trước ranking/limit. P04 đã có schema/spike script nhưng chưa chạy DB thật |
+| Brew | 11 bước UI + generator cục bộ | Google ADK bất đồng bộ qua durable queue, schema, citation/grounding, idempotency. P04 đã có ADK contract service; Gemini thật và TS integration chưa nối |
 | File/video | metadata/hash, text nhỏ đọc client | object storage, OCR, PDF extraction, transcript/ASR, malware scan, bản quyền |
 | Proof | hash + cấp tự khai/Source-linked | đối chiếu issuer/chữ ký, POAP/SBT API, quyền riêng tư và thu hồi bằng chứng |
 | Numeric Level | `calculateLevel()` chạy client theo `gon-level-v1`; XP mẫu có thể cộng qua quest | XP Ledger phía server, idempotency, điều chỉnh/thu hồi có audit; không có max level |
@@ -67,8 +69,8 @@ node --check apps/gon-web/ux-prototype/app.js
 
 White Paper về Lifelong Level/XP/Token: [`GON-WHITEPAPER.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.md) · [bản PDF](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.pdf). Kiến trúc đích và hợp đồng dữ liệu: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requirement V2.1 về 10+ output, trend, footprint, Arena vote và Journey Fork: [`GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md). Tài liệu thương hiệu: [`../../branding/GON-GameOfNurture/`](../../branding/GON-GameOfNurture/).
 
-## Quy trình phát triển, Gate 0, P01, P02 và P03
+## Quy trình phát triển, Gate 0, P01, P02, P03 và P04
 
-GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). **Gate 0 đã được duyệt tại `5482dac`; P01 tại `9a09fa2`; P02 tại `33c2641` cùng toàn bộ mặc định `D-P02-01`…`D-P02-12`.** Gói **P03 — API Contract & Data Model First** đang trình duyệt tại [`docs/04-contracts/README.md`](docs/04-contracts/README.md). Production backend ở P04 chưa bắt đầu.
+GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). **Gate 0 đã được duyệt tại `5482dac`; P01 tại `9a09fa2`; P02 tại `33c2641`; P03 tại `b4e6ec2` cùng toàn bộ mặc định `D-P03-01`…`D-P03-14`.** P04 đang triển khai VS1 tại [`docs/05-build/README.md`](docs/05-build/README.md); mã production đang được dựng trong `src/` theo contract đã duyệt.
 
 > Không nhập mật khẩu Google thật vào prototype. Không dùng dữ liệu mẫu trong app làm bằng chứng y khoa, pháp lý hay thành tích thật.

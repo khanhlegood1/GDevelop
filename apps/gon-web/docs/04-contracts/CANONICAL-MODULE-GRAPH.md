@@ -1,6 +1,6 @@
 # P03 — Canonical Module Graph
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Schema:** [`gon.module-graph/1.0`](schemas/canonical-module-graph.schema.json)<br>
 > **Ví dụ hợp lệ:** [`examples/module-graph-viral-music.json`](examples/module-graph-viral-music.json)
 

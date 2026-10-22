@@ -1,7 +1,7 @@
 # P03 Traceability Matrix
 
 > **Artifact:** P03-TRACE<br>
-> **Trạng thái:** **IN REVIEW — chờ Product Owner phê duyệt P03**<br>
+> **Trạng thái:** **APPROVED — Product Owner đã duyệt P03 ngày 22/10/2026**<br>
 > **Ngày lập:** 22/10/2026<br>
 > **Nguồn đã duyệt:** P01 commit `9a09fa2`, P02 commit `33c2641`<br>
 > **Ý nghĩa của “Contracted”:** API/entity/schema/state đã được mô tả đủ để P04 triển khai; **không** có nghĩa production code đã tồn tại.

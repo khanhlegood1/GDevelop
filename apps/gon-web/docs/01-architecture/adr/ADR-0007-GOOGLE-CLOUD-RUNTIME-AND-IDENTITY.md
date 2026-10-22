@@ -2,13 +2,13 @@
 
 ## Trạng thái
 
-**Proposed — IN REVIEW tại P03 ngày 22/10/2026.** Chỉ chuyển Accepted khi PO duyệt P03. Region, tier và ngân sách thật vẫn cần quyết định trước P06.
+**Accepted — Product Owner đã duyệt P03 ngày 22/10/2026 tại commit `b4e6ec2e91f83a48ddb139e8981928eb99d3d8bb`.** Region, tier và ngân sách thật vẫn cần quyết định trước P06.
 
 ## Bối cảnh
 
 PO đã chốt Google sign-in, Gemini và Google ADK. Hệ thống cần session có thể thu hồi, async jobs, object storage và secret management. WSIC dùng Better Auth/PostgreSQL, QStash và các service rời; snapshot Audit của WSIC có dependency/trust-boundary debt không nên sao chép.
 
-## Quyết định đề xuất
+## Quyết định
 
 - Google OAuth/OIDC qua Auth.js; database sessions trong PostgreSQL.
 - Cloud Run cho web/API, TypeScript workers và Python ADK service.
@@ -27,7 +27,7 @@ PO đã chốt Google sign-in, Gemini và Google ADK. Hệ thống cần session
 
 ## Phương án đã cân nhắc
 
-| Phương án | Lý do không đề xuất làm baseline |
+| Phương án | Lý do không chọn làm baseline |
 |---|---|
 | Vercel + Neon/Supabase + Upstash | Khả thi nhưng chia nhiều vendor hơn trong khi AI/ADK ở Google |
 | Better Auth như WSIC snapshot | Cần baseline version/Audit mới; không có lý do vượt Auth.js đủ mạnh ở P03 |

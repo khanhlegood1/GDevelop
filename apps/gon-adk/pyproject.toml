@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "gon-adk"
+version = "0.1.0"
+description = "Stateless Google ADK contract service for GON Brew and assessment"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "fastapi==0.141.1",
+  "google-adk==2.12.0",
+  "jsonschema==4.26.0",
+  "pydantic==2.14.1",
+  "uvicorn==0.54.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx==0.28.1",
+  "pytest==9.1.1",
+]
+
+[project.scripts]
+gon-adk = "gon_adk.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gon_adk"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

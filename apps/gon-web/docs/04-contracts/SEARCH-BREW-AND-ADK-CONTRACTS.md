@@ -1,6 +1,6 @@
 # P03 — Search, Brew, Candidate, Ranking & ADK Contracts
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Nguồn pattern:** WSIC cho embedding/Brew/ADK; FastChat cho pairwise ranking concepts. GON thiết kế lại trust boundary theo Gate 0.
 
 ## 1. Pipeline chuẩn

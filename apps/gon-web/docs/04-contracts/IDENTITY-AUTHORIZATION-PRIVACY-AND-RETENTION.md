@@ -1,6 +1,6 @@
 # P03 — Identity, Authorization, Privacy & Retention
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Đảm bảo dữ liệu học private của user này không bao giờ trở thành dữ liệu tìm/gợi ý/đọc được của user khác trong Private Alpha.
 
 ## 1. Identity

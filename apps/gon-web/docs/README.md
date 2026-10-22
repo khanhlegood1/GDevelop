@@ -2,12 +2,12 @@
 
 > **Mục đích:** Khu vực tài liệu kỹ thuật chính thức cho quá trình phát triển GON theo AI-Agile/HITL. Đây là nơi lưu quyết định kiến trúc, truy vết nguồn mở, tiêu chí từng gate và bằng chứng bàn giao.<br>
 > **Repository sản xuất:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
-> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 IN REVIEW**<br>
+> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 APPROVED · P04 IN PROGRESS (VS1)**<br>
 > **Product Owner:** Người sở hữu dự án GON trong cuộc trao đổi phê duyệt.<br>
 > **Gate 0 được PO duyệt:** 22/10/2026 tại commit `5482dac`<br>
 > **P01 được PO duyệt:** 22/10/2026 tại commit `9a09fa2`, gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
 > **P02 được PO duyệt:** 22/10/2026 tại commit `33c2641`, gồm toàn bộ `D-P02-01`…`D-P02-12`<br>
-> **Ngày trình P03:** 22/10/2026
+> **P03 được PO duyệt:** 22/10/2026 tại commit `b4e6ec2`, gồm toàn bộ `D-P03-01`…`D-P03-14`
 
 ## Trạng thái các gate
 
@@ -16,15 +16,22 @@
 | G0 | Source & Architecture Charter | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 |
 | P01 | Requirement Intelligence | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `9a09fa2` |
 | P02 | Frontend UX Agreement | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `33c2641` |
-| P03 | API Contract & Data Model First | **IN REVIEW** | PO duyệt domain/API/schema/event/ADR và `D-P03-01`…`D-P03-14` |
-| P04 | Vertical Slice Build | Chưa bắt đầu | P03 được duyệt |
+| P03 | API Contract & Data Model First | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `b4e6ec2` |
+| P04 | Vertical Slice Build | **IN PROGRESS — VS1** | Hoàn thành các slice trong phạm vi Private Alpha và được PO duyệt trước P05 |
 | P05 | NFR & Well-Architected Review | Chưa bắt đầu | Các vertical slice trong phạm vi release hoàn tất |
 | P06 | Cloud Deployment | Chưa bắt đầu | P05 đạt và PO ra quyết định Go-Live riêng |
 | R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
 
-## Tài liệu P03 đang trình PO duyệt
+## Tài liệu P04 đang triển khai
 
-1. [P03 — API Contract & Data Model First: cổng gói, quyết định và checklist phê duyệt](04-contracts/README.md) — **tài liệu chính để duyệt P03**
+1. [P04 — Vertical Slice Build: kế hoạch, spike và bằng chứng VS1](05-build/README.md) — **IN PROGRESS**
+2. [Production GON Web application](../src/README.md) — Next.js/TypeScript modular monolith đang được dựng theo P03
+3. [PostgreSQL schema & migrations](../db/README.md) — SQL-first schema đã có; chưa chạy trên PostgreSQL thật trong sandbox
+4. [GON ADK contract service](../../gon-adk/README.md) — Python/FastAPI/ADK harness; local provider đã test, Gemini thật chưa chạy
+
+## Tài liệu P03 đã được phê duyệt
+
+1. [P03 — API Contract & Data Model First: cổng gói và kết quả phê duyệt](04-contracts/README.md) — **APPROVED**
 2. [Domain Model & ERD](04-contracts/DOMAIN-MODEL-AND-ERD.md)
 3. [API Contract](04-contracts/API-CONTRACT.md) và [OpenAPI 3.1](04-contracts/openapi.json)
 4. [Canonical Module Graph](04-contracts/CANONICAL-MODULE-GRAPH.md)
@@ -74,11 +81,11 @@
 - [ADR-0001 — Giữ mã GON production trong `khanhlegood1/GDevelop`](01-architecture/adr/ADR-0001-PRODUCTION-CODE-IN-GDEVELOP-MONOREPO.md)
 - [ADR-0002 — Tái sử dụng mã nguồn mở có chọn lọc sau Audit](01-architecture/adr/ADR-0002-SELECTIVE-OPEN-SOURCE-REUSE.md)
 - [ADR-0003 — Phân bổ FastChat, WSIC và GDevelop theo tính năng](01-architecture/adr/ADR-0003-SOURCE-TO-FEATURE-ALLOCATION.md)
-- [ADR-0004 — Chưa khóa stack production tại Gate 0](01-architecture/adr/ADR-0004-DEFER-PRODUCTION-STACK-LOCK-IN.md)
-- [ADR-0005 — Modular monolith TypeScript cho web/API, Python ADK tách riêng](01-architecture/adr/ADR-0005-TYPESCRIPT-MODULAR-MONOLITH-AND-PYTHON-ADK.md) — **Proposed tại P03**
-- [ADR-0006 — PostgreSQL + pgvector là canonical datastore](01-architecture/adr/ADR-0006-POSTGRESQL-PGVECTOR-CANONICAL-DATASTORE.md) — **Proposed tại P03**
-- [ADR-0007 — Google identity và runtime Google Cloud-first](01-architecture/adr/ADR-0007-GOOGLE-CLOUD-RUNTIME-AND-IDENTITY.md) — **Proposed tại P03**
-- [ADR-0008 — GDevelop template-first integration](01-architecture/adr/ADR-0008-GDEVELOP-TEMPLATE-FIRST-INTEGRATION.md) — **Proposed tại P03**
+- [ADR-0004 — Chưa khóa stack production tại Gate 0](01-architecture/adr/ADR-0004-DEFER-PRODUCTION-STACK-LOCK-IN.md) — **Superseded tại P03**
+- [ADR-0005 — Modular monolith TypeScript cho web/API, Python ADK tách riêng](01-architecture/adr/ADR-0005-TYPESCRIPT-MODULAR-MONOLITH-AND-PYTHON-ADK.md) — **Accepted tại P03**
+- [ADR-0006 — PostgreSQL + pgvector là canonical datastore](01-architecture/adr/ADR-0006-POSTGRESQL-PGVECTOR-CANONICAL-DATASTORE.md) — **Accepted tại P03**
+- [ADR-0007 — Google identity và runtime Google Cloud-first](01-architecture/adr/ADR-0007-GOOGLE-CLOUD-RUNTIME-AND-IDENTITY.md) — **Accepted tại P03**
+- [ADR-0008 — GDevelop template-first integration](01-architecture/adr/ADR-0008-GDEVELOP-TEMPLATE-FIRST-INTEGRATION.md) — **Accepted tại P03**
 
 ## Quyết định PO đã chọn trước khi lập gói Gate 0
 
@@ -90,7 +97,7 @@ Các lựa chọn sau đã được PO xác nhận trong phiên làm việc ngà
 - Tái sử dụng code **có chọn lọc sau Audit**; không fork nguyên FastChat/WSIC thành production.
 - Mã production của GON nằm trong **`khanhlegood1/GDevelop`**.
 
-PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2` và P02 tại `33c2641`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`/`D-P02-*` tương ứng và cho phép bắt đầu gate tiếp theo. P03 vẫn là gate riêng: P04 chỉ bắt đầu sau khi PO duyệt contract/data/ADR trong gói P03.
+PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2`, P02 tại `33c2641` và P03 tại `b4e6ec2`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`, `D-P02-*`, `D-P03-*` tương ứng và cho phép bắt đầu P04 với VS1. P05 vẫn là gate riêng và chỉ bắt đầu sau khi P04 hoàn thành/được duyệt.
 
 ## Tài liệu sản phẩm đã có
 

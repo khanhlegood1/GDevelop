@@ -1,10 +1,11 @@
 # P03 — API Contract & Data Model First
 
-> **Trạng thái:** **IN REVIEW — chờ Product Owner phê duyệt P03**<br>
+> **Trạng thái:** **APPROVED — Product Owner đã duyệt ngày 22/10/2026**<br>
+> **Commit được duyệt:** `b4e6ec2e91f83a48ddb139e8981928eb99d3d8bb`<br>
 > **Ngày trình duyệt:** 22/10/2026<br>
 > **Điều kiện vào gate:** P02 được PO duyệt tại commit `33c2641e8710a3792150827d93500f7a1b930315`, bao gồm toàn bộ `D-P02-01`…`D-P02-12`<br>
 > **Phạm vi contract:** VS1 và VS2 đầy đủ; điểm mở rộng có kỷ luật cho VS3–VS5<br>
-> **Chưa bắt đầu:** P04 production frontend/backend, P05 NFR review và P06 deployment
+> **Gate tiếp theo:** P04 đang triển khai VS1; P05 NFR review và P06 deployment chưa bắt đầu
 
 ## 1. P03 chốt điều gì?
 
@@ -25,7 +26,7 @@ Identity/Consent
 
 Các contract trong gói này là **nguồn sự thật cho P04**. Tên bảng vật lý có thể được ORM/migration ánh xạ lại, nhưng định danh, trạng thái máy, quyền sở hữu, bất biến và hành vi API không được thay đổi âm thầm.
 
-## 2. Artifact trình PO duyệt
+## 2. Artifact đã được phê duyệt
 
 | # | Artifact | Nội dung quyết định |
 |---|---|---|
@@ -43,7 +44,7 @@ Các contract trong gói này là **nguồn sự thật cho P04**. Tên bảng v
 | 12 | [Examples](examples/) + [Mock API fixture](fixtures/mock-api-responses.json) | Dữ liệu mẫu để frontend/contract test chạy độc lập |
 | 13 | [Internal schemas](schemas/): [ADK](schemas/agent-contracts.schema.json), [domain event](schemas/domain-event-envelope.schema.json), [job command](schemas/job-command.schema.json), [game events](schemas/game-event.schema.json); [contract validator](tests/validate_contracts.py) | Ranh giới nội bộ không phụ thuộc diễn giải bằng lời; examples phải validate được bằng máy |
 
-### ADR đi kèm — đang Proposed để PO duyệt cùng P03
+### ADR đi kèm — đã được PO duyệt cùng P03
 
 - [ADR-0005 — Modular monolith TypeScript cho web/API, Python ADK tách riêng](../01-architecture/adr/ADR-0005-TYPESCRIPT-MODULAR-MONOLITH-AND-PYTHON-ADK.md)
 - [ADR-0006 — PostgreSQL + pgvector là canonical datastore](../01-architecture/adr/ADR-0006-POSTGRESQL-PGVECTOR-CANONICAL-DATASTORE.md)
@@ -149,34 +150,24 @@ Ngay trong gate này, nhóm thực hiện kiểm chứng ở mức contract:
 
 Script kiểm chứng nằm tại [`tests/validate_contracts.py`](tests/validate_contracts.py). Script này **không** chứng minh backend, bảo mật hay chất lượng AI production; đó là việc của P04/P05.
 
-## 9. Checklist PO duyệt P03
+## 9. Kết quả PO review
 
-- [ ] Baseline Next.js/TypeScript + PostgreSQL/pgvector + Python ADK được chấp nhận, hoặc đã ghi lựa chọn thay thế.
-- [ ] Google Cloud-first không tạo cam kết chi phí/region ngoài ý muốn; phần phải chốt trước P06 đã rõ.
-- [ ] Domain model giữ đúng private-by-default, lineage, immutable versions và audit.
-- [ ] API đủ cho SCR-01…SCR-17 và không buộc client suy ra quyền/trạng thái.
-- [ ] Search/Brew/ADK contract ngăn auto-publish, direct agent DB write và chi phí không kiểm soát.
-- [ ] Candidate/ranking/Arena không bịa 10 hướng và không biến vote thành xác minh sự thật.
-- [ ] XP values/rules, mastery mapping và reversal được chấp nhận.
-- [ ] Artifact limits, quota, retention/deletion mặc định được chấp nhận hoặc đã ghi điểm cần sửa.
-- [ ] GDevelop template-first là mức tham vọng đúng cho VS4.
-- [ ] Các mặc định `D-P03-01`…`D-P03-14` được duyệt hoặc đã ghi rõ điểm sửa.
-- [ ] P04 chỉ bắt đầu sau khi P03 được duyệt.
+Ngày 22/10/2026, Product Owner đã **APPROVED P03 tại commit `b4e6ec2e91f83a48ddb139e8981928eb99d3d8bb`**, duyệt toàn bộ mặc định `D-P03-01`…`D-P03-14` và cho phép bắt đầu P04 với VS1.
 
-## 10. Cách PO phản hồi
+- [x] Baseline Next.js/TypeScript + PostgreSQL/pgvector + Python ADK được chấp nhận.
+- [x] Google Cloud-first không tạo cam kết chi phí/region ngoài ý muốn; phần phải chốt trước P06 đã rõ.
+- [x] Domain model giữ đúng private-by-default, lineage, immutable versions và Audit.
+- [x] API đủ cho SCR-01…SCR-17 và không buộc client suy ra quyền/trạng thái.
+- [x] Search/Brew/ADK contract ngăn auto-publish, direct agent DB write và chi phí không kiểm soát.
+- [x] Candidate/ranking/Arena không bịa 10 hướng và không biến vote thành xác minh sự thật.
+- [x] XP values/rules, mastery mapping và reversal được chấp nhận.
+- [x] Artifact limits, quota và retention/deletion mặc định được chấp nhận.
+- [x] GDevelop template-first là mức tham vọng đúng cho VS4.
+- [x] Toàn bộ mặc định `D-P03-01`…`D-P03-14` được duyệt.
+- [x] P04 bắt đầu sau khi P03 được duyệt.
 
-```text
-APPROVED — P03, commit <sha>.
-Tôi duyệt toàn bộ mặc định D-P03-01 đến D-P03-14.
-Cho phép bắt đầu P04 với VS1.
-Điều kiện kèm theo: <nếu có>.
-```
+Trường “Điều kiện kèm theo” không ghi điều kiện cụ thể ngoài mẫu “<nếu có>”; do đó không có điều kiện phê duyệt bổ sung. Usability test với người dùng thật, các spike `S-P03-01`…`S-P03-04`, quota/chi phí thật, legal/privacy review và quyết định hạ tầng trước P06 vẫn là kiểm chứng còn mở trong các gate tiếp theo.
 
-hoặc:
+## 10. Bước tiếp theo
 
-```text
-CHANGES REQUESTED — P03.
-1. <entity/API/schema/ADR cần sửa>
-2. <quyết định D-P03-* cần đổi>
-Giữ nguyên P01/P02 đã duyệt. Chưa bắt đầu P04.
-```
+P04 được phép bắt đầu. Vertical slice đầu tiên là **VS1 — Curiosity to Proof**, triển khai theo thứ tự spike → UI → API → data/job → kết quả thật → test → telemetry → tài liệu trong [`../05-build/README.md`](../05-build/README.md). P05 và P06 chưa được bắt đầu.

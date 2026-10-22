@@ -1,6 +1,6 @@
 # P03 — Domain Model & ERD
 
-> **Trạng thái:** IN REVIEW tại P03<br>
+> **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Xác định dữ liệu nào tồn tại, thuộc về ai, thay đổi ra sao và bất biến nào database/API phải bảo vệ. Tên entity là contract logic; ORM ở P04 có thể map sang bảng vật lý snake_case.
 
 ## 1. Quy ước mô hình
