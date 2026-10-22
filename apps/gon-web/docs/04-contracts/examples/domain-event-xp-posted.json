@@ -1,0 +1,20 @@
+{
+  "eventId": "evt_01example",
+  "eventType": "xp.entry.posted",
+  "eventVersion": 1,
+  "occurredAt": "2026-10-22T00:05:00Z",
+  "aggregateType": "xp_ledger_entry",
+  "aggregateId": "xp_01example",
+  "actor": {
+    "type": "service",
+    "id": "assessment-worker"
+  },
+  "correlationId": "req_01example",
+  "causationId": "att_01example",
+  "data": {
+    "userId": "usr_01example",
+    "delta": 10,
+    "ruleVersion": "xp.retrieval_pass.v1",
+    "sourceAttemptId": "att_01example"
+  }
+}

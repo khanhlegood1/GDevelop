@@ -1,0 +1,8 @@
+{
+  "schemaVersion": "gon.agent.topic-check.output/1.0",
+  "decision": "allow",
+  "reasonCodes": [
+    "clear_learning_intent"
+  ],
+  "clarificationQuestions": []
+}

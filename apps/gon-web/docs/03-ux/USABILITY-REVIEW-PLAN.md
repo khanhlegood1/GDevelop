@@ -1,7 +1,7 @@
 # P02 — Usability Review Plan
 
-> **Trạng thái:** IN REVIEW tại P02<br>
-> **Lưu ý trung thực:** Chưa có phiên usability test với người dùng thật được thực hiện trong gói P02 này. Tài liệu này là kế hoạch kiểm tra để PO duyệt cách xác thực UX trước hoặc song song đầu P03, không phải báo cáo kết quả.
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
+> **Lưu ý trung thực:** Chưa có phiên usability test với người dùng thật được thực hiện trước khi P02 được duyệt. PO đã cho phép bắt đầu P03; tài liệu này vẫn là kế hoạch kiểm chứng phải thực hiện trước khi khóa production UI ở P04, không phải báo cáo kết quả.
 
 ## 1. Mục tiêu
 

@@ -1,0 +1,358 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gon.org/schemas/agent-contracts/1.0/schema.json",
+  "title": "GON ADK Agent Contracts 1.0",
+  "type": "object",
+  "$defs": {
+    "TopicCheckInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "jobId",
+        "projectId",
+        "intent",
+        "artifactCoverage",
+        "policyVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "gon.agent.topic-check.input/1.0"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^job_"
+        },
+        "projectId": {
+          "type": "string",
+          "pattern": "^prj_"
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000
+        },
+        "artifactCoverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "artifactId",
+              "extractionStatus"
+            ],
+            "properties": {
+              "artifactId": {
+                "type": "string",
+                "pattern": "^art_"
+              },
+              "extractionStatus": {
+                "type": "string"
+              },
+              "hasText": {
+                "type": "boolean"
+              },
+              "hasMetadata": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "policyVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "TopicCheckOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "decision",
+        "reasonCodes",
+        "clarificationQuestions"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "gon.agent.topic-check.output/1.0"
+        },
+        "decision": {
+          "enum": [
+            "allow",
+            "clarify",
+            "block"
+          ]
+        },
+        "reasonCodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "clarificationQuestions": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "GenerateModuleInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "jobId",
+        "projectId",
+        "learningContext",
+        "evidenceBundle",
+        "graphSchemaVersion"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "gon.agent.generate-module.input/1.0"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^job_"
+        },
+        "projectId": {
+          "type": "string",
+          "pattern": "^prj_"
+        },
+        "learningContext": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "goal",
+            "learningMode",
+            "locale"
+          ],
+          "properties": {
+            "goal": {
+              "type": "string"
+            },
+            "learningMode": {
+              "enum": [
+                "deep_mastery",
+                "apply_at_work",
+                "create_publish",
+                "fast_entertaining",
+                "prove_impact"
+              ]
+            },
+            "depth": {
+              "enum": [
+                "intro",
+                "standard",
+                "deep"
+              ]
+            },
+            "timeBudgetMinutes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "locale": {
+              "type": "string"
+            }
+          }
+        },
+        "evidenceBundle": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sourceId",
+              "title",
+              "content",
+              "rightsStatus"
+            ],
+            "properties": {
+              "sourceId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "uri": {
+                "type": "string",
+                "format": "uri"
+              },
+              "artifactId": {
+                "type": "string",
+                "pattern": "^art_"
+              },
+              "content": {
+                "type": "string",
+                "maxLength": 100000
+              },
+              "rightsStatus": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "graphSchemaVersion": {
+          "const": "gon.module-graph/1.0"
+        }
+      }
+    },
+    "GenerateModuleOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "moduleGraph",
+        "generation"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "gon.agent.generate-module.output/1.0"
+        },
+        "moduleGraph": {
+          "$ref": "https://gon.org/schemas/module-graph/1.0/schema.json"
+        },
+        "generation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "agentPipelineVersion",
+            "modelIds",
+            "promptTemplateVersions",
+            "evidenceBundleHash"
+          ],
+          "properties": {
+            "agentPipelineVersion": {
+              "type": "string"
+            },
+            "modelIds": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "promptTemplateVersions": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "evidenceBundleHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "AssessAttemptInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "attemptId",
+        "node",
+        "rubric",
+        "answer"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "gon.agent.assess-attempt.input/1.0"
+        },
+        "attemptId": {
+          "type": "string",
+          "pattern": "^att_"
+        },
+        "node": {
+          "type": "object"
+        },
+        "rubric": {
+          "type": "object"
+        },
+        "answer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 100000
+            },
+            "artifactSummaries": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "AssessAttemptOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "decision",
+        "criteria",
+        "feedback",
+        "confidence"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "gon.agent.assess-attempt.output/1.0"
+        },
+        "decision": {
+          "enum": [
+            "passed",
+            "needs_revision",
+            "pending_human_review"
+          ]
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "criterionId",
+              "passed",
+              "feedback"
+            ],
+            "properties": {
+              "criterionId": {
+                "type": "string"
+              },
+              "passed": {
+                "type": "boolean"
+              },
+              "feedback": {
+                "type": "string",
+                "maxLength": 1000
+              }
+            }
+          }
+        },
+        "feedback": {
+          "type": "string",
+          "maxLength": 3000
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "integritySignals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

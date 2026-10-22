@@ -2,11 +2,12 @@
 
 > **Mục đích:** Khu vực tài liệu kỹ thuật chính thức cho quá trình phát triển GON theo AI-Agile/HITL. Đây là nơi lưu quyết định kiến trúc, truy vết nguồn mở, tiêu chí từng gate và bằng chứng bàn giao.<br>
 > **Repository sản xuất:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
-> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 IN REVIEW**<br>
+> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 IN REVIEW**<br>
 > **Product Owner:** Người sở hữu dự án GON trong cuộc trao đổi phê duyệt.<br>
 > **Gate 0 được PO duyệt:** 22/10/2026 tại commit `5482dac`<br>
 > **P01 được PO duyệt:** 22/10/2026 tại commit `9a09fa2`, gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
-> **Ngày trình P02:** 22/10/2026
+> **P02 được PO duyệt:** 22/10/2026 tại commit `33c2641`, gồm toàn bộ `D-P02-01`…`D-P02-12`<br>
+> **Ngày trình P03:** 22/10/2026
 
 ## Trạng thái các gate
 
@@ -14,16 +15,31 @@
 |---|---|---|---|
 | G0 | Source & Architecture Charter | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 |
 | P01 | Requirement Intelligence | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `9a09fa2` |
-| P02 | Frontend UX Agreement | **IN REVIEW** | PO duyệt IA/flow/wireframe/prototype và `D-P02-01`…`D-P02-12` |
-| P03 | API Contract & Data Model First | Chưa bắt đầu | P02 được duyệt |
+| P02 | Frontend UX Agreement | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `33c2641` |
+| P03 | API Contract & Data Model First | **IN REVIEW** | PO duyệt domain/API/schema/event/ADR và `D-P03-01`…`D-P03-14` |
 | P04 | Vertical Slice Build | Chưa bắt đầu | P03 được duyệt |
 | P05 | NFR & Well-Architected Review | Chưa bắt đầu | Các vertical slice trong phạm vi release hoàn tất |
 | P06 | Cloud Deployment | Chưa bắt đầu | P05 đạt và PO ra quyết định Go-Live riêng |
 | R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
 
-## Tài liệu P02 đang trình PO duyệt
+## Tài liệu P03 đang trình PO duyệt
 
-1. [P02 — Frontend UX Agreement: cổng gói, quyết định và checklist phê duyệt](03-ux/README.md) — **tài liệu chính để duyệt P02**
+1. [P03 — API Contract & Data Model First: cổng gói, quyết định và checklist phê duyệt](04-contracts/README.md) — **tài liệu chính để duyệt P03**
+2. [Domain Model & ERD](04-contracts/DOMAIN-MODEL-AND-ERD.md)
+3. [API Contract](04-contracts/API-CONTRACT.md) và [OpenAPI 3.1](04-contracts/openapi.json)
+4. [Canonical Module Graph](04-contracts/CANONICAL-MODULE-GRAPH.md)
+5. [Search, Brew & ADK Contracts](04-contracts/SEARCH-BREW-AND-ADK-CONTRACTS.md)
+6. [State Machines & Business Rules](04-contracts/STATE-MACHINES-AND-BUSINESS-RULES.md)
+7. [Events, Jobs & Integrations](04-contracts/EVENTS-JOBS-AND-INTEGRATIONS.md)
+8. [Identity, Authorization, Privacy & Retention](04-contracts/IDENTITY-AUTHORIZATION-PRIVACY-AND-RETENTION.md)
+9. [Stack Evaluation, Cost Guardrails & Spike Plan](04-contracts/STACK-EVALUATION-AND-SPIKE-PLAN.md)
+10. [Migration & Backward Compatibility Plan](04-contracts/MIGRATION-AND-BACKWARD-COMPATIBILITY.md)
+11. [P03 Traceability Matrix](04-contracts/P03-TRACEABILITY-MATRIX.md)
+12. Machine-readable contracts: [Canonical Module Graph schema](04-contracts/schemas/canonical-module-graph.schema.json), [ADK agent schemas](04-contracts/schemas/agent-contracts.schema.json), [event schema](04-contracts/schemas/domain-event-envelope.schema.json), [job schema](04-contracts/schemas/job-command.schema.json), [game-event schema](04-contracts/schemas/game-event.schema.json), [mock API fixture](04-contracts/fixtures/mock-api-responses.json) và [contract validator](04-contracts/tests/validate_contracts.py)
+
+## Tài liệu P02 đã được phê duyệt
+
+1. [P02 — Frontend UX Agreement: cổng gói và kết quả phê duyệt](03-ux/README.md) — **APPROVED**
 2. [Information Architecture](03-ux/INFORMATION-ARCHITECTURE.md)
 3. [User Flows](03-ux/USER-FLOWS.md)
 4. [Wireframe & Screen Specification](03-ux/WIREFRAME-SCREEN-SPEC.md)
@@ -59,6 +75,10 @@
 - [ADR-0002 — Tái sử dụng mã nguồn mở có chọn lọc sau Audit](01-architecture/adr/ADR-0002-SELECTIVE-OPEN-SOURCE-REUSE.md)
 - [ADR-0003 — Phân bổ FastChat, WSIC và GDevelop theo tính năng](01-architecture/adr/ADR-0003-SOURCE-TO-FEATURE-ALLOCATION.md)
 - [ADR-0004 — Chưa khóa stack production tại Gate 0](01-architecture/adr/ADR-0004-DEFER-PRODUCTION-STACK-LOCK-IN.md)
+- [ADR-0005 — Modular monolith TypeScript cho web/API, Python ADK tách riêng](01-architecture/adr/ADR-0005-TYPESCRIPT-MODULAR-MONOLITH-AND-PYTHON-ADK.md) — **Proposed tại P03**
+- [ADR-0006 — PostgreSQL + pgvector là canonical datastore](01-architecture/adr/ADR-0006-POSTGRESQL-PGVECTOR-CANONICAL-DATASTORE.md) — **Proposed tại P03**
+- [ADR-0007 — Google identity và runtime Google Cloud-first](01-architecture/adr/ADR-0007-GOOGLE-CLOUD-RUNTIME-AND-IDENTITY.md) — **Proposed tại P03**
+- [ADR-0008 — GDevelop template-first integration](01-architecture/adr/ADR-0008-GDEVELOP-TEMPLATE-FIRST-INTEGRATION.md) — **Proposed tại P03**
 
 ## Quyết định PO đã chọn trước khi lập gói Gate 0
 
@@ -70,7 +90,7 @@ Các lựa chọn sau đã được PO xác nhận trong phiên làm việc ngà
 - Tái sử dụng code **có chọn lọc sau Audit**; không fork nguyên FastChat/WSIC thành production.
 - Mã production của GON nằm trong **`khanhlegood1/GDevelop`**.
 
-PO đã duyệt Gate 0 tại commit `5482daca3d8ef424e9d7aa81102f0d135c55de84`, sau đó duyệt P01 tại commit `9a09fa21fd8a27536eddb97ad179d14db3aab7ac` cùng toàn bộ `D-P01-01`…`D-P01-14` và cho phép bắt đầu P02. P02 vẫn là gate riêng: P03 chỉ bắt đầu sau khi PO duyệt gói UX này.
+PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2` và P02 tại `33c2641`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`/`D-P02-*` tương ứng và cho phép bắt đầu gate tiếp theo. P03 vẫn là gate riêng: P04 chỉ bắt đầu sau khi PO duyệt contract/data/ADR trong gói P03.
 
 ## Tài liệu sản phẩm đã có
 

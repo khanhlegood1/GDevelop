@@ -1,6 +1,6 @@
 # P02 — Information Architecture
 
-> **Trạng thái:** IN REVIEW tại P02<br>
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Chốt cấu trúc tìm thấy, điều hướng và đặt tên đối tượng trước khi P03 định API/data contract.
 
 ## 1. Mô hình sản phẩm người dùng nhìn thấy

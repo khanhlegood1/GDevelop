@@ -1,6 +1,6 @@
 # P02 — User Flows
 
-> **Trạng thái:** IN REVIEW tại P02<br>
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Cách đọc:** Mỗi flow có điểm vào, quyết định của user, phản hồi hệ thống, lối thoát/lỗi và tiêu chí hoàn thành. Tên trạng thái bám [Interaction States & Content](INTERACTION-STATES-AND-CONTENT.md).
 
 ## F01 — Lần đầu: 18+, đăng nhập và chọn cá nhân hóa

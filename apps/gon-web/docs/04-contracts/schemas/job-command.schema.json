@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gon.org/schemas/job-command/1.0/schema.json",
+  "title": "GON Async Job Command 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "jobId",
+    "jobType",
+    "schemaVersion",
+    "aggregateType",
+    "aggregateId",
+    "requestedBy",
+    "idempotencyKey",
+    "inputFingerprint",
+    "payload",
+    "correlationId",
+    "availableAt",
+    "deadlineAt",
+    "attempt",
+    "maxAttempts"
+  ],
+  "properties": {
+    "jobId": {
+      "type": "string",
+      "pattern": "^job_"
+    },
+    "jobType": {
+      "enum": [
+        "artifact_extract",
+        "artifact_embed",
+        "search_attempt",
+        "brew_module",
+        "build_candidate_set",
+        "assess_attempt",
+        "delete_footprint",
+        "export_user_data",
+        "delete_user_data",
+        "render_module",
+        "export_gdevelop_template"
+      ]
+    },
+    "schemaVersion": {
+      "const": "gon.job/1.0"
+    },
+    "aggregateType": {
+      "type": "string"
+    },
+    "aggregateId": {
+      "type": "string"
+    },
+    "requestedBy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "user",
+            "service",
+            "system",
+            "admin"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "idempotencyKey": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 128
+    },
+    "inputFingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "payload": {
+      "type": "object"
+    },
+    "priority": {
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ],
+      "default": "normal"
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^req_"
+    },
+    "availableAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deadlineAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "maxAttempts": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # P02 — Design System, Responsive & Accessibility
 
-> **Trạng thái:** IN REVIEW tại P02<br>
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Nguồn brand:** [`gon-tokens.json`](../../../../branding/GON-GameOfNurture/03-Color-Typography/gon-tokens.json) và [GON Brandbook 2026](../../../../branding/GON-GameOfNurture/02-Brandbook/GON-Brandbook-2026.pdf)<br>
 > **Phạm vi:** Map brand tokens sang UI semantics cho Private Alpha. Không chọn CSS framework/component library.
 

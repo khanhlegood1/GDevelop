@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "gon.agent.assess-attempt.input/1.0",
+  "attemptId": "att_01example",
+  "node": {
+    "id": "retrieval_explain",
+    "type": "retrieval",
+    "title": "Giải thích bằng lời của bạn",
+    "conceptIds": [
+      "network_diffusion",
+      "context_timing"
+    ],
+    "content": {
+      "prompt": "Vì sao copy nguyên một video viral chưa chắc viral lại?",
+      "sampleAnswer": "Vì nội dung chỉ là một phần; mạng lưới, thời điểm, bối cảnh và khả năng remix không được sao chép cùng video."
+    },
+    "citations": [],
+    "estimatedMinutes": 5,
+    "accessibility": {
+      "textAlternative": "Câu hỏi truy hồi dạng văn bản."
+    },
+    "assessment": {
+      "rubricId": "rubric_retrieval",
+      "masteryTarget": "recall",
+      "revealPolicy": "after_submit",
+      "requiredForCompletion": true
+    }
+  },
+  "rubric": {
+    "id": "rubric_retrieval",
+    "version": "1.0",
+    "title": "Truy hồi cơ chế lan truyền",
+    "criteria": [
+      {
+        "id": "two_factor_groups",
+        "description": "Nêu được ít nhất hai nhóm yếu tố ngoài bản thân nội dung.",
+        "weight": 0.7,
+        "required": true
+      },
+      {
+        "id": "own_words",
+        "description": "Diễn đạt bằng lời của người học thay vì sao chép đáp án mẫu.",
+        "weight": 0.3,
+        "required": true
+      }
+    ],
+    "passRule": {
+      "type": "all_required"
+    },
+    "evidenceTypes": [
+      "text"
+    ],
+    "feedbackGuidance": "Chỉ rõ nhóm yếu tố còn thiếu và gợi ý quay lại concept tương ứng.",
+    "xpRuleId": "xp.retrieval_pass.v1"
+  },
+  "answer": {
+    "text": "Copy video không copy được cộng đồng chia sẻ đầu tiên và bối cảnh thời điểm. Vì vậy cùng một nội dung đăng ở nơi khác vẫn có thể không lan truyền.",
+    "artifactSummaries": []
+  }
+}

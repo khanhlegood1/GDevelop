@@ -1,0 +1,356 @@
+{
+  "schemaVersion": "gon.module-graph/1.0",
+  "module": {
+    "title": "Vì sao một bài hát có thể viral sau một đêm?",
+    "summary": "Học cách tách hook, mạng lưới chia sẻ, thời điểm văn hóa và khả năng remix trước khi tạo nội dung giáo dục của riêng bạn.",
+    "locale": "vi-VN",
+    "estimatedMinutes": 30,
+    "difficulty": "intermediate",
+    "outcomes": [
+      {
+        "id": "outcome_explain",
+        "statement": "Giải thích được vì sao sao chép bề mặt một trend không sao chép được điều kiện lan truyền.",
+        "conceptIds": [
+          "network_diffusion",
+          "context_timing"
+        ]
+      },
+      {
+        "id": "outcome_create",
+        "statement": "Tạo được một artifact giáo dục ngắn có hook, core value và khai báo nguồn/AI.",
+        "conceptIds": [
+          "hook_value",
+          "remixability"
+        ]
+      }
+    ],
+    "concepts": [
+      {
+        "id": "hook_value",
+        "name": "Hook và giá trị cốt lõi",
+        "description": "Hook giúp dừng lại; giá trị có thể nhắc lại giúp nội dung được chia sẻ và dạy lại.",
+        "role": "core"
+      },
+      {
+        "id": "network_diffusion",
+        "name": "Mạng lưới lan truyền",
+        "description": "Cộng đồng chia sẻ đầu tiên và hệ thống phân phối ảnh hưởng tốc độ lan truyền.",
+        "role": "core"
+      },
+      {
+        "id": "context_timing",
+        "name": "Thời điểm và bối cảnh",
+        "description": "Bối cảnh văn hóa và thời điểm có thể làm cùng nội dung cho kết quả khác nhau.",
+        "role": "core"
+      },
+      {
+        "id": "remixability",
+        "name": "Khả năng remix",
+        "description": "Nội dung dễ biến tấu có thêm đường lan truyền nhưng vẫn cần giá trị thật.",
+        "role": "supporting"
+      }
+    ],
+    "prerequisites": [],
+    "safetyNotices": [
+      "Module không hứa nội dung sẽ viral hay tạo thu nhập."
+    ]
+  },
+  "sources": [
+    {
+      "id": "src_user_video",
+      "kind": "user_artifact",
+      "title": "Video người dùng cung cấp về bài hát viral",
+      "artifactId": "art_01example",
+      "rightsStatus": "user_provided",
+      "locators": [
+        {
+          "type": "timestamp",
+          "value": "00:00-00:45"
+        }
+      ]
+    },
+    {
+      "id": "src_diffusion_overview",
+      "kind": "external_web",
+      "title": "Tổng quan nghiên cứu lan truyền nội dung",
+      "uri": "https://example.org/research/content-diffusion",
+      "retrievedAt": "2026-10-22T00:00:00Z",
+      "rightsStatus": "public_reference",
+      "locators": [
+        {
+          "type": "section",
+          "value": "Network effects"
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "id": "concept_diffusion",
+      "type": "concept",
+      "title": "Viral là một hệ thống, không phải một công thức",
+      "conceptIds": [
+        "network_diffusion",
+        "context_timing",
+        "hook_value"
+      ],
+      "content": {
+        "blocks": [
+          {
+            "kind": "paragraph",
+            "text": "Một hook mạnh chỉ là điểm bắt đầu. Mạng lưới người chia sẻ, thời điểm văn hóa và khả năng remix quyết định nội dung đi xa tới đâu."
+          },
+          {
+            "kind": "example",
+            "text": "Hai video giống nhau có thể khác kết quả nếu cộng đồng đầu tiên và thời điểm đăng khác nhau."
+          }
+        ]
+      },
+      "citations": [
+        {
+          "sourceId": "src_diffusion_overview",
+          "locator": "Network effects",
+          "support": "supports",
+          "claimIds": [
+            "claim_network"
+          ]
+        },
+        {
+          "sourceId": "src_user_video",
+          "locator": "00:00-00:45",
+          "support": "background"
+        }
+      ],
+      "estimatedMinutes": 8,
+      "accessibility": {
+        "textAlternative": "Giải thích bằng văn bản về hook, mạng lưới, thời điểm và remix."
+      }
+    },
+    {
+      "id": "retrieval_explain",
+      "type": "retrieval",
+      "title": "Giải thích bằng lời của bạn",
+      "conceptIds": [
+        "network_diffusion",
+        "context_timing"
+      ],
+      "content": {
+        "prompt": "Vì sao copy nguyên một video viral chưa chắc viral lại?",
+        "sampleAnswer": "Vì nội dung chỉ là một phần; mạng lưới, thời điểm, bối cảnh và khả năng remix không được sao chép cùng video."
+      },
+      "citations": [],
+      "estimatedMinutes": 5,
+      "accessibility": {
+        "textAlternative": "Câu hỏi truy hồi dạng văn bản."
+      },
+      "assessment": {
+        "rubricId": "rubric_retrieval",
+        "masteryTarget": "recall",
+        "revealPolicy": "after_submit",
+        "requiredForCompletion": true
+      }
+    },
+    {
+      "id": "transfer_niche",
+      "type": "transfer",
+      "title": "Áp dụng cho ngách của bạn",
+      "conceptIds": [
+        "hook_value",
+        "remixability"
+      ],
+      "content": {
+        "prompt": "Chọn một ngách bạn quan tâm và thiết kế hook, cộng đồng chia sẻ đầu tiên cùng phần giá trị học thật."
+      },
+      "citations": [],
+      "estimatedMinutes": 7,
+      "accessibility": {
+        "textAlternative": "Nhiệm vụ áp dụng dạng văn bản."
+      },
+      "assessment": {
+        "rubricId": "rubric_transfer",
+        "masteryTarget": "apply",
+        "revealPolicy": "after_submit",
+        "requiredForCompletion": true
+      }
+    },
+    {
+      "id": "boss_artifact",
+      "type": "boss_proof",
+      "title": "Tạo artifact dạy lại cơ chế viral",
+      "conceptIds": [
+        "hook_value",
+        "network_diffusion",
+        "remixability"
+      ],
+      "content": {
+        "prompt": "Tạo một game ngắn, infographic hoặc video brief dạy lại cơ chế lan truyền và khai báo nguồn/AI bạn đã dùng.",
+        "requiredDisclosures": [
+          "sources",
+          "ai_assistance",
+          "changes_from_inspiration"
+        ]
+      },
+      "citations": [
+        {
+          "sourceId": "src_user_video",
+          "support": "background"
+        }
+      ],
+      "estimatedMinutes": 10,
+      "accessibility": {
+        "textAlternative": "Có thể nộp mô tả artifact dạng văn bản có cấu trúc."
+      },
+      "assessment": {
+        "rubricId": "rubric_boss",
+        "masteryTarget": "create",
+        "revealPolicy": "after_submit",
+        "requiredForCompletion": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "fromNodeId": "concept_diffusion",
+      "toNodeId": "retrieval_explain",
+      "type": "prerequisite"
+    },
+    {
+      "fromNodeId": "retrieval_explain",
+      "toNodeId": "transfer_niche",
+      "type": "prerequisite"
+    },
+    {
+      "fromNodeId": "transfer_niche",
+      "toNodeId": "boss_artifact",
+      "type": "prerequisite"
+    }
+  ],
+  "rubrics": [
+    {
+      "id": "rubric_retrieval",
+      "version": "1.0",
+      "title": "Truy hồi cơ chế lan truyền",
+      "criteria": [
+        {
+          "id": "two_factor_groups",
+          "description": "Nêu được ít nhất hai nhóm yếu tố ngoài bản thân nội dung.",
+          "weight": 0.7,
+          "required": true
+        },
+        {
+          "id": "own_words",
+          "description": "Diễn đạt bằng lời của người học thay vì sao chép đáp án mẫu.",
+          "weight": 0.3,
+          "required": true
+        }
+      ],
+      "passRule": {
+        "type": "all_required"
+      },
+      "evidenceTypes": [
+        "text"
+      ],
+      "feedbackGuidance": "Chỉ rõ nhóm yếu tố còn thiếu và gợi ý quay lại concept tương ứng.",
+      "xpRuleId": "xp.retrieval_pass.v1"
+    },
+    {
+      "id": "rubric_transfer",
+      "version": "1.0",
+      "title": "Chuyển giao sang ngách mới",
+      "criteria": [
+        {
+          "id": "new_context",
+          "description": "Áp dụng vào một tình huống/ngách không có trong ví dụ.",
+          "weight": 0.5,
+          "required": true
+        },
+        {
+          "id": "mechanism_fit",
+          "description": "Nối hook/cộng đồng/giá trị học với cơ chế đã học.",
+          "weight": 0.5,
+          "required": true
+        }
+      ],
+      "passRule": {
+        "type": "all_required"
+      },
+      "evidenceTypes": [
+        "text",
+        "artifact"
+      ],
+      "feedbackGuidance": "Phân biệt sao chép bề mặt với chuyển giao nguyên lý.",
+      "xpRuleId": "xp.transfer_pass.v1"
+    },
+    {
+      "id": "rubric_boss",
+      "version": "1.0",
+      "title": "Boss Proof artifact giáo dục",
+      "criteria": [
+        {
+          "id": "learning_goal",
+          "description": "Artifact có mục tiêu học và đối tượng rõ ràng.",
+          "weight": 0.25,
+          "required": true
+        },
+        {
+          "id": "provenance",
+          "description": "Khai báo nguồn, AI assistance và phần thay đổi của tác giả.",
+          "weight": 0.25,
+          "required": true
+        },
+        {
+          "id": "core_value",
+          "description": "Giải thích được core value thay vì chỉ copy trend.",
+          "weight": 0.3,
+          "required": true
+        },
+        {
+          "id": "usable_artifact",
+          "description": "Artifact đủ rõ để người khác học hoặc kiểm tra được.",
+          "weight": 0.2,
+          "required": true
+        }
+      ],
+      "passRule": {
+        "type": "all_required"
+      },
+      "evidenceTypes": [
+        "artifact",
+        "text"
+      ],
+      "feedbackGuidance": "Trả feedback theo từng tiêu chí và không kết luận gian lận chỉ từ độ tương đồng.",
+      "xpRuleId": "xp.boss_proof_pass.v1"
+    }
+  ],
+  "renderTargets": [
+    "web",
+    "infographic",
+    "video",
+    "easy_task"
+  ],
+  "provenance": {
+    "createdByType": "ai_assisted",
+    "createdByUserId": "usr_01example",
+    "sourceArtifactIds": [
+      "art_01example"
+    ],
+    "generation": {
+      "brewJobId": "job_01example",
+      "agentPipelineVersion": "brew-v1",
+      "modelIds": [
+        "configured-at-runtime"
+      ],
+      "promptTemplateVersions": [
+        "module-generator-v1"
+      ]
+    },
+    "attribution": {
+      "displayName": "GON AI draft",
+      "upstreamModuleVersionId": null
+    }
+  },
+  "quality": {
+    "citationCoverage": 0.85,
+    "unverifiedClaimIds": []
+  }
+}

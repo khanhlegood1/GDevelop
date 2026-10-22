@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "gon.game-events/1.0",
+  "sessionId": "game_01example",
+  "events": [
+    {
+      "clientEventId": "evt-client-001",
+      "sequence": 1,
+      "eventType": "session_started",
+      "occurredAtClient": "2026-10-22T00:10:00Z",
+      "data": {
+        "templateVersion": "viral-sim-v1"
+      }
+    },
+    {
+      "clientEventId": "evt-client-002",
+      "sequence": 2,
+      "eventType": "checkpoint_reached",
+      "occurredAtClient": "2026-10-22T00:11:00Z",
+      "data": {
+        "checkpoint": "network_choice"
+      }
+    },
+    {
+      "clientEventId": "evt-client-003",
+      "sequence": 3,
+      "eventType": "session_completed",
+      "occurredAtClient": "2026-10-22T00:13:00Z",
+      "data": {
+        "outcome": "explained_mechanism"
+      }
+    }
+  ]
+}

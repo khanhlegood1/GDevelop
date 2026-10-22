@@ -63,4 +63,4 @@ Mỗi ứng viên phải được chấm tối thiểu theo:
 
 ## Điều kiện đóng ADR
 
-ADR này được thay bằng các ADR stack cụ thể tại P03. Khi đó trạng thái của ADR-0004 chuyển thành `Superseded` và liên kết tới từng quyết định thay thế.
+ADR này được thay bằng các ADR stack cụ thể tại P03. Các ADR-0005…ADR-0008 đang ở trạng thái Proposed trong gói P03 IN REVIEW; chỉ khi PO duyệt P03, trạng thái của ADR-0004 mới chuyển thành `Superseded` và liên kết tới từng quyết định thay thế.

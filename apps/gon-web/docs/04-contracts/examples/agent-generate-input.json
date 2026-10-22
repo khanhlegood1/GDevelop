@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "gon.agent.generate-module.input/1.0",
+  "jobId": "job_01example",
+  "projectId": "prj_01example",
+  "learningContext": {
+    "goal": "Tạo nội dung giáo dục từ hiện tượng viral",
+    "learningMode": "create_publish",
+    "depth": "standard",
+    "timeBudgetMinutes": 30,
+    "locale": "vi-VN"
+  },
+  "evidenceBundle": [
+    {
+      "sourceId": "src_user_video",
+      "title": "Video người dùng cung cấp",
+      "artifactId": "art_01example",
+      "content": "Metadata cho biết video bàn về một bài hát lan truyền nhanh trên mạng xã hội.",
+      "rightsStatus": "user_provided"
+    },
+    {
+      "sourceId": "src_diffusion_overview",
+      "title": "Tổng quan nghiên cứu lan truyền nội dung",
+      "uri": "https://example.org/research/content-diffusion",
+      "content": "Lan truyền phụ thuộc vào nội dung, mạng lưới người chia sẻ và bối cảnh thời điểm.",
+      "rightsStatus": "public_reference"
+    }
+  ],
+  "graphSchemaVersion": "gon.module-graph/1.0"
+}
