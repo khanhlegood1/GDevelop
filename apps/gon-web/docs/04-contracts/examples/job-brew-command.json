@@ -1,0 +1,26 @@
+{
+  "jobId": "job_01example",
+  "jobType": "brew_module",
+  "schemaVersion": "gon.job/1.0",
+  "aggregateType": "learning_project",
+  "aggregateId": "prj_01example",
+  "requestedBy": {
+    "type": "user",
+    "id": "usr_01example"
+  },
+  "idempotencyKey": "brew-prj_01example-v1",
+  "inputFingerprint": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "payload": {
+    "searchAttemptId": "srch_01example",
+    "artifactIds": [
+      "art_01example"
+    ],
+    "graphSchemaVersion": "gon.module-graph/1.0"
+  },
+  "priority": "normal",
+  "correlationId": "req_01example",
+  "availableAt": "2026-10-22T00:00:00Z",
+  "deadlineAt": "2026-10-22T00:15:00Z",
+  "attempt": 1,
+  "maxAttempts": 3
+}

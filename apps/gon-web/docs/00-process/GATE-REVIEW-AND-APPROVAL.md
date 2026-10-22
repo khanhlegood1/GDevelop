@@ -148,7 +148,8 @@ Dùng khi quyết định chưa đủ lớn để thành ADR riêng:
 | 22/10/2026 | Production code ở `khanhlegood1/GDevelop` | PO | ADR-0001 | Không tạo repo production riêng tại Gate 0 |
 | 22/10/2026 | Không wholesale-fork FastChat/WSIC | PO | ADR-0002 | Mọi port cần Audit |
 | 22/10/2026 | **APPROVED Gate 0**, cho phép bắt đầu P01 | PO | Commit `5482dac` | Tại thời điểm đó, P01 vẫn cần phê duyệt riêng trước P02 (đã được duyệt ngay bên dưới) |
-| 22/10/2026 | **APPROVED P01** và toàn bộ `D-P01-01`…`D-P01-14`, cho phép bắt đầu P02 | PO | Commit `9a09fa2` | P02 vẫn cần phê duyệt riêng trước P03 |
+| 22/10/2026 | **APPROVED P01** và toàn bộ `D-P01-01`…`D-P01-14`, cho phép bắt đầu P02 | PO | Commit `9a09fa2` | Tại thời điểm đó, P02 vẫn cần phê duyệt riêng trước P03 (đã được duyệt ngay bên dưới) |
+| 22/10/2026 | **APPROVED P02** và toàn bộ `D-P02-01`…`D-P02-12`, cho phép bắt đầu P03 | PO | Commit `33c2641` | Không có điều kiện cụ thể ngoài mẫu “<nếu có>”; usability test người dùng thật vẫn chưa thực hiện và được ghi là kiểm chứng còn mở trước P04 |
 
 ## 6. Quy tắc escalated decision
 

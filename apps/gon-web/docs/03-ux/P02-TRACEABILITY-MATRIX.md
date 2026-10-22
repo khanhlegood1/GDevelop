@@ -1,6 +1,6 @@
 # P02 Traceability Matrix
 
-> **Trạng thái:** IN REVIEW tại P02<br>
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục đích:** Nối tiếp [P01 Traceability Matrix](../02-requirements/P01-TRACEABILITY-MATRIX.md) bằng Screen/Component IDs và bằng chứng prototype, đồng thời nêu rõ phần chuyển sang P03.
 
 ## 1. Cách đọc mức bao phủ

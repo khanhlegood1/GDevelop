@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "gon.agent.assess-attempt.output/1.0",
+  "decision": "passed",
+  "criteria": [
+    {
+      "criterionId": "two_factor_groups",
+      "passed": true,
+      "feedback": "Đã nêu mạng lưới và thời điểm."
+    },
+    {
+      "criterionId": "own_words",
+      "passed": true,
+      "feedback": "Diễn đạt độc lập, không sao chép đáp án mẫu."
+    }
+  ],
+  "feedback": "Bạn đã phân biệt được nội dung với điều kiện lan truyền.",
+  "confidence": 0.91,
+  "integritySignals": []
+}

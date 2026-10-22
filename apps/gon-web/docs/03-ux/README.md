@@ -1,10 +1,11 @@
 # P02 — Frontend UX Agreement Package
 
-> **Trạng thái:** **IN REVIEW — chờ Product Owner phê duyệt P02**<br>
+> **Trạng thái:** **APPROVED — Product Owner đã duyệt ngày 22/10/2026**<br>
+> **Commit được duyệt:** `33c2641e8710a3792150827d93500f7a1b930315`<br>
 > **Ngày trình duyệt:** 22/10/2026<br>
 > **Cơ sở đã khóa:** P01 được PO duyệt tại commit `9a09fa21fd8a27536eddb97ad179d14db3aab7ac`, bao gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
 > **Phạm vi thiết kế:** VS1 đầy đủ và các bề mặt UX cần thiết cho VS2 theo [Backlog đã duyệt](../02-requirements/BACKLOG-MOSCOW-AND-VERTICAL-SLICES.md)<br>
-> **Chưa bắt đầu:** P03 API/Data Contract và production backend
+> **Gate tiếp theo:** P03 API/Data Contract đang IN REVIEW; production backend chưa bắt đầu
 
 ## 1. P02 chốt điều gì?
 
@@ -25,9 +26,9 @@ P02 biến PRD đã duyệt thành một thỏa thuận frontend có thể nhìn
 
 P02 không khóa framework, database, endpoint hay model AI. Mọi screen/component/state trong gói này là input cho P03; P03 có thể thay route slug hoặc field name, nhưng không được âm thầm thay đổi hành vi đã được PO duyệt ở P02.
 
-## 2. Artifact trình duyệt
+## 2. Artifact đã được phê duyệt
 
-| # | Artifact | PO duyệt nội dung gì? |
+| # | Artifact | Nội dung đã chốt |
 |---|---|---|
 | 1 | [Information Architecture](INFORMATION-ARCHITECTURE.md) | Cấu trúc điều hướng, đối tượng người dùng nhìn thấy, route đề xuất, quyền truy cập theo vai trò |
 | 2 | [User Flows](USER-FLOWS.md) | Các luồng chính, nhánh lỗi, trạng thái chờ, đường quay lại và tiêu chí hoàn thành |
@@ -49,11 +50,11 @@ P02 không khóa framework, database, endpoint hay model AI. Mọi screen/compon
 7. **Không gây nghiện để thắng metric:** không streak trừng phạt, không XP cho xem/vote rỗng, không hứa viral/thu nhập.
 8. **Mobile là flow đầy đủ, không phải bản rút gọn:** người dùng phải hoàn thành Input → Learn → Proof trên 360px.
 
-## 4. Các quyết định P02 đang đề xuất PO duyệt
+## 4. Các quyết định P02 đã được PO phê duyệt
 
-Các mục này không thay đổi phạm vi P01; chúng khóa cách phạm vi ấy xuất hiện trên giao diện.
+Ngày 22/10/2026, Product Owner đã duyệt P02 và toàn bộ `D-P02-01`…`D-P02-12`. Các mục này không thay đổi phạm vi P01; chúng khóa cách phạm vi ấy xuất hiện trên giao diện.
 
-| ID | Quyết định UX đề xuất | Lý do |
+| ID | Quyết định UX đã duyệt | Lý do |
 |---|---|---|
 | `D-P02-01` | App shell dùng project stepper `Input → Tìm/Brew → Hướng học → Hành trình → Proof`; desktop có rail trái, mobile có bottom nav | User luôn biết mình đang ở đâu trong vòng đời một project |
 | `D-P02-02` | Màn hình chính sau đăng nhập là **composer-first**, không phải feed trend | Giá trị cốt lõi bắt đầu từ tò mò/input của chính user; giảm FOMO |
@@ -68,7 +69,7 @@ Các mục này không thay đổi phạm vi P01; chúng khóa cách phạm vi �
 | `D-P02-11` | “AI System” không còn là nav chính; đổi thành vùng minh bạch “Cách GON hoạt động” trong Help/Profile | Điều hướng theo việc của user, không theo kiến trúc hệ thống |
 | `D-P02-12` | Màn hình vận hành/reviewer tách namespace `/review` và không lẫn với learner nav | Giảm nguy cơ lộ quyền và giúp P03 định authorization rõ ràng |
 
-PO có thể ghi **“Duyệt tất cả mặc định P02”** hoặc yêu cầu sửa theo từng mã `D-P02-*`.
+Thay đổi các quyết định này sau P02 phải được ghi thành amendment hoặc ADR được duyệt, không âm thầm thay đổi trong P03/P04.
 
 ## 5. Phạm vi prototype
 
@@ -89,7 +90,7 @@ Prototype P02 phủ các bề mặt người học cốt lõi:
 
 Các bề mặt `SCR-13` Projects, `SCR-14` Notifications, `SCR-15` Report Status, `SCR-16` Review Queue và `SCR-17` Account Settings được đặc tả trong wireframe doc nhưng chưa dựng thành section riêng trong prototype vì chúng không quyết định vòng VS1 đầu tiên. Chúng là input bắt buộc cho P03/P04 thay vì bị bỏ quên.
 
-## 6. Những gì P02 cố ý chưa quyết
+## 6. Những nội dung P02 chuyển sang P03
 
 - Stack production, component library, route implementation và state management.
 - API endpoint, schema, vector threshold, ranking formula, Elo/BT parameter và trend formula.
@@ -98,35 +99,21 @@ Các bề mặt `SCR-13` Projects, `SCR-14` Notifications, `SCR-15` Report Statu
 - Số/trọng số XP cho từng event. Prototype cộng XP mô phỏng chỉ để duyệt hiển thị.
 - Kết quả usability thật. P02 cung cấp kế hoạch kiểm tra; không tuyên bố đã test với người dùng.
 
-Các điểm trên phải được ghi thành contract/ADR ở P03, không được “đoán” trong lúc viết production UI ở P04.
+Các điểm trên đang được chuyển thành contract/ADR trong gói P03; chúng không được “đoán” trong lúc viết production UI ở P04.
 
-## 7. Checklist PO duyệt P02
+## 7. Kết quả phê duyệt P02
 
-- [ ] Vòng `Input → Search/Brew → Outputs → Learn → Proof → Level` dễ hiểu ngay từ điều hướng và CTA.
-- [ ] Cách nói “Tạo hành trình của tôi” thay cho Fork được chấp nhận.
-- [ ] Output Explorer đủ 10 lựa chọn nhưng không gây quá tải; ranking explanation đủ minh bạch.
-- [ ] Arena không bắt buộc ở mọi lựa chọn và copy nói rõ vote không xác minh sự thật.
-- [ ] Level/Mastery/Proof được phân biệt đủ rõ trên giao diện.
-- [ ] Các trạng thái không có kết quả, partial, AI draft, blocked, loading và revision đều có lối đi tiếp theo.
-- [ ] Quyền tắt/xóa footprint dễ tìm và không có dark pattern.
-- [ ] Mobile bottom nav và bố cục một cột vẫn hoàn thành được flow chính.
-- [ ] Các mặc định `D-P02-01`…`D-P02-12` được duyệt hoặc đã ghi rõ điểm cần sửa.
-- [ ] P03 chỉ bắt đầu sau khi P02 được duyệt.
+- [x] Vòng `Input → Search/Brew → Outputs → Learn → Proof → Level` dễ hiểu ngay từ điều hướng và CTA.
+- [x] Cách nói “Tạo hành trình của tôi” thay cho Fork được chấp nhận.
+- [x] Output Explorer đủ 10 lựa chọn nhưng không gây quá tải; ranking explanation đủ minh bạch.
+- [x] Arena không bắt buộc ở mọi lựa chọn và copy nói rõ vote không xác minh sự thật.
+- [x] Level/Mastery/Proof được phân biệt đủ rõ trên giao diện.
+- [x] Các trạng thái không có kết quả, partial, AI draft, blocked, loading và revision đều có lối đi tiếp theo.
+- [x] Quyền tắt/xóa footprint dễ tìm và không có dark pattern.
+- [x] Mobile bottom nav và bố cục một cột vẫn hoàn thành được flow chính.
+- [x] Toàn bộ mặc định `D-P02-01`…`D-P02-12` đã được duyệt.
+- [x] Cho phép bắt đầu P03.
 
-## 8. Cách PO phản hồi
+## 8. Hành động tiếp theo
 
-```text
-APPROVED — P02, commit <sha>.
-Tôi duyệt toàn bộ mặc định D-P02-01 đến D-P02-12.
-Cho phép bắt đầu P03.
-Điều kiện kèm theo: <nếu có>.
-```
-
-hoặc:
-
-```text
-CHANGES REQUESTED — P02.
-1. <màn hình/flow/component cần sửa>
-2. <quyết định D-P02-* cần đổi>
-Giữ nguyên phạm vi P01 đã duyệt. Chưa bắt đầu P03.
-```
+P03 — API Contract & Data Model First đã được phép bắt đầu tại [`../04-contracts/README.md`](../04-contracts/README.md). P03 phải giữ nguyên hành vi UX đã duyệt; usability test với người dùng thật vẫn chưa được thực hiện và phải được xử lý như một điều kiện kiểm chứng trước khi khóa production UI ở P04, thay vì tuyên bố UX đã được người dùng xác thực.

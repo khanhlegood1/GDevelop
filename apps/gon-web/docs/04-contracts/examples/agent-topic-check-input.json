@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "gon.agent.topic-check.input/1.0",
+  "jobId": "job_01example",
+  "projectId": "prj_01example",
+  "intent": "Vì sao một bài hát có thể viral sau một đêm?",
+  "artifactCoverage": [
+    {
+      "artifactId": "art_01example",
+      "extractionStatus": "metadata_only",
+      "hasText": false,
+      "hasMetadata": true
+    }
+  ],
+  "policyVersion": "safety-v1"
+}

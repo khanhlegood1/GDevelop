@@ -21,7 +21,7 @@ python3 -m http.server 8130 --bind 0.0.0.0
 
 Có thể mở trực tiếp `index.html`, nhưng HTTP server là cách được khuyến nghị để đường dẫn asset và hash hoạt động giống môi trường web.
 
-### P02 UX prototype đang trình duyệt
+### P02 UX prototype đã được phê duyệt
 
 Gói P02 có prototype riêng bám PRD đã được duyệt tại [`ux-prototype/index.html`](ux-prototype/index.html). Khi server trên đang chạy, mở `http://localhost:8130/ux-prototype/` và làm theo [hướng dẫn duyệt prototype](ux-prototype/README.md). Prototype gốc được giữ nguyên làm tham chiếu lịch sử; bản P02 là frontend agreement cho `SCR-01`…`SCR-12` và không gọi backend/AI thật.
 
@@ -67,8 +67,8 @@ node --check apps/gon-web/ux-prototype/app.js
 
 White Paper về Lifelong Level/XP/Token: [`GON-WHITEPAPER.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.md) · [bản PDF](../../branding/GON-GameOfNurture/07-Product-AI/GON-WHITEPAPER.pdf). Kiến trúc đích và hợp đồng dữ liệu: [`ARCHITECTURE.md`](ARCHITECTURE.md). Requirement V2.1 về 10+ output, trend, footprint, Arena vote và Journey Fork: [`GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md`](../../branding/GON-GameOfNurture/07-Product-AI/GON-TRENDING-PERSONALIZED-OUTPUT-REQUIREMENTS.md). Tài liệu thương hiệu: [`../../branding/GON-GameOfNurture/`](../../branding/GON-GameOfNurture/).
 
-## Quy trình phát triển, Gate 0, P01 và P02
+## Quy trình phát triển, Gate 0, P01, P02 và P03
 
-GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). **Gate 0 đã được duyệt tại `5482dac`; P01 đã được duyệt tại `9a09fa2` cùng toàn bộ mặc định `D-P01-01`…`D-P01-14`.** Gói **P02 — Frontend UX Agreement** đang trình duyệt tại [`docs/03-ux/README.md`](docs/03-ux/README.md), kèm [UX prototype có thể click](ux-prototype/index.html). P03 chưa bắt đầu.
+GON được phát triển theo AI-Agile/HITL với Product Owner duyệt từng gate. Cổng tài liệu kỹ thuật: [`docs/README.md`](docs/README.md). **Gate 0 đã được duyệt tại `5482dac`; P01 tại `9a09fa2`; P02 tại `33c2641` cùng toàn bộ mặc định `D-P02-01`…`D-P02-12`.** Gói **P03 — API Contract & Data Model First** đang trình duyệt tại [`docs/04-contracts/README.md`](docs/04-contracts/README.md). Production backend ở P04 chưa bắt đầu.
 
 > Không nhập mật khẩu Google thật vào prototype. Không dùng dữ liệu mẫu trong app làm bằng chứng y khoa, pháp lý hay thành tích thật.

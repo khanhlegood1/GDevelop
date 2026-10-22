@@ -1,6 +1,6 @@
 # P02 — Interaction States & Content
 
-> **Trạng thái:** IN REVIEW tại P02<br>
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Mọi trạng thái đều trả lời ba câu hỏi: **Chuyện gì đang xảy ra? Điều đó có nghĩa gì? Tôi làm gì tiếp theo?**
 
 ## 1. Nguyên tắc trạng thái

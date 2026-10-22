@@ -1,6 +1,6 @@
 # P02 — Wireframe & Screen Specification
 
-> **Trạng thái:** IN REVIEW tại P02<br>
+> **Trạng thái:** APPROVED tại P02 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Quy ước:** `SCR-*` là màn hình/bề mặt ổn định để truy vết. `CMP-*` là component UX, chưa phải tên class/code production. P03 phải map API/data vào các nhu cầu giao diện dưới đây.
 
 ## 1. Component inventory

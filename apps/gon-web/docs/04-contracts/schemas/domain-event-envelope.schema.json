@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gon.org/schemas/domain-event/1.0/schema.json",
+  "title": "GON Domain Event Envelope 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "occurredAt",
+    "aggregateType",
+    "aggregateId",
+    "actor",
+    "correlationId",
+    "data"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "pattern": "^evt_"
+    },
+    "eventType": {
+      "type": "string",
+      "pattern": "^[a-z]+\\.[a-z0-9_.-]+$"
+    },
+    "eventVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "aggregateType": {
+      "type": "string"
+    },
+    "aggregateId": {
+      "type": "string"
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "user",
+            "service",
+            "system",
+            "reviewer",
+            "admin"
+          ]
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
+    "correlationId": {
+      "type": "string",
+      "pattern": "^req_"
+    },
+    "causationId": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    }
+  }
+}
