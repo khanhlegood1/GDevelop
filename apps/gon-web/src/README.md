@@ -25,7 +25,9 @@
 | `server/embeddings.ts` | Biên `gon-semantic-v1` 768D; local hash provider và Gemini adapter chưa có bằng chứng chạy thật |
 | `server/auth.ts`, `actor.ts` | Auth.js Google boundary và actor resolution từ session server-side |
 | `server/http.ts` | Request ID, envelope, Problem Details, same-origin/CSRF, streamed body limits, proxy-header trust có điều kiện, If-Match/Idempotency-Key parsing |
-| `server/db.ts` | Optional `pg.Pool` cho Auth.js adapter khi có `DATABASE_URL` |
+| `server/db.ts` | Optional `pg.Pool` cho Auth.js adapter với timeout/TLS bounds, redacted pool-error log, readiness ping và close helper |
+| `server/postgres-search.ts` | Production PostgreSQL hybrid Search repository; authorization trước candidate limit, chưa wired vào `GonService` cho tới R1.2 |
+| `server/health.ts` | Liveness/readiness semantics có thể test bằng dependency injection |
 | `server/runtime.ts` | Singleton local service; `GON_STORE=postgres` cố tình fail-fast vì repository chưa wired; memory bị cấm trong production nếu không có override cô lập tường minh |
 
 ## Chạy local

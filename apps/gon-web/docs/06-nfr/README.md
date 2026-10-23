@@ -42,7 +42,7 @@ Mức bằng chứng dùng trong toàn bộ gói:
 | Accessibility | Static Audit, contrast các cặp màu chính > 4.5:1, tab pattern đã sửa | axe/browser/screen-reader test **NOT RUN** | **Chưa đạt WCAG evidence** |
 | Reliability/DR | Migration SQL/checksum/advisory lock ở mức thiết kế/static | PostgreSQL execution, backup/restore, queue recovery **NOT RUN** | **Blocker** |
 | Observability | requestId, Problem Details, outbox/audit records trong memory | Metrics/traces/dashboards/alerts/runbooks chưa có | **Blocker** |
-| Privacy | Consent/age/private-by-default ở VS1 | Export/delete/retention jobs và rà soát pháp lý chưa hoàn tất | **Blocker** |
+| Privacy | Consent/age/private-by-default ở VS1 | Export//age/private-by-default ở VS1 | Export/delete/retention jobs và rà soát pháp lý chưa hoàn tất | **Blocker** |
 
 ## 3. Hardening đã thực hiện trong vòng P05
 
@@ -109,7 +109,7 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 
 ## 7. Lộ trình đóng P05
 
-1. **P05-R1 — Production platform completion:** PostgreSQL repositories, Auth DB sessions, object storage, durable jobs/outbox, ADK worker integration và persistent quotas.
+1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation đã xong ở mức local; tiếp theo là domain repositories/Unit of Work, Auth DB sessions, object storage, durable jobs/outbox, ADK worker integration và persistent quotas.
 2. **P05-R2 — Staging verification:** S-P03-01/02/03/04, load/DAST/AI evaluation, accessibility browser test, backup/restore và rollback drills.
 3. **P05-R3 — Re-review:** chạy lại toàn bộ gates trên cùng một staging build, đóng findings hoặc xin ngoại lệ có hạn, sau đó mới trình PO duyệt P05.
 4. **P06:** chỉ bắt đầu sau P05 APPROVED; Go-Live vẫn cần quyết định riêng.
@@ -121,5 +121,8 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 - [Identity, privacy & retention contract](../04-contracts/IDENTITY-AUTHORIZATION-PRIVACY-AND-RETENTION.md)
 - [Production source guide](../../src/README.md)
 - [PostgreSQL guide](../../db/README.md)
+- [ADK service guide](../../../gon-adk/README.md)
+- [Gate review & approval](../00-process/GATE-REVIEW-AND-APPROVAL.md)
+README.md)
 - [ADK service guide](../../../gon-adk/README.md)
 - [Gate review & approval](../00-process/GATE-REVIEW-AND-APPROVAL.md)

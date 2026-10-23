@@ -1,0 +1,125 @@
+name: GON CI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/gon-ci.yml"
+      - "apps/gon-adk/**"
+      - "apps/gon-web/**"
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/gon-ci.yml"
+      - "apps/gon-adk/**"
+      - "apps/gon-web/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gon-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gon-web:
+    name: GON Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/gon-web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      AUTH_SECRET: "ci-build-only-not-a-production-secret"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/gon-web/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Production unit tests
+        run: npm test
+
+      - name: PostgreSQL migration and hybrid Search integration tests
+        run: npm run test:postgres
+
+      - name: Legacy prototype regression tests
+        run: npm run test:legacy
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Static migration checks
+        run: npm run db:check
+
+      - name: Production build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+  gon-adk:
+    name: GON ADK
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/gon-adk
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/gon-adk/pyproject.toml
+
+      - name: Install ADK service and test tools
+        run: |
+          python -m pip install --upgrade pip "setuptools==84.2.1"
+          python -m pip install -e ".[dev]" "bandit==1.9.4" "pip-audit==2.10.1"
+
+      - name: Contract service tests
+        run: python -m pytest -q
+
+      - name: Dependency consistency
+        run: python -m pip check
+
+      # F-P05-10: CVE-2026-114603 is currently pulled transitively by
+      # google-adk 2.12.0 through opentelemetry-api. Keep the exception
+      # explicit and narrow so every other vulnerability still fails CI.
+      - name: Dependency audit
+        run: python -m pip_audit --ignore-vuln CVE-2026-114603
+
+      # B104 (binding 0.0.0.0) is tracked as F-P05-23 and is only acceptable
+      # behind internal ingress. High-severity Bandit findings remain gating.
+      - name: Python SAST
+        run: python -m bandit -r src --severity-level high
+
+  gon-contracts:
+    name: GON Contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned contract validator
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "openapi-spec-validator==0.8.2"
+
+      - name: Validate P03 contracts
+        working-directory: apps/gon-web
+        run: python docs/04-contracts/tests/validate_contracts.py

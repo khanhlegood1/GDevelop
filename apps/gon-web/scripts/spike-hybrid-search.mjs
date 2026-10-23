@@ -230,10 +230,10 @@ async function insertFixture(client) {
     );
     await client.query(
       `insert into module_versions
-        (id, module_id, version_number, graph, title, summary, estimated_minutes,
+        (id, module_id, version_number, graph_schema_version, graph, title, summary, estimated_minutes,
          difficulty, visibility, publication_status, grounding_status,
          content_sha256, created_by_user_id)
-       values ($1, $2, 1, $3::jsonb, $4, 'Fixture module', 15, 'beginner',
+       values ($1, $2, 1, 'gon.module-graph/1.0', $3::jsonb, $4, 'Fixture module', 15, 'beginner',
                'private', 'draft_private', 'partially_cited', $5, $6)`,
       [
         row.versionId,

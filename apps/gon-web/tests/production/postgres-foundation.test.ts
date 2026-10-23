@@ -1,0 +1,148 @@
+import { describe, expect, it, vi } from "vitest";
+import { readConfig } from "@/server/config";
+import { createPostgresPoolConfig } from "@/server/db";
+import { getLiveness, getReadiness } from "@/server/health";
+import {
+  formatPostgresTextArray,
+  formatPostgresVector,
+  POSTGRES_HYBRID_SEARCH_SQL,
+  PostgresHybridSearchRepository,
+  validateEmbeddingVector,
+} from "@/server/postgres-search";
+
+function env(values: Record<string, string>): NodeJS.ProcessEnv {
+  return { NODE_ENV: "test", ...values } as NodeJS.ProcessEnv;
+}
+
+describe("PostgreSQL pool configuration", () => {
+  it("uses bounded timeouts and explicit TLS verification settings", () => {
+    const config = createPostgresPoolConfig(env({
+      DATABASE_URL: "postgresql://gon:placeholder@db.example.internal:5432/gon",
+      DATABASE_SSL_MODE: "verify-full",
+      DATABASE_SSL_CA: "-----BEGIN CERTIFICATE-----placeholder-----END CERTIFICATE-----",
+      DATABASE_POOL_MAX: "7",
+      DATABASE_STATEMENT_TIMEOUT_MS: "9000",
+    }));
+
+    expect(config).toMatchObject({
+      application_name: "gon-web",
+      max: 7,
+      connectionTimeoutMillis: 5_000,
+      statement_timeout: 9_000,
+      query_timeout: 20_000,
+      ssl: { rejectUnauthorized: true },
+    });
+  });
+
+  it("fails closed for invalid URLs, pool bounds and TLS modes without echoing secrets", () => {
+    expect(() =>
+      createPostgresPoolConfig(env({ DATABASE_URL: "mysql://user:secret@example/db" })),
+    ).toThrow(/postgres/);
+    expect(() =>
+      createPostgresPoolConfig(env({
+        DATABASE_URL: "postgresql://db.example/gon",
+        DATABASE_POOL_MAX: "1000",
+      })),
+    ).toThrow(/DATABASE_POOL_MAX/);
+    expect(() =>
+      createPostgresPoolConfig(env({
+        DATABASE_URL: "postgresql://db.example/gon",
+        DATABASE_SSL_MODE: "sometimes",
+      })),
+    ).toThrow(/DATABASE_SSL_MODE/);
+  });
+});
+
+describe("PostgreSQL hybrid Search repository contract", () => {
+  it("rejects degenerate embeddings and encodes validated concept arrays", () => {
+    expect(() => validateEmbeddingVector(Array.from({ length: 768 }, () => 0))).toThrow(/zero vector/);
+    expect(() => formatPostgresVector([1, 2, 3])).toThrow(/768/);
+    expect(formatPostgresTextArray(["content_diffusion", "evidence_limits"])).toBe(
+      '{"content_diffusion","evidence_limits"}',
+    );
+  });
+
+  it("places authorization before candidate limits and maps internal scores", async () => {
+    expect(POSTGRES_HYBRID_SEARCH_SQL.indexOf("authorized_chunks as")).toBeLessThan(
+      POSTGRES_HYBRID_SEARCH_SQL.indexOf("vector_candidates as"),
+    );
+    expect(POSTGRES_HYBRID_SEARCH_SQL).toContain("mv.publication_status not in ('hidden', 'retired')");
+
+    const query = vi.fn(async () => ({
+      rows: [{
+        module_version_id: "modv_test123",
+        title: "Lan truyền nội dung",
+        grounding_status: "citation_checked",
+        vector_score: 0.9,
+        lexical_score: 0.4,
+        concept_coverage: 0.5,
+        specificity_score: 0.2,
+        quality_score: 1,
+        hybrid_score: 0.695,
+        matched_concept_ids: ["content_diffusion"],
+      }],
+    }));
+    const repository = new PostgresHybridSearchRepository({ query });
+    const output = await repository.search({
+      actorUserId: "usr_test123",
+      queryText: "lan truyền nội dung",
+      queryEmbedding: Array.from({ length: 768 }, (_, index) => (index === 0 ? 1 : 0)),
+      conceptIds: ["content_diffusion", "evidence_limits"],
+    });
+
+    expect(query).toHaveBeenCalledOnce();
+    expect(output.results[0]).toMatchObject({
+      moduleVersionId: "modv_test123",
+      matchedConcepts: ["content_diffusion"],
+      missingConcepts: ["evidence_limits"],
+      internalScores: { vector: 0.9, hybrid: 0.695 },
+    });
+    expect(output.latencyMs).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("health and readiness semantics", () => {
+  it("keeps liveness minimal", () => {
+    expect(getLiveness()).toEqual({ status: "ok" });
+  });
+
+  it("allows the explicit local memory runtime outside production", async () => {
+    const report = await getReadiness({
+      config: readConfig({ NODE_ENV: "test", GON_STORE: "memory" } as NodeJS.ProcessEnv),
+      ensureRuntime: () => undefined,
+      checkDatabase: async () => ({ configured: false, ok: false }),
+    });
+    expect(report).toMatchObject({ status: "ready", checks: { store: { ok: true } } });
+  });
+
+  it("does not call PostgreSQL ready until domain repositories are wired", async () => {
+    const report = await getReadiness({
+      config: readConfig({
+        NODE_ENV: "production",
+        GON_STORE: "postgres",
+        DATABASE_URL: "postgresql://db.example/gon",
+      } as NodeJS.ProcessEnv),
+      ensureRuntime: () => {
+        throw new Error("must not be called for the unwired store");
+      },
+      checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
+    });
+    expect(report.status).toBe("not_ready");
+    expect(report.checks.store.errorCode).toBe("POSTGRES_DOMAIN_REPOSITORY_NOT_WIRED");
+    expect(report.checks.database).toMatchObject({ configured: true, required: true, ok: true });
+  });
+
+  it("requires a database in production even for an isolated memory override", async () => {
+    const report = await getReadiness({
+      config: readConfig({
+        NODE_ENV: "production",
+        GON_STORE: "memory",
+        GON_ALLOW_MEMORY_STORE_IN_PRODUCTION: "1",
+      } as NodeJS.ProcessEnv),
+      ensureRuntime: () => undefined,
+      checkDatabase: async () => ({ configured: false, ok: false }),
+    });
+    expect(report.status).toBe("not_ready");
+    expect(report.checks.database).toMatchObject({ required: true, ok: false });
+  });
+});
