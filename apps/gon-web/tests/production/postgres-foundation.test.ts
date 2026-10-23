@@ -147,6 +147,8 @@ describe("health and readiness semantics", () => {
       } as NodeJS.ProcessEnv),
       ensureRuntime: () => undefined,
       checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
+      checkMigrations: async () => ({ ok: true, appliedCount: 10, expectedCount: 10 }),
+      checkOutbox: async () => ({ ok: true, backlogCount: 0, threshold: 1000 }),
     });
     expect(report.status).toBe("ready");
     expect(report.checks.store).toMatchObject({ kind: "postgres", ok: true });
@@ -175,6 +177,8 @@ describe("health and readiness semantics", () => {
       } as NodeJS.ProcessEnv),
       ensureRuntime: () => undefined,
       checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
+      checkMigrations: async () => ({ ok: true, appliedCount: 10, expectedCount: 10 }),
+      checkOutbox: async () => ({ ok: true, backlogCount: 0, threshold: 1000 }),
     });
     expect(report.status).toBe("not_ready");
     expect(report.checks.auth.errorCode).toBe("GOOGLE_AUTH_NOT_CONFIGURED");
@@ -192,6 +196,8 @@ describe("health and readiness semantics", () => {
         throw new Error("DATABASE_URL missing in this injected runtime");
       },
       checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
+      checkMigrations: async () => ({ ok: true, appliedCount: 10, expectedCount: 10 }),
+      checkOutbox: async () => ({ ok: true, backlogCount: 0, threshold: 1000 }),
     });
     expect(report.status).toBe("not_ready");
     expect(report.checks.store.errorCode).toBe("RUNTIME_STORE_NOT_ALLOWED");

@@ -11,6 +11,7 @@ import { PostgresOutboxPublisher, type OutboxEventSink } from "./postgres-outbox
 import { createOutboxSinkFromEnv } from "./outbox-sink";
 import type { SqlExecutor } from "./postgres-search";
 import { MemoryGonStore } from "./memory-store";
+import { logStructured } from "./observability";
 import { createObjectStorage, type ObjectStorage } from "./object-storage";
 import { PostgresAbuseStateStore } from "./postgres-abuse-store";
 import {
@@ -108,9 +109,17 @@ export function getGonService(): GonService {
     // Distributed rate limits/flood guard + budget alert hooks (P05-R1.10).
     abuseControls: getAbuseController(),
     budgetAlertSink: (alert) => {
-      // Structured ops signal; delivery to paging/chat webhooks is an R1.11
-      // observability concern and stays optional.
-      console.warn(JSON.stringify({ level: "warn", event: "budget_alert", ...alert }));
+      // Structured ops signal (P05-R1.11); delivery to paging/chat webhooks
+      // stays optional and pluggable at the composition root.
+      logStructured("warn", "budget_alert", {
+        userId: alert.userId,
+        quotaKey: alert.quotaKey,
+        windowStart: alert.windowStart,
+        windowEnd: alert.windowEnd,
+        limitUnits: alert.limitUnits,
+        usedUnits: alert.usedUnits,
+        thresholdPct: alert.thresholdPct,
+      });
     },
   });
   gonGlobal.__gonService = service;

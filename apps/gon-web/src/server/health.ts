@@ -1,5 +1,12 @@
 import { readConfig, type GonConfig } from "./config";
-import { checkPostgresReadiness, type PostgresReadiness } from "./db";
+import {
+  checkPostgresMigrationState,
+  checkPostgresOutboxBacklog,
+  checkPostgresReadiness,
+  type MigrationReadiness,
+  type OutboxBacklogReadiness,
+  type PostgresReadiness,
+} from "./db";
 import { getGonService } from "./runtime";
 
 export interface ReadinessReport {
@@ -15,6 +22,29 @@ export interface ReadinessReport {
       required: boolean;
       ok: boolean;
       latencyMs?: number;
+      errorCode?: string;
+    };
+    /**
+     * Migration freshness (P05-R1.11): every shipped migration file must be
+     * applied. A pending migration flips readiness to `not_ready` — the
+     * deploy pipeline must run `migrate.mjs` first (fail-closed).
+     */
+    migrations: {
+      ok: boolean;
+      appliedCount?: number;
+      expectedCount?: number;
+      pendingVersions?: string[];
+      errorCode?: string;
+    };
+    /**
+     * Stale outbox delivery backlog (P05-R1.11). Reported for alerting but
+     * deliberately does NOT gate `status`: cycling instances cannot drain a
+     * stuck consumer, so LB churn would make the backlog worse.
+     */
+    outbox: {
+      ok: boolean;
+      backlogCount?: number;
+      threshold: number;
       errorCode?: string;
     };
     auth: {
@@ -39,6 +69,8 @@ interface ReadinessDependencies {
   config?: GonConfig;
   ensureRuntime?: () => unknown;
   checkDatabase?: () => Promise<PostgresReadiness>;
+  checkMigrations?: () => Promise<MigrationReadiness>;
+  checkOutbox?: () => Promise<OutboxBacklogReadiness>;
 }
 
 export function getLiveness(): { status: "ok" } {
@@ -51,6 +83,8 @@ export async function getReadiness(
   const config = dependencies.config ?? readConfig();
   const ensureRuntime = dependencies.ensureRuntime ?? (() => getGonService());
   const checkDatabase = dependencies.checkDatabase ?? (() => checkPostgresReadiness());
+  const checkMigrations = dependencies.checkMigrations ?? (() => checkPostgresMigrationState());
+  const checkOutbox = dependencies.checkOutbox ?? (() => checkPostgresOutboxBacklog());
 
   let storeOk = false;
   let storeErrorCode: string | undefined;
@@ -79,6 +113,20 @@ export async function getReadiness(
 
   const databaseOk = databaseRequired ? database.ok : database.ok || !database.configured;
 
+  // Deep readiness (P05-R1.11): migration freshness gates the LB (deploy
+  // must migrate first); the outbox backlog is reported for alerting only.
+  let migrations: MigrationReadiness = { ok: true };
+  let outbox: OutboxBacklogReadiness = { ok: true, threshold: 1_000 };
+  if (config.databaseConfigured) {
+    if (database.ok) {
+      migrations = await checkMigrations();
+      outbox = await checkOutbox();
+    } else {
+      migrations = { ok: false, errorCode: "DATABASE_NOT_READY" };
+      outbox = { ok: false, threshold: 1_000, errorCode: "DATABASE_NOT_READY" };
+    }
+  }
+
   const authRequired = config.production;
   let authErrorCode: string | undefined;
   if (authRequired) {
@@ -99,7 +147,7 @@ export async function getReadiness(
   const objectStorageOk = !objectStorageErrorCode;
 
   return {
-    status: storeOk && databaseOk && authOk && objectStorageOk ? "ready" : "not_ready",
+    status: storeOk && databaseOk && migrations.ok && authOk && objectStorageOk ? "ready" : "not_ready",
     checks: {
       store: {
         kind: config.storeKind,
@@ -112,6 +160,19 @@ export async function getReadiness(
         ok: databaseOk,
         ...(database.latencyMs !== undefined ? { latencyMs: database.latencyMs } : {}),
         ...(database.errorCode ? { errorCode: database.errorCode } : {}),
+      },
+      migrations: {
+        ok: migrations.ok,
+        ...(migrations.appliedCount !== undefined ? { appliedCount: migrations.appliedCount } : {}),
+        ...(migrations.expectedCount !== undefined ? { expectedCount: migrations.expectedCount } : {}),
+        ...(migrations.pendingVersions ? { pendingVersions: migrations.pendingVersions } : {}),
+        ...(migrations.errorCode ? { errorCode: migrations.errorCode } : {}),
+      },
+      outbox: {
+        ok: outbox.ok,
+        threshold: outbox.threshold,
+        ...(outbox.backlogCount !== undefined ? { backlogCount: outbox.backlogCount } : {}),
+        ...(outbox.errorCode ? { errorCode: outbox.errorCode } : {}),
       },
       auth: {
         googleConfigured: config.googleConfigured,

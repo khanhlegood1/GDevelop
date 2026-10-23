@@ -29,7 +29,8 @@ Tài liệu chi tiết:
    - [P05-R1.7 — Privacy export/delete & account lifecycle](P05-R1.7-PRIVACY-EXPORT-DELETE.md);
    - [P05-R1.8 — Upload/URL safety hardening](P05-R1.8-UPLOAD-URL-SAFETY.md);
    - [P05-R1.9 — Assess-attempt AI integration](P05-R1.9-ASSESS-ATTEMPT-AI.md);
-   - [P05-R1.10 — Abuse/cost distributed controls (token bucket, flood guard, budget alerts)](P05-R1.10-ABUSE-COST-DISTRIBUTED-CONTROLS.md).
+   - [P05-R1.10 — Abuse/cost distributed controls (token bucket, flood guard, budget alerts)](P05-R1.10-ABUSE-COST-DISTRIBUTED-CONTROLS.md);
+   - [P05-R1.11 — Observability, backup/restore & DR](P05-R1.11-OBSERVABILITY-BACKUP-DR.md).
 
 > Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1–R1.6 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue/Auth contract/object-storage boundary/worker runtime/outbox sink/TS→ADK wiring/persistent quotas/kill switches/circuit breaker/targeted queries/RLS, nhưng chưa đóng các blocker Google/GCS/managed staging, worker deployment, Gemini thật và DR; kết luận gate vẫn **NOT YET PASS**.
 

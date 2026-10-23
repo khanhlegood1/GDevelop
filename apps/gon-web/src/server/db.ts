@@ -1,4 +1,6 @@
 import { Pool, type PoolConfig } from "pg";
+import { readdir } from "node:fs/promises";
+import path from "node:path";
 
 interface DbGlobal {
   __gonPgPool?: Pool;
@@ -10,6 +12,32 @@ export interface PostgresReadiness {
   configured: boolean;
   ok: boolean;
   latencyMs?: number;
+  errorCode?: string;
+}
+
+/**
+ * Migration-freshness readiness (P05-R1.11): every SQL file shipped in
+ * `db/migrations` must have a `gon_schema_migrations` row. This catches the
+ * gap the required-tables check cannot: a schema that predates the newest
+ * migration (tables exist but e.g. 0010 guardrail state is missing).
+ */
+export interface MigrationReadiness {
+  ok: boolean;
+  appliedCount?: number;
+  expectedCount?: number;
+  pendingVersions?: string[];
+  errorCode?: string;
+}
+
+/**
+ * Outbox delivery backlog (P05-R1.11). A growing stale backlog is an
+ * alerting signal for the outbox consumer — readiness reports it but does
+ * NOT flip `not_ready` (cycling instances cannot drain a stuck queue).
+ */
+export interface OutboxBacklogReadiness {
+  ok: boolean;
+  backlogCount?: number;
+  threshold: number;
   errorCode?: string;
 }
 
@@ -63,9 +91,23 @@ export const POSTGRES_REQUIRED_TABLES = [
   "proof_verification_events",
   "reports",
   "moderation_cases",
+  "moderation_actions",
   "outbox_events",
   "audit_logs",
   "idempotency_records",
+  "ai_runs",
+  "artifact_extractions",
+  "feature_flags",
+  "quota_reservations",
+  "notifications",
+  "footprint_events",
+  "data_requests",
+  "user_personalization",
+  "personalization_preferences",
+  "abuse_rate_buckets",
+  "abuse_flood_strikes",
+  "abuse_idempotency_markers",
+  "budget_alert_claims",
 ] as const;
 
 export const POSTGRES_SCHEMA_READINESS_SQL = `
@@ -227,6 +269,98 @@ export async function checkPostgresReadiness(timeoutMs = 2_000): Promise<Postgre
     };
   } finally {
     if (timeout) clearTimeout(timeout);
+  }
+}
+
+/**
+ * Migrations directory: statically scoped under the app root so Next.js file
+ * tracing stays bounded (a dynamic fs path would trace the whole project into
+ * the server bundle). `GON_MIGRATIONS_DIR` overrides non-standard layouts.
+ */
+function defaultMigrationsDir(): string {
+  return process.env.GON_MIGRATIONS_DIR?.trim() || path.join(process.cwd(), "db", "migrations");
+}
+
+/**
+ * Compare shipped migration files against `gon_schema_migrations` rows.
+ * Fail-closed: any pending file means the deploy must run `migrate.mjs`
+ * before serving traffic.
+ */
+export async function checkPostgresMigrationState(
+  migrationsDir?: string,
+): Promise<MigrationReadiness> {
+  const dir = migrationsDir ?? defaultMigrationsDir();
+  let pool: Pool | undefined;
+  try {
+    pool = getPostgresPool();
+  } catch {
+    return { ok: false, errorCode: "DATABASE_CONFIG_INVALID" };
+  }
+  if (!pool) return { ok: false, errorCode: "DATABASE_NOT_CONFIGURED" };
+
+  let expected: string[];
+  try {
+    expected = (await readdir(dir))
+      .filter((file) => /^\d{4}_[a-z0-9_]+\.sql$/i.test(file))
+      .sort((a, b) => a.localeCompare(b));
+  } catch {
+    return { ok: false, errorCode: "MIGRATIONS_DIR_UNREADABLE" };
+  }
+
+  try {
+    const result = await pool.query(
+      "select version from gon_schema_migrations",
+    );
+    const applied = new Set(
+      result.rows.map((row) => String((row as { version?: unknown }).version)),
+    );
+    const pending = expected.filter((file) => !applied.has(file));
+    return {
+      ok: pending.length === 0,
+      appliedCount: applied.size,
+      expectedCount: expected.length,
+      pendingVersions: pending,
+      ...(pending.length > 0 ? { errorCode: "MIGRATIONS_PENDING" } : {}),
+    };
+  } catch (error) {
+    const code = safeErrorCode(error);
+    return {
+      ok: false,
+      expectedCount: expected.length,
+      errorCode: code === "42P01" ? "MIGRATIONS_TABLE_MISSING" : (code ?? "DATABASE_UNAVAILABLE"),
+    };
+  }
+}
+
+/** Stale outbox backlog count (pending/failed and older than 15 minutes). */
+export async function checkPostgresOutboxBacklog(
+  threshold = 1_000,
+): Promise<OutboxBacklogReadiness> {
+  let pool: Pool | undefined;
+  try {
+    pool = getPostgresPool();
+  } catch {
+    return { ok: false, threshold, errorCode: "DATABASE_CONFIG_INVALID" };
+  }
+  if (!pool) return { ok: false, threshold, errorCode: "DATABASE_NOT_CONFIGURED" };
+  try {
+    const result = await pool.query(
+      `select count(*)::int as backlog
+         from outbox_events
+        where publish_state in ('pending', 'failed')
+          and available_at < now() - interval '15 minutes'`,
+    );
+    const backlogCount = Number(
+      (result.rows[0] as { backlog?: unknown } | undefined)?.backlog ?? 0,
+    );
+    return {
+      ok: backlogCount <= threshold,
+      backlogCount,
+      threshold,
+      ...(backlogCount > threshold ? { errorCode: "OUTBOX_BACKLOG_SATURATED" } : {}),
+    };
+  } catch (error) {
+    return { ok: false, threshold, errorCode: safeErrorCode(error) ?? "DATABASE_UNAVAILABLE" };
   }
 }
 
