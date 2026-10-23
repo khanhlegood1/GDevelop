@@ -3,3 +3,4 @@
 .env
 *.tsbuildinfo
 coverage/
+storybook-static/

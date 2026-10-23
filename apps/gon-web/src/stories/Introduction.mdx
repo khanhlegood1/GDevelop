@@ -1,0 +1,147 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="GON/Overview" />
+
+# GON Storybook — Game Of Nurture
+
+Storybook này là xưởng giao diện riêng cho `apps/gon-web`. Nó dùng đúng
+component `Vs1App`, CSS production trong `src/app/globals.css` và hình dạng
+DTO của API hiện tại, nhưng thay backend bằng mock API xác định trong trình
+duyệt.
+
+Mục tiêu là giúp Product Owner, designer và developer rà soát trạng thái UI
+mà không cần Google OAuth, PostgreSQL, object storage, Gemini hay ADK thật.
+
+## Bản đồ stories
+
+### Screens/GON VS1
+
+Các story này chạy component ứng dụng thật:
+
+1. Chưa đăng nhập với Google + Dev Auth.
+2. Chưa đăng nhập khi thiếu cấu hình Auth.
+3. Onboarding 18+ self-attestation và consent.
+4. Workspace sau Search `related` và Brew hoàn tất.
+5. Search `needs_clarification`.
+6. Output Explorer với CandidateSet 6/10.
+7. Journey Player ở node Retrieval.
+8. Journey Player ở node Boss Proof.
+9. Hành trình và Lifelong Level.
+10. Proof Vault.
+11. Bootstrap lỗi 503.
+12. Trạng thái loading.
+
+Một số story có play function để tự chuyển màn hình và kiểm tra heading
+quan trọng xuất hiện. Khi mở từng story, bạn vẫn có thể thao tác tiếp bằng
+chuột hoặc bàn phím.
+
+### Design System/GON
+
+Nhóm này catalog các pattern đang được dùng trong ứng dụng:
+
+- Foundations: màu, typography, radius và touch target.
+- Buttons, badges và panels.
+- Forms, Learning Mode và consent.
+- Candidate/Proof cards.
+- Stepper, node tabs, rubric, feedback và timeline.
+- Lifelong Levels dùng trực tiếp `progressFromXp` của production code.
+- Notice, error, callout, empty state và report pattern.
+
+`Vs1App` hiện vẫn là component nguyên khối. Vì vậy các specimen ở Design
+System là pattern tham chiếu dùng CSS production, chưa phải một thư viện
+component đã được tách riêng.
+
+## Cách chạy
+
+```bash
+cd apps/gon-web
+npm ci
+npm run storybook
+```
+
+Mở Storybook tại `http://localhost:6006`.
+
+Build tĩnh và smoke test:
+
+```bash
+npm run storybook:build
+npm run storybook:smoke
+```
+
+Thư mục build `storybook-static/` là artifact sinh ra khi build và không
+được commit.
+
+## Ranh giới trung thực của Storybook
+
+Storybook là bằng chứng về giao diện và trạng thái frontend. Nó không phải
+bằng chứng production cho các phần sau:
+
+- Google OAuth hoặc Auth.js session thật.
+- PostgreSQL, pgvector hoặc hybrid Search trên managed service.
+- GCS, signed upload URL hay object storage thật.
+- Gemini embeddings/generation hoặc Google ADK với credential thật.
+- Worker process, Cloud Tasks/Cloud Run hoặc outbox sink production.
+- Tải, bảo mật, accessibility audit đầy đủ hoặc sẵn sàng Go-Live.
+
+P05 vẫn ở trạng thái **IN REVIEW — NOT YET PASS**. Storybook không thay đổi
+kết luận gate đó và không phải quyết định triển khai P06.
+
+## Quy tắc không được phá khi viết story
+
+### 18+ và danh tính
+
+GON Private Alpha dành cho người dùng tự xác nhận đủ 18 tuổi.
+Self-attestation không phải xác minh giấy tờ tùy thân. Dev Auth chỉ xuất
+hiện ngoài production và không thay thế Google OAuth.
+
+### Riêng tư và consent
+
+Project, Journey và Proof mặc định riêng tư. Footprint chỉ được dùng cho
+ranking khi người học đồng ý. Storybook không đọc Facebook, YouTube,
+TikTok hay mạng xã hội bên ngoài để cá nhân hóa.
+
+### Search, Brew và bằng chứng
+
+Input vừa là truy vấn vừa là Source Artifact. Artifact
+`metadata_only` không được trình bày như đã đọc transcript hoặc nội dung
+chính. Brew chỉ chạy sau xác nhận của người học, dùng evidence bundle đã
+được phép và tạo module ở trạng thái `draft_private`; không auto-publish.
+
+### Học thật và XP
+
+Đọc concept chỉ là Exposed. XP lõi chỉ được ghi khi attempt đạt rubric
+phía server. Độ tương đồng với nguồn là tín hiệu cần review, không phải
+kết luận gian lận.
+
+### Proof
+
+Boss Proof đạt rubric trong GON có thể tạo System-recorded Proof. Link
+chứng chỉ, POAP hoặc artifact bên ngoài chỉ ở mức source-linked hoặc
+self-declared; Storybook không biến chúng thành Issuer-verified.
+
+### Lifelong Level
+
+Công thức chuẩn là:
+
+```text
+NumericLevel = floor(LifetimeXP / 100)
+```
+
+Forever là Era mở từ Lv.35+. Sau Lv.35 vẫn tiếp tục Lv.36, Lv.37,
+Lv.99, Lv.100 và cao hơn. Không có max/final level.
+
+## Mock API
+
+Mock nằm tại `src/stories/gonStorybookApi.ts` và fixture nằm tại
+`src/stories/gonFixtures.ts`. Mock:
+
+- chặn các endpoint `/v1/*` và `/api/*` mà `Vs1App` sử dụng;
+- trả envelope `{ data }` và page `{ data, page }` giống client hiện tại;
+- mô phỏng chuyển trạng thái Dev sign-in, attestation, ranking, Journey,
+  attempt, XP ledger và Proof Vault trong bộ nhớ của tab;
+- khôi phục `fetch` gốc khi story unmount;
+- không gửi dữ liệu ra backend thật.
+
+Assessment trong mock là deterministic và đơn giản hơn domain service.
+Nó chỉ phục vụ trình diễn trạng thái UI, không phải tiêu chuẩn chấm học
+thuật của GON.

@@ -14,7 +14,10 @@
     "test:legacy": "node --test tests/app.test.js ux-prototype/tests/prototype.test.js",
     "db:check": "node scripts/check-migrations.mjs",
     "db:migrate": "node scripts/migrate.mjs",
-    "spike:search": "node scripts/spike-hybrid-search.mjs"
+    "spike:search": "node scripts/spike-hybrid-search.mjs",
+    "storybook": "storybook dev -p 6006 --host 0.0.0.0 --disable-telemetry --no-open",
+    "storybook:build": "storybook build -o storybook-static --disable-telemetry",
+    "storybook:smoke": "storybook dev -p 6006 --host 0.0.0.0 --disable-telemetry --ci --smoke-test"
   },
   "dependencies": {
     "@auth/pg-adapter": "1.11.3",
@@ -30,11 +33,17 @@
     "@auth/core": "0.41.3",
     "@electric-sql/pglite": "0.5.11",
     "@electric-sql/pglite-pgvector": "0.0.12",
+    "@storybook/addon-a11y": "10.6.3",
+    "@storybook/addon-docs": "10.6.3",
+    "@storybook/addon-links": "10.6.3",
+    "@storybook/nextjs-vite": "10.6.3",
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "storybook": "10.6.3",
     "typescript": "5.9.3",
+    "vite": "8.3.5",
     "vitest": "5.0.5"
   },
   "engines": {
