@@ -145,6 +145,7 @@ PO đã duyệt baseline VS1 local/test với các giới hạn được ghi min
 
 ## 7. Tài liệu liên quan
 
+- [Storybook trong GON monorepo — phạm vi, ảnh hưởng và quyết định core GDevelop](STORYBOOK-SCOPE-IMPACT-AND-CORE-DECISION.md) — ghi nhận cho PO trước quyết định sau production (`D-SB-01`…`D-SB-06`)
 - [P05 NFR & Well-Architected Review đang thực hiện](../06-nfr/README.md)
 - [P03 contracts đã duyệt](../04-contracts/README.md)
 - [Production source guide](../../src/README.md)
