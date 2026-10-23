@@ -2,7 +2,7 @@
 
 Đây là Next.js/TypeScript modular monolith cho GON Private Alpha. Nó không thay thế các prototype tĩnh ở `../index.html` và `../ux-prototype/`; prototype được giữ làm bằng chứng P02/lịch sử, còn thư mục này là nơi triển khai contract P03.
 
-> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; durable job/outbox primitives, queued Brew, Auth.js DB-session contract và private object-storage port đã được kiểm chứng trên PGlite/fake transport. Đây vẫn chưa phải production deployment vì worker process/sink, bucket/Google/managed staging thật, Gemini/ADK thật và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md), [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md) và [R1.4 evidence](../docs/06-nfr/P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md).
+> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; durable job/outbox primitives, queued Brew, Auth.js DB-session contract và private object-storage port đã được kiểm chứng trên PGlite/fake transport. Đây vẫn chưa phải production deployment vì worker process/sink đích thật, bucket/Google/managed staging thật, Gemini/ADK thật và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md), [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md), [R1.4 evidence](../docs/06-nfr/P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md) và [R1.5 evidence](../docs/06-nfr/P05-R1.5-WORKER-RUNTIME-ADK-INTEGRATION.md) (worker runtime/loop, outbox sink idempotent, TS→ADK stateless với `ai_runs`, evidence hermetic + live loopback local).
 
 ## Cấu trúc
 
@@ -29,7 +29,11 @@
 | `server/postgres-store.ts` | PostgreSQL Unit-of-Work adapter: load normalized aggregates, diff/flush theo FK order, serializable transaction và retry có giới hạn |
 | `server/postgres-job-queue.ts` | Durable job claim/heartbeat/complete/fail/reconciler/stats bằng PostgreSQL lease và fencing |
 | `server/postgres-outbox.ts` | Transactional outbox claim/publish/fail/stats; completion được fence bằng publish attempt và yêu cầu sink thật |
-| `server/job-worker.ts` | Chạy một Brew job từ SQL queue vào domain Unit of Work; chưa phải worker process chạy liên tục |
+| `server/ai-provider.ts` | Cổng Brew AI (`BrewAiProvider`): local deterministic + HTTP client cho ADK stateless (`/v1/topic-check`, `/v1/generate-module`), telemetry `AiRun` an toàn, fail-closed bounded I/O |
+| `server/adk-config.ts` | Compose provider từ env `GON_BREW_PROVIDER=local\|adk` fail-closed (queued mode, HTTPS, service token) |
+| `server/outbox-sink.ts` | `HttpOutboxEventSink` (idempotency headers, bounded) + `EventIdDeduplicatingOutboxSink` + compose fail-closed từ env |
+| `server/job-worker.ts` | Chạy một Brew job từ SQL queue vào domain xử lý đa-transaction (claim → AI calls ngoài DB → apply), có heartbeat lease tùy chọn; `runNextPostgresBrewJob` là entry one-shot |
+| `server/worker-runtime.ts` | Worker invocation/loop có heartbeat, graceful shutdown (SIGTERM/SIGINT) và concurrency budget; outbox consumer loop idempotent chạy song song |
 | `server/artifacts.ts` | Giới hạn intake, URL safety, magic-byte/MIME checks và chunking |
 | `server/module-graph.ts` | AJV + semantic validation cho `gon.module-graph/1.0`, local graph, player projection không lộ đáp án |
 | `server/assessment.ts` | Deterministic rubric, disclosure và human-review safeguards |

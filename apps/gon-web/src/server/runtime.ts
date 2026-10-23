@@ -1,7 +1,9 @@
 import { assertRuntimeStoreAllowed, readConfig } from "./config";
+import { createBrewAiProviderFromEnv } from "./adk-config";
 import { getPostgresPool } from "./db";
 import { PostgresJobQueue } from "./postgres-job-queue";
-import { PostgresOutboxPublisher } from "./postgres-outbox";
+import { PostgresOutboxPublisher, type OutboxEventSink } from "./postgres-outbox";
+import { createOutboxSinkFromEnv } from "./outbox-sink";
 import type { SqlExecutor } from "./postgres-search";
 import { MemoryGonStore } from "./memory-store";
 import { createObjectStorage, type ObjectStorage } from "./object-storage";
@@ -64,6 +66,9 @@ export function getGonService(): GonService {
     objectStorage: getGonObjectStorage(),
     requireInvite: config.requireInvite,
     brewExecutionMode,
+    // Fail-closed: a misconfigured ADK provider throws at composition time
+    // instead of silently falling back to the local generator.
+    brewAiProvider: createBrewAiProviderFromEnv(process.env),
     featureFlags: {
       brew_enabled: config.brewEnabled,
       arena_enabled: config.arenaEnabled,
@@ -87,4 +92,13 @@ export function getPostgresJobQueue(): PostgresJobQueue {
 
 export function getPostgresOutboxPublisher(): PostgresOutboxPublisher {
   return new PostgresOutboxPublisher(requirePostgresExecutor());
+}
+
+/**
+ * Production-shaped outbox sink, composed fail-closed from the environment
+ * (`GON_OUTBOX_SINK_URL`/`GON_OUTBOX_SINK_TOKEN`). Delivers at-least-once with
+ * event-ID idempotency headers and a process-local duplicate guard.
+ */
+export function getPostgresOutboxSink(): OutboxEventSink {
+  return createOutboxSinkFromEnv(process.env);
 }

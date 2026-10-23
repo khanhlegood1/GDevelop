@@ -5,6 +5,7 @@ import {
   type MapRepositoryCollection,
 } from "./repositories";
 import type {
+  AiRunRecord,
   ArtifactRecord,
   AttemptRecord,
   AttestationRecord,
@@ -205,6 +206,10 @@ export class MemoryGonStore implements GonStore {
 
   get auditLogs(): AuditRecord[] {
     return (this.repositories.auditLogs as { items: AuditRecord[] }).items;
+  }
+
+  get aiRuns(): AiRunRecord[] {
+    return (this.repositories.aiRuns as { items: AiRunRecord[] }).items;
   }
 
   get idempotencyRecords(): Map<string, IdempotencyRecord> {

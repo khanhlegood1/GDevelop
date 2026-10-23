@@ -13,6 +13,7 @@ import {
   type GonStore,
 } from "./repositories";
 import type {
+  AiRunRecord,
   ArtifactCoverage,
   ArtifactRecord,
   AssessmentResult,
@@ -1092,6 +1093,38 @@ async function loadRepositories(
 
   for (const row of await queryRows(
     executor,
+    "select * from ai_runs order by created_at, id",
+  )) {
+    repositories.aiRuns.append({
+      // Local correlation only: PostgreSQL keeps its own bigint identity.
+      id: String(row.id),
+      jobId: asNullableText(row.job_id),
+      operation: asText(row.operation) as AiRunRecord["operation"],
+      provider: asText(row.provider),
+      modelId: asText(row.model_id),
+      agentPipelineVersion: asText(row.agent_pipeline_version),
+      promptTemplateVersions: asTextArray(row.prompt_template_versions),
+      inputSchemaVersion: asText(row.input_schema_version),
+      outputSchemaVersion: asText(row.output_schema_version),
+      evidenceBundleHash: asNullableText(row.evidence_bundle_hash),
+      inputTokens: row.input_tokens === null || row.input_tokens === undefined
+        ? null
+        : Number(row.input_tokens),
+      outputTokens: row.output_tokens === null || row.output_tokens === undefined
+        ? null
+        : Number(row.output_tokens),
+      costUnits: asNumber(row.cost_units),
+      latencyMs: row.latency_ms === null || row.latency_ms === undefined
+        ? null
+        : Number(row.latency_ms),
+      finishReason: asNullableText(row.finish_reason),
+      errorCode: asNullableText(row.error_code),
+      createdAt: asIso(row.created_at),
+    });
+  }
+
+  for (const row of await queryRows(
+    executor,
     "select * from idempotency_records order by created_at, actor_user_id, operation, idempotency_key",
   )) {
     const actorUserId = asText(row.actor_user_id);
@@ -1173,6 +1206,12 @@ function snapshotRepositories(repositories: GonRepositories): RepositorySnapshot
     "auditLogs",
     snapshotEntries(
       [...repositories.auditLogs.values()].map((entry) => [entry.id, entry] as const),
+    ),
+  );
+  snapshot.set(
+    "aiRuns",
+    snapshotEntries(
+      [...repositories.aiRuns.values()].map((run) => [run.id, run] as const),
     ),
   );
   return snapshot;
@@ -2489,6 +2528,39 @@ async function insertAudit(executor: SqlExecutor, record: AuditRecord): Promise<
   );
 }
 
+async function insertAiRun(executor: SqlExecutor, record: AiRunRecord): Promise<void> {
+  // The local record id stays process-local: PostgreSQL assigns the bigint
+  // identity. ai_runs is observability metadata only — never prompt text,
+  // evidence content or model chain-of-thought.
+  await executor.query(
+    `insert into ai_runs
+       (job_id, operation, provider, model_id, agent_pipeline_version,
+        prompt_template_versions, input_schema_version, output_schema_version,
+        evidence_bundle_hash, input_tokens, output_tokens, cost_units,
+        latency_ms, finish_reason, error_code, created_at)
+     values ($1, $2, $3, $4, $5, $6::text[], $7, $8, $9, $10, $11, $12,
+       $13, $14, $15, $16)`,
+    [
+      record.jobId,
+      record.operation,
+      record.provider,
+      record.modelId,
+      record.agentPipelineVersion,
+      formatPostgresTextArray(record.promptTemplateVersions),
+      record.inputSchemaVersion,
+      record.outputSchemaVersion,
+      record.evidenceBundleHash,
+      record.inputTokens,
+      record.outputTokens,
+      record.costUnits,
+      record.latencyMs,
+      record.finishReason,
+      record.errorCode,
+      record.createdAt,
+    ],
+  );
+}
+
 function idempotencyScope(
   collectionKey: string,
   record: IdempotencyRecord,
@@ -2591,12 +2663,17 @@ async function flushRepositories(
       [...repositories.auditLogs.values()].map((entry) => [entry.id, entry] as const),
       snapshot.get("auditLogs") ?? new Map(),
     ),
+    aiRuns: diffEntries(
+      [...repositories.aiRuns.values()].map((run) => [run.id, run] as const),
+      snapshot.get("aiRuns") ?? new Map(),
+    ),
   };
 
   assertAppendOnly("age_attestations", diffs.attestations as CollectionDiff<unknown>);
   assertAppendOnly("branch_commits", diffs.branchCommits as CollectionDiff<unknown>);
   assertAppendOnly("xp_ledger_entries", diffs.xpLedger as CollectionDiff<unknown>);
   assertAppendOnly("audit_logs", diffs.auditLogs as CollectionDiff<unknown>);
+  assertAppendOnly("ai_runs", diffs.aiRuns as CollectionDiff<unknown>);
 
   for (const [name, diff] of Object.entries(diffs)) {
     if (name !== "chunks" && diff.deleted.length > 0) {
@@ -2683,6 +2760,8 @@ async function flushRepositories(
   for (const { record } of diffs.reviewCases.inserted) await saveReviewCase(executor, record, "insert");
   for (const { record } of diffs.outboxEvents.inserted) await saveOutboxEvent(executor, record, "insert");
   for (const { record } of diffs.auditLogs.inserted) await insertAudit(executor, record);
+  // ai_runs references async_jobs; jobs are inserted earlier in this flush.
+  for (const { record } of diffs.aiRuns.inserted) await insertAiRun(executor, record);
   for (const { key, record } of diffs.idempotencyRecords.inserted) {
     await saveIdempotency(executor, key, record);
   }

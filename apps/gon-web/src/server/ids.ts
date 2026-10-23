@@ -17,6 +17,7 @@ export type IdPrefix =
   | "proof"
   | "rpt"
   | "evt"
+  | "airun"
   | "game"
   | "req"
   | "case"

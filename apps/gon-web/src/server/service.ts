@@ -38,7 +38,22 @@ import {
 } from "./object-storage";
 import type { GonRepositories, GonStore } from "./repositories";
 import {
-  generateLocalModuleGraph,
+  BREW_POLICY_VERSION,
+  GENERATE_MODULE_INPUT_SCHEMA_VERSION,
+  GENERATE_MODULE_OUTPUT_SCHEMA_VERSION,
+  LocalDeterministicBrewAiProvider,
+  TOPIC_CHECK_INPUT_SCHEMA_VERSION,
+  TOPIC_CHECK_OUTPUT_SCHEMA_VERSION,
+  AiProviderError,
+  type AiCallTelemetry,
+  type BrewAiProvider,
+  type GenerateModuleInput,
+  type GenerateModuleOutput,
+  type GenerateModuleWork,
+  type TopicCheckInput,
+  type TopicCheckOutput,
+} from "./ai-provider";
+import {
   toPlayerGraph,
   validateModuleGraph,
   type EvidenceArtifactForGraph,
@@ -100,6 +115,13 @@ export interface GonServiceOptions {
   embeddingProvider?: EmbeddingProvider;
   requireInvite?: boolean;
   brewExecutionMode?: BrewExecutionMode;
+  /**
+   * Brew generation port. Defaults to the in-process deterministic provider
+   * (established VS1 behavior). Passing `HttpAdkBrewAiProvider` routes
+   * generate/topic-check through the stateless ADK service instead; the ADK
+   * never writes to the database or publishes events.
+   */
+  brewAiProvider?: BrewAiProvider;
   featureFlags?: Record<string, boolean>;
   now?: () => Date;
   quotas?: Partial<{
@@ -112,6 +134,30 @@ export interface GonServiceOptions {
 interface GonServiceCoreOptions extends Omit<GonServiceOptions, "store"> {
   repositories: GonRepositories;
 }
+
+/** One AI-provider call's safe telemetry, queued for `ai_runs` persistence. */
+interface AiRunDraft {
+  operation: "topic_check" | "generate_module";
+  telemetry: AiCallTelemetry;
+}
+
+/** Generation inputs prepared in a Unit of Work; the AI calls run outside it. */
+interface BrewGenerationWorkPackage {
+  jobId: string;
+  workerId: string;
+  actor: Actor;
+  topicCheckInput: TopicCheckInput;
+  generateWork: GenerateModuleWork;
+}
+
+type BrewPhaseOneResult =
+  | { kind: "settled"; job: JsonRecord }
+  | { kind: "generate"; work: BrewGenerationWorkPackage };
+
+type BrewGenerationOutcome =
+  | { kind: "generated"; generateOutput: GenerateModuleOutput }
+  | { kind: "topic_decision"; topicOutput: TopicCheckOutput }
+  | { kind: "provider_error"; errorCode: string; retryable: boolean };
 
 const CONSENT_PURPOSES = [
   "essential_service",
@@ -158,6 +204,7 @@ class GonServiceCore {
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite: boolean;
   private readonly brewExecutionMode: BrewExecutionMode;
+  private readonly brewAiProvider: BrewAiProvider;
   private readonly featureFlags: Record<string, boolean>;
   private readonly clock: () => Date;
   private readonly quotas: Required<NonNullable<GonServiceOptions["quotas"]>>;
@@ -172,6 +219,7 @@ class GonServiceCore {
     if (!["inline", "queued"].includes(this.brewExecutionMode)) {
       throw new Error(`Unsupported Brew execution mode: ${String(this.brewExecutionMode)}`);
     }
+    this.brewAiProvider = options.brewAiProvider ?? new LocalDeterministicBrewAiProvider();
     this.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...(options.featureFlags ?? {}) };
     this.clock = options.now ?? (() => new Date());
     this.quotas = {
@@ -871,6 +919,9 @@ class GonServiceCore {
       projectId: brew.projectId,
       searchAttemptId: brew.searchAttemptId,
       resultModuleVersionId: brew.resultModuleVersionId,
+      ...(Array.isArray(job.payload.clarificationQuestions)
+        ? { clarificationQuestions: job.payload.clarificationQuestions }
+        : {}),
       quota: {
         usedToday: [...this.repositories.brewJobs.values()].filter((item) => {
           const related = this.repositories.jobs.get(item.jobId);
@@ -2467,16 +2518,71 @@ class GonServiceCore {
     project.currentBrewJobId = job.id;
     this.emit(actor, "brew.job.queued", "brew_job", job.id, { projectId: project.id, searchAttemptId });
 
-    if (this.brewExecutionMode === "inline") {
-      await this.processBrewJob(actor, job);
-    }
+    // Inline processing is orchestrated by GonService.createBrewJob after this
+    // Unit of Work commits: AI provider calls must run outside DB transactions.
     this.saveIdempotentResult(actor, "createBrewJob", options.idempotencyKey, payload, "brew_job", job.id, 202);
     return { data: this.brewJobDto(job.id), status: 202 };
   }
 
-  private async processBrewJob(actor: Actor, job: JobRecord): Promise<void> {
-    const brew = this.repositories.brewJobs.get(job.id);
-    if (!brew) return;
+  /**
+   * Phase 1 of queued Brew processing (one Unit of Work): claim/lease the job,
+   * run the deterministic local gates, and either settle the job from existing
+   * state or return a generation work package whose AI provider calls run
+   * OUTSIDE any database transaction (phase 2), followed by
+   * `finishBrewJobProcessing` (phase 3).
+   */
+  async beginBrewJobProcessing(
+    jobId: string,
+    options: ProcessQueuedBrewJobOptions = {},
+  ): Promise<BrewPhaseOneResult> {
+    const workerId = options.workerId ?? "gon-brew-worker";
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(workerId)) {
+      throw new Error("workerId must be a bounded ASCII identifier");
+    }
+    const leaseMs = options.leaseMs ?? 5 * 60_000;
+    if (!Number.isSafeInteger(leaseMs) || leaseMs < 5_000 || leaseMs > 15 * 60_000) {
+      throw new Error("leaseMs must be an integer between 5000 and 900000");
+    }
+
+    const job = this.repositories.jobs.get(jobId);
+    if (!job || job.jobType !== "brew_module" || !this.repositories.brewJobs.get(jobId)) throw notFound();
+    if (["succeeded", "failed_terminal", "cancelled", "needs_input"].includes(job.status)) {
+      return { kind: "settled", job: this.brewJobDto(jobId) };
+    }
+
+    const owner = this.repositories.users.get(job.ownerUserId);
+    if (!owner || owner.status === "deleted") throw notFound();
+
+    const nowMs = this.clock().getTime();
+    const leaseExpired = !job.leaseExpiresAt || Date.parse(job.leaseExpiresAt) <= nowMs;
+    if (job.status === "running" && !leaseExpired) {
+      if (!options.alreadyClaimed || job.leaseOwner !== workerId) {
+        return { kind: "settled", job: this.brewJobDto(jobId) };
+      }
+    } else {
+      if (job.status !== "running" && Date.parse(job.availableAt) > nowMs && !options.alreadyClaimed) {
+        return { kind: "settled", job: this.brewJobDto(jobId) };
+      }
+      if (job.attemptCount >= job.maxAttempts) {
+        this.failJob(job, "JOB_LEASE_EXPIRED", false, job.currentStep);
+        return { kind: "settled", job: this.brewJobDto(jobId) };
+      }
+      job.status = "running";
+      job.attemptCount += 1;
+      job.startedAt = this.now();
+      job.completedAt = null;
+      job.cancelledAt = null;
+      job.leaseOwner = workerId;
+      job.leaseExpiresAt = new Date(nowMs + leaseMs).toISOString();
+    }
+
+    const actor: Actor = {
+      userId: owner.id,
+      roles: owner.roles,
+      authProvider: "service",
+      requestId: createId("req"),
+    };
+    const brew = this.repositories.brewJobs.get(jobId)!;
     const steps = job.payload.stepsCompleted as string[];
     const completeStep = (step: string) => {
       job.currentStep = step;
@@ -2499,7 +2605,7 @@ class GonServiceCore {
         if (!validation.valid) {
           this.failJob(job, "MODULE_GRAPH_INVALID", false, "verify_citations");
           this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-          return;
+          return { kind: "settled", job: this.brewJobDto(jobId) };
         }
 
         job.currentStep = "persist_draft";
@@ -2533,7 +2639,7 @@ class GonServiceCore {
           projectId: project.id,
           resultModuleVersionId: version.id,
         }, job.id);
-        return;
+        return { kind: "settled", job: this.brewJobDto(jobId) };
       }
 
       job.currentStep = "topic_and_safety_check";
@@ -2544,7 +2650,7 @@ class GonServiceCore {
       if (this.topicIsBlocked(evidenceText)) {
         this.failJob(job, "TOPIC_BLOCKED_BY_POLICY", false, "topic_and_safety_check");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-        return;
+        return { kind: "settled", job: this.brewJobDto(jobId) };
       }
       completeStep("topic_and_safety_check");
 
@@ -2571,47 +2677,169 @@ class GonServiceCore {
         job.leaseOwner = null;
         job.leaseExpiresAt = null;
         this.emit(actor, "brew.job.needs_input", "brew_job", job.id, { projectId: project.id }, job.id);
-        return;
+        return { kind: "settled", job: this.brewJobDto(jobId) };
       }
       completeStep("build_evidence_bundle");
 
       job.currentStep = "generate_module_graph";
-      const graph = generateLocalModuleGraph({
+      const evidenceBundle: GenerateModuleInput["evidenceBundle"] = usableEvidence.map(
+        (artifact, index) => ({
+          // Matches the source IDs the module graph assigns (`source_${index+1}`)
+          // so revalidation accepts ADK citations against the same evidence.
+          sourceId: `source_${index + 1}`,
+          title: truncateText(artifact.displayName || artifact.originUri || `Nguồn ${index + 1}`, 280),
+          ...(artifact.originUri ? { uri: artifact.originUri } : {}),
+          artifactId: artifact.artifactId,
+          content: truncateText(
+            artifact.chunks.map((chunk) => chunk.text).join("\n"),
+            100_000,
+          ),
+          rightsStatus: artifact.originUri ? "link_only" : "user_provided",
+        }),
+      );
+      const contractInput: GenerateModuleInput = {
+        schemaVersion: GENERATE_MODULE_INPUT_SCHEMA_VERSION,
         jobId: job.id,
-        userId: actor.userId,
-        projectTitle: project.title,
-        goal: project.goal,
-        locale: project.locale,
-        depth: project.depth,
-        timeBudgetMinutes: project.timeBudgetMinutes,
-        artifacts: usableEvidence,
-        pipelineVersion: "vs1-local-brew-v1",
-        modelIds: ["local-deterministic-brew-v1"],
-        createdByType: "system_seed",
-        attributionDisplayName: "GON local draft generator",
-      });
-      completeStep("generate_module_graph");
-      completeStep("design_assessments");
+        projectId: project.id,
+        learningContext: {
+          goal: project.goal,
+          learningMode: project.learningMode,
+          depth: project.depth,
+          timeBudgetMinutes: project.timeBudgetMinutes,
+          locale: project.locale,
+        },
+        evidenceBundle,
+        graphSchemaVersion: "gon.module-graph/1.0",
+      };
+      const topicCheckInput: TopicCheckInput = {
+        schemaVersion: TOPIC_CHECK_INPUT_SCHEMA_VERSION,
+        jobId: job.id,
+        projectId: project.id,
+        intent: project.goal,
+        artifactCoverage: artifacts.map((artifact) => ({
+          artifactId: artifact.id,
+          extractionStatus: artifact.extractionStatus,
+          hasText: this.artifactChunks(artifact.id).length > 0,
+          hasMetadata: Boolean(artifact.originUri) || Boolean(artifact.displayName),
+        })),
+        policyVersion: BREW_POLICY_VERSION,
+      };
+      return {
+        kind: "generate",
+        work: {
+          jobId,
+          workerId,
+          actor,
+          topicCheckInput,
+          generateWork: {
+            contractInput,
+            local: {
+              userId: actor.userId,
+              projectTitle: project.title,
+              artifacts: usableEvidence,
+            },
+          },
+        },
+      };
+    } catch {
+      this.failJob(job, "BREW_FAILED", true, job.currentStep);
+      this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+      return { kind: "settled", job: this.brewJobDto(jobId) };
+    }
+  }
 
-      job.currentStep = "verify_citations";
+  /**
+   * Phase 3 of queued Brew processing (one Unit of Work): persist safe AI-run
+   * telemetry, then either apply the policy-revalidated generation result or
+   * record the failure decision. Only runs when this worker still holds the
+   * job lease; a fenced-out worker records telemetry only.
+   */
+  async finishBrewJobProcessing(
+    work: BrewGenerationWorkPackage,
+    outcome: BrewGenerationOutcome,
+    runs: readonly AiRunDraft[],
+  ): Promise<JsonRecord> {
+    const job = this.repositories.jobs.get(work.jobId);
+    const brew = this.repositories.brewJobs.get(work.jobId);
+    if (!job || !brew) throw notFound();
+    const actor = work.actor;
+    const steps = job.payload.stepsCompleted as string[];
+    const completeStep = (step: string) => {
+      job.currentStep = step;
+      if (!steps.includes(step)) steps.push(step);
+    };
+
+    try {
+      // Safe telemetry only (no prompts/evidence/chain-of-thought). Recorded
+      // even when the lease was lost, so provider cost stays observable.
+      for (const run of runs) this.recordAiRun(run, job.id);
+
+      const leaseHeld =
+        job.status === "running" &&
+        job.leaseOwner === work.workerId &&
+        Boolean(job.leaseExpiresAt) &&
+        Date.parse(job.leaseExpiresAt!) > this.clock().getTime();
+      if (!leaseHeld) {
+        return this.brewJobDto(work.jobId);
+      }
+
+      if (outcome.kind === "provider_error") {
+        this.failJob(job, outcome.errorCode, outcome.retryable, "generate_module_graph");
+        this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+        return this.brewJobDto(work.jobId);
+      }
+
+      if (outcome.kind === "topic_decision") {
+        if (outcome.topicOutput.decision === "block") {
+          this.failJob(job, "TOPIC_BLOCKED_BY_POLICY", false, "topic_and_safety_check");
+          this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+        } else {
+          const questions = outcome.topicOutput.clarificationQuestions.slice(0, 3);
+          job.status = "needs_input";
+          job.currentStep = "topic_and_safety_check";
+          job.failureCode = "TOPIC_CLARIFICATION_REQUIRED";
+          job.retryable = false;
+          job.completedAt = this.now();
+          job.leaseOwner = null;
+          job.leaseExpiresAt = null;
+          job.payload = { ...job.payload, clarificationQuestions: questions };
+          this.emit(actor, "brew.job.needs_input", "brew_job", job.id, {
+            projectId: brew.projectId,
+            reasonCodes: outcome.topicOutput.reasonCodes.slice(0, 32),
+            clarificationQuestionCount: questions.length,
+          }, job.id);
+        }
+        return this.brewJobDto(work.jobId);
+      }
+
+      // Policy revalidation of the provider output (TS stays the authority).
+      const graph = outcome.generateOutput.moduleGraph;
       const validation = validateModuleGraph(graph, {
         evidenceSourceIds: graph.sources.map((source) => source.id),
       });
       if (!validation.valid) {
         this.failJob(job, "MODULE_GRAPH_INVALID", false, "verify_citations");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-        return;
+        return this.brewJobDto(work.jobId);
       }
       graph.quality.citationCoverage = validation.citationCoverage;
       completeStep("verify_citations");
       completeStep("safety_and_policy_review");
 
       job.currentStep = "persist_draft";
+      const project = this.requireOwnedProject(actor, brew.projectId);
+      const searchAttempt = this.repositories.searchAttempts.get(brew.searchAttemptId);
+      if (!searchAttempt) throw new Error("SEARCH_ATTEMPT_NOT_FOUND");
+      const artifacts = searchAttempt.artifactIds
+        .map((artifactId) => this.repositories.artifacts.get(artifactId))
+        .filter((artifact): artifact is ArtifactRecord => Boolean(artifact && !artifact.deletedAt));
+      const attributionName =
+        this.brewAiProvider.kind === "adk_http" ? "GON ADK draft generator" : "GON local draft generator";
       const moduleRecord = {
         id: createId("mod"),
         ownerUserId: actor.userId,
         creatorType: "system_seed" as const,
-        attributionSnapshot: { displayName: "GON local draft generator" },
+        attributionSnapshot: { displayName: attributionName },
         createdAt: this.now(),
       };
       const version: ModuleVersionRecord = {
@@ -2630,9 +2858,10 @@ class GonServiceCore {
         groundingStatus: validation.citationCoverage >= 1 ? "partially_cited" : "unverified",
         generationLineage: {
           brewJobId: job.id,
-          agentPipelineVersion: "vs1-local-brew-v1",
-          modelIds: ["local-deterministic-brew-v1"],
-          evidenceBundleHash: stableHash(usableEvidence.map((artifact) => artifact.artifactId)),
+          agentPipelineVersion: outcome.generateOutput.generation.agentPipelineVersion,
+          modelIds: [...outcome.generateOutput.generation.modelIds],
+          promptTemplateVersions: [...outcome.generateOutput.generation.promptTemplateVersions],
+          evidenceBundleHash: outcome.generateOutput.generation.evidenceBundleHash,
         },
         sourceArtifactVersions: artifacts.map((artifact) => ({ artifactId: artifact.id, version: artifact.version })),
         parentModuleVersionId: null,
@@ -2655,7 +2884,6 @@ class GonServiceCore {
       }, job.id);
 
       job.currentStep = "build_candidate_set";
-      const now = this.now();
       const brewResult: SearchResultRecord = {
         moduleVersionId: version.id,
         rank: 1,
@@ -2666,7 +2894,6 @@ class GonServiceCore {
         missingConcepts: [],
         internalScores: { vector: 1, lexical: 1, conceptCoverage: 1, specificity: 1, quality: 0.7, hybrid: 0.92 },
       };
-      void now;
       await this.buildCandidateSet(actor, project, searchAttempt, [brewResult], version.id);
       completeStep("build_candidate_set");
 
@@ -2676,10 +2903,35 @@ class GonServiceCore {
         projectId: project.id,
         resultModuleVersionId: version.id,
       }, job.id);
+      return this.brewJobDto(work.jobId);
     } catch {
       this.failJob(job, "BREW_FAILED", true, job.currentStep);
       this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+      return this.brewJobDto(work.jobId);
     }
+  }
+
+  private recordAiRun(run: AiRunDraft, jobId: string): void {
+    const telemetry = run.telemetry;
+    this.repositories.aiRuns.append({
+      id: createId("airun"),
+      jobId,
+      operation: run.operation,
+      provider: telemetry.provider,
+      modelId: telemetry.modelId,
+      agentPipelineVersion: telemetry.agentPipelineVersion,
+      promptTemplateVersions: [...telemetry.promptTemplateVersions],
+      inputSchemaVersion: telemetry.inputSchemaVersion,
+      outputSchemaVersion: telemetry.outputSchemaVersion,
+      evidenceBundleHash: telemetry.evidenceBundleHash,
+      inputTokens: telemetry.inputTokens,
+      outputTokens: telemetry.outputTokens,
+      costUnits: telemetry.costUnits,
+      latencyMs: telemetry.latencyMs,
+      finishReason: telemetry.finishReason,
+      errorCode: telemetry.errorCode,
+      createdAt: this.now(),
+    });
   }
 
   getBrewJob(actor: Actor, jobId: string): JsonRecord {
@@ -2696,64 +2948,11 @@ class GonServiceCore {
     return job.jobType === "brew_module" ? this.brewJobDto(jobId) : this.jobDto(job);
   }
 
-  async processQueuedBrewJob(
-    jobId: string,
-    options: ProcessQueuedBrewJobOptions = {},
-  ): Promise<JsonRecord> {
-    const workerId = options.workerId ?? "gon-brew-worker";
-    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(workerId)) {
-      throw new Error("workerId must be a bounded ASCII identifier");
-    }
-    const leaseMs = options.leaseMs ?? 5 * 60_000;
-    if (!Number.isSafeInteger(leaseMs) || leaseMs < 5_000 || leaseMs > 15 * 60_000) {
-      throw new Error("leaseMs must be an integer between 5000 and 900000");
-    }
-
-    const job = this.repositories.jobs.get(jobId);
-    if (!job || job.jobType !== "brew_module" || !this.repositories.brewJobs.get(jobId)) throw notFound();
-    if (["succeeded", "failed_terminal", "cancelled", "needs_input"].includes(job.status)) {
-      return this.brewJobDto(jobId);
-    }
-
-    const owner = this.repositories.users.get(job.ownerUserId);
-    if (!owner || owner.status === "deleted") throw notFound();
-
-    const nowMs = this.clock().getTime();
-    const leaseExpired = !job.leaseExpiresAt || Date.parse(job.leaseExpiresAt) <= nowMs;
-    if (job.status === "running" && !leaseExpired) {
-      if (!options.alreadyClaimed || job.leaseOwner !== workerId) {
-        return this.brewJobDto(jobId);
-      }
-    } else {
-      if (job.status !== "running" && Date.parse(job.availableAt) > nowMs && !options.alreadyClaimed) {
-        return this.brewJobDto(jobId);
-      }
-      if (job.attemptCount >= job.maxAttempts) {
-        this.failJob(job, "JOB_LEASE_EXPIRED", false, job.currentStep);
-        return this.brewJobDto(jobId);
-      }
-      job.status = "running";
-      job.attemptCount += 1;
-      job.startedAt = this.now();
-      job.completedAt = null;
-      job.cancelledAt = null;
-      job.leaseOwner = workerId;
-      job.leaseExpiresAt = new Date(nowMs + leaseMs).toISOString();
-    }
-
-    const actor: Actor = {
-      userId: owner.id,
-      roles: owner.roles,
-      authProvider: "service",
-      requestId: createId("req"),
-    };
-    await this.processBrewJob(actor, job);
-    return this.brewJobDto(jobId);
-  }
-
-  async processNextQueuedBrewJob(
-    options: ProcessQueuedBrewJobOptions = {},
-  ): Promise<JsonRecord | null> {
+  /**
+   * Find the next claimable queued Brew job (domain-level availability scan).
+   * Claiming and processing happen in `beginBrewJobProcessing`.
+   */
+  findNextQueuedBrewJobId(): string | null {
     const nowMs = this.clock().getTime();
     const candidate = [...this.repositories.jobs.values()]
       .filter((job) => {
@@ -2764,8 +2963,7 @@ class GonServiceCore {
         return job.status === "running" && (!job.leaseExpiresAt || Date.parse(job.leaseExpiresAt) <= nowMs);
       })
       .sort((a, b) => a.availableAt.localeCompare(b.availableAt) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
-    if (!candidate) return null;
-    return this.processQueuedBrewJob(candidate.id, options);
+    return candidate ? candidate.id : null;
   }
 
   private requireOwnedJourney(actor: Actor, journeyId: string): JourneyRecord {
@@ -3553,6 +3751,7 @@ export class GonService {
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite?: boolean;
   private readonly brewExecutionMode?: BrewExecutionMode;
+  private readonly brewAiProvider?: BrewAiProvider;
   private readonly featureFlags?: Record<string, boolean>;
   private readonly now?: () => Date;
   private readonly quotas?: GonServiceOptions["quotas"];
@@ -3567,6 +3766,7 @@ export class GonService {
     if (this.brewExecutionMode !== undefined && !["inline", "queued"].includes(this.brewExecutionMode)) {
       throw new Error(`Unsupported Brew execution mode: ${String(this.brewExecutionMode)}`);
     }
+    this.brewAiProvider = options.brewAiProvider;
     this.featureFlags = options.featureFlags;
     this.now = options.now;
     this.quotas = options.quotas;
@@ -3583,6 +3783,7 @@ export class GonService {
         embeddingProvider: this.embeddingProvider,
         requireInvite: this.requireInvite,
         brewExecutionMode: this.brewExecutionMode,
+        brewAiProvider: this.brewAiProvider,
         featureFlags: this.featureFlags,
         now: this.now,
         quotas: this.quotas,
@@ -3785,7 +3986,18 @@ export class GonService {
     bodyValue: unknown,
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
-    return this.run((core) => core.createBrewJob(actor, projectId, bodyValue, options));
+    const result = await this.run((core) => core.createBrewJob(actor, projectId, bodyValue, options));
+    // Inline mode preserves its synchronous UX, but the Brew processing itself
+    // is orchestrated after this Unit of Work commits so AI provider calls
+    // never run inside a database transaction.
+    const effectiveMode = this.brewExecutionMode ?? "inline";
+    if (effectiveMode === "inline" && result.status === 202 && !result.replay) {
+      const processed = await this.processQueuedBrewJob(String(result.data.id), {
+        workerId: "gon-inline-worker",
+      });
+      return { data: processed, status: 202 };
+    }
+    return result;
   }
 
   async getBrewJob(actor: Actor, jobId: string): Promise<JsonRecord> {
@@ -3800,13 +4012,80 @@ export class GonService {
     jobId: string,
     options: ProcessQueuedBrewJobOptions = {},
   ): Promise<JsonRecord> {
-    return this.run((core) => core.processQueuedBrewJob(jobId, options));
+    // Multi-transaction orchestration on purpose: phase 1 and phase 3 are
+    // separate database Units of Work, and the AI provider calls between them
+    // run OUTSIDE any database transaction.
+    const phase1 = await this.run((core) => core.beginBrewJobProcessing(jobId, options));
+    if (phase1.kind === "settled") return phase1.job;
+    const { outcome, runs } = await this.executeBrewGeneration(phase1.work);
+    return this.run((core) => core.finishBrewJobProcessing(phase1.work, outcome, runs));
   }
 
   async processNextQueuedBrewJob(
     options: ProcessQueuedBrewJobOptions = {},
   ): Promise<JsonRecord | null> {
-    return this.run((core) => core.processNextQueuedBrewJob(options));
+    const candidateId = await this.run((core) => core.findNextQueuedBrewJobId());
+    if (!candidateId) return null;
+    return this.processQueuedBrewJob(candidateId, options);
+  }
+
+  /**
+   * Run the stateless AI provider calls for one prepared Brew job. Never
+   * touches the store: the ADK/provider holds no DB-write or publishing
+   * authority, and failures become fail-closed job transitions in phase 3.
+   */
+  private async executeBrewGeneration(
+    work: BrewGenerationWorkPackage,
+  ): Promise<{ outcome: BrewGenerationOutcome; runs: AiRunDraft[] }> {
+    const provider = this.brewAiProvider ?? new LocalDeterministicBrewAiProvider();
+    const runs: AiRunDraft[] = [];
+    try {
+      const topic = await provider.topicCheck(work.topicCheckInput);
+      runs.push({ operation: "topic_check", telemetry: topic.telemetry });
+      if (topic.output.decision !== "allow") {
+        return { outcome: { kind: "topic_decision", topicOutput: topic.output }, runs };
+      }
+      const generated = await provider.generateModule(work.generateWork);
+      runs.push({ operation: "generate_module", telemetry: generated.telemetry });
+      return { outcome: { kind: "generated", generateOutput: generated.output }, runs };
+    } catch (error) {
+      const operation: AiRunDraft["operation"] = runs.length === 0 ? "topic_check" : "generate_module";
+      if (error instanceof AiProviderError) {
+        runs.push({ operation, telemetry: error.telemetry });
+        return {
+          outcome: { kind: "provider_error", errorCode: error.code, retryable: error.retryable },
+          runs,
+        };
+      }
+      runs.push({
+        operation,
+        telemetry: {
+          provider: provider.id,
+          modelId: "unknown",
+          agentPipelineVersion: provider.pipelineVersion,
+          promptTemplateVersions: [],
+          inputSchemaVersion:
+            operation === "topic_check"
+              ? TOPIC_CHECK_INPUT_SCHEMA_VERSION
+              : GENERATE_MODULE_INPUT_SCHEMA_VERSION,
+          outputSchemaVersion:
+            operation === "topic_check"
+              ? TOPIC_CHECK_OUTPUT_SCHEMA_VERSION
+              : GENERATE_MODULE_OUTPUT_SCHEMA_VERSION,
+          evidenceBundleHash: null,
+          inputTokens: null,
+          outputTokens: null,
+          costUnits: 0,
+          latencyMs: 0,
+          finishReason: null,
+          errorCode: "BREW_AI_PROVIDER_FAILED",
+        },
+      });
+      return {
+        outcome: { kind: "provider_error", errorCode: "BREW_AI_PROVIDER_FAILED", retryable: true },
+        runs,
+      };
+    }
   }
 
   async createJourney(
