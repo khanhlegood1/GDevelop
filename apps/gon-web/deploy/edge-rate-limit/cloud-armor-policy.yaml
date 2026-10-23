@@ -1,0 +1,47 @@
+# Cloud Armor rate-limit policy — GON edge layer (P05-R1.10)
+# STATUS: NOT RUN — packaged for real infrastructure only.
+# Apply to the backend security policy of the GON HTTPS load balancer.
+# Requires GON_TRUST_PROXY_HEADERS=1 at the app (LB overwrites X-Forwarded-For).
+name: gon-edge-rate-limit
+type: SECURITY_POLICY
+rules:
+  # Volumetric flood: >30 req/10s per IP to /v1 → temporary ban (fail-closed).
+  - action: ban
+    match:
+      versionedExpr: SRC_IPS_V1
+      config:
+        srcIpRanges: ["*"]
+      expr:
+        expression: "request.path.startsWith('/v1')"
+    rateLimitOptions:
+      conformAction: allow
+      exceedAction: deny(429)
+      enforceOnKey: IP
+      rateLimitThreshold:
+        count: 30
+        intervalSec: 10
+      banDurationSec: 30
+    priority: 1000
+    description: "Per-IP flood guard for /v1 (mirrors app flood policy)"
+  # Generous global cap per IP (burst headroom for normal Private Alpha use).
+  - action: throttle
+    match:
+      versionedExpr: SRC_IPS_V1
+      config:
+        srcIpRanges: ["*"]
+    rateLimitOptions:
+      conformAction: allow
+      exceedAction: deny(429)
+      enforceOnKey: IP
+      rateLimitThreshold:
+        count: 120
+        intervalSec: 60
+    priority: 2000
+    description: "Per-IP sustained cap: 120 req/min"
+  - action: allow
+    match:
+      versionedExpr: SRC_IPS_V1
+      config:
+        srcIpRanges: ["*"]
+    priority: 2147483647
+    description: "Default allow (app layer enforces per-user limits)"

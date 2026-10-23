@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireActor } from "./actor";
+import { actionClassFromMethod, clientIpFromRequest } from "./abuse-controls";
 import { readConfig } from "./config";
-import { notFound } from "./errors";
+import { notFound, rateLimited } from "./errors";
 import {
   assertMutation,
   createRequestId,
@@ -13,7 +14,7 @@ import {
   problemResponse,
   readJsonBody,
 } from "./http";
-import { getGonService } from "./runtime";
+import { getAbuseController, getGonService } from "./runtime";
 import { paginationFromSearchParams } from "./validation";
 
 function requestOrigin(request: Request): string {
@@ -42,8 +43,31 @@ export async function handleV1(request: Request, rawSegments: string[]): Promise
   const url = new URL(request.url);
 
   try {
+    // Edge admission (P05-R1.10): per-IP token bucket + idempotent flood
+    // guard before authentication, then the same policy per user after.
+    // Idempotent replays (same Idempotency-Key) are exempt inside the
+    // controller so client retries cannot self-lockout.
+    const config = readConfig();
+    const abuse = getAbuseController();
+    const actionClass = actionClassFromMethod(method);
+    const idempotencyKey = request.headers.get("idempotency-key");
+    const ipDecision = await abuse.admit({
+      scope: "ip",
+      subject: clientIpFromRequest(request, config.trustProxyHeaders),
+      actionClass,
+      idempotencyKey,
+    });
+    if (!ipDecision.allowed) throw rateLimited(ipDecision.detail, ipDecision.retryAfterSeconds);
+
     const actor = await requireActor(request, requestId);
     const service = getGonService();
+    const userDecision = await abuse.admit({
+      scope: "user",
+      subject: actor.userId,
+      actionClass,
+      idempotencyKey,
+    });
+    if (!userDecision.allowed) throw rateLimited(userDecision.detail, userDecision.retryAfterSeconds);
 
     if (segments[0] === "me") {
       if (method === "GET" && segments[1] === "bootstrap" && segments.length === 2) {

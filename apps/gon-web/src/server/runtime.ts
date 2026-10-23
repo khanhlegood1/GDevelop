@@ -1,5 +1,10 @@
 import { assertRuntimeStoreAllowed, readConfig } from "./config";
 import { createBrewAiProviderFromEnv } from "./adk-config";
+import {
+  AbuseController,
+  MemoryAbuseStateStore,
+  parseAbusePolicyFromEnv,
+} from "./abuse-controls";
 import { getPostgresPool } from "./db";
 import { PostgresJobQueue } from "./postgres-job-queue";
 import { PostgresOutboxPublisher, type OutboxEventSink } from "./postgres-outbox";
@@ -7,6 +12,7 @@ import { createOutboxSinkFromEnv } from "./outbox-sink";
 import type { SqlExecutor } from "./postgres-search";
 import { MemoryGonStore } from "./memory-store";
 import { createObjectStorage, type ObjectStorage } from "./object-storage";
+import { PostgresAbuseStateStore } from "./postgres-abuse-store";
 import {
   createPgPoolTransactionRunner,
   PostgresGonStore,
@@ -17,6 +23,7 @@ import { GonService, type BrewExecutionMode } from "./service";
 interface GonGlobal {
   __gonService?: GonService;
   __gonObjectStorage?: ObjectStorage;
+  __gonAbuseController?: AbuseController;
 }
 
 const gonGlobal = globalThis as typeof globalThis & GonGlobal;
@@ -32,6 +39,29 @@ export function getGonObjectStorage(): ObjectStorage {
   });
   gonGlobal.__gonObjectStorage = storage;
   return storage;
+}
+
+/**
+ * Shared abuse/cost controller (P05-R1.10). PostgreSQL compositions bind the
+ * distributed state store so every app instance enforces the same token
+ * buckets and flood-guard penalty boxes; memory compositions get the
+ * in-process binding. Fail-closed: a postgres composition without
+ * DATABASE_URL throws at composition time.
+ */
+export function getAbuseController(): AbuseController {
+  if (gonGlobal.__gonAbuseController) return gonGlobal.__gonAbuseController;
+  const config = readConfig();
+  const store =
+    config.storeKind === "postgres"
+      ? new PostgresAbuseStateStore(requirePostgresExecutor())
+      : new MemoryAbuseStateStore();
+  const controller = new AbuseController({
+    store,
+    policy: parseAbusePolicyFromEnv(process.env),
+    hashSalt: process.env.GON_ABUSE_HASH_SALT ?? "",
+  });
+  gonGlobal.__gonAbuseController = controller;
+  return controller;
 }
 
 export function getGonService(): GonService {
@@ -74,6 +104,13 @@ export function getGonService(): GonService {
       arena_enabled: config.arenaEnabled,
       trend_enabled: config.trendEnabled,
       game_events_enabled: config.gameEventsEnabled,
+    },
+    // Distributed rate limits/flood guard + budget alert hooks (P05-R1.10).
+    abuseControls: getAbuseController(),
+    budgetAlertSink: (alert) => {
+      // Structured ops signal; delivery to paging/chat webhooks is an R1.11
+      // observability concern and stays optional.
+      console.warn(JSON.stringify({ level: "warn", event: "budget_alert", ...alert }));
     },
   });
   gonGlobal.__gonService = service;

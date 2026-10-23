@@ -24,11 +24,17 @@ import {
   forbidden,
   notFound,
   quotaExceeded,
+  rateLimited,
   serviceUnavailable,
   unauthorized,
   unprocessable,
   validationError,
 } from "./errors";
+import {
+  AbuseController,
+  MemoryAbuseStateStore,
+  type BudgetAlertSink,
+} from "./abuse-controls";
 import { sha256Hex, stableHash, timingSafeStringEqual } from "./hash";
 import { createId, createOpaqueToken } from "./ids";
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -148,6 +154,14 @@ export interface GonServiceOptions {
     artifactProcessingPerDay: number;
     brewCostUnitsPerDay: number;
   }>;
+  /**
+   * Distributed abuse/cost controller (P05-R1.10). Defaults to an in-process
+   * token-bucket/flood-guard controller; `runtime.ts` binds the shared
+   * PostgreSQL state store so every instance enforces the same limits.
+   */
+  abuseControls?: AbuseController;
+  /** Optional ops hook fired exactly once per crossed AI-cost budget threshold. */
+  budgetAlertSink?: BudgetAlertSink;
 }
 
 interface GonServiceCoreOptions extends Omit<GonServiceOptions, "store"> {
@@ -249,6 +263,8 @@ class GonServiceCore {
   private readonly urlFetcher: SafeUrlFetcher | null;
   private readonly clock: () => Date;
   private readonly quotas: Required<NonNullable<GonServiceOptions["quotas"]>>;
+  private readonly abuseController: AbuseController;
+  private readonly budgetAlertSink: BudgetAlertSink | null;
 
   constructor(options: GonServiceCoreOptions) {
     this.repositories = options.repositories;
@@ -271,6 +287,9 @@ class GonServiceCore {
       artifactProcessingPerDay: options.quotas?.artifactProcessingPerDay ?? 20,
       brewCostUnitsPerDay: options.quotas?.brewCostUnitsPerDay ?? 20,
     };
+    this.abuseController =
+      options.abuseControls ?? new AbuseController({ store: new MemoryAbuseStateStore() });
+    this.budgetAlertSink = options.budgetAlertSink ?? null;
   }
 
   private now(): string {
@@ -1454,6 +1473,66 @@ class GonServiceCore {
     }
   }
 
+  /**
+   * Per-user rate-limit + flood-guard admission (P05-R1.10). Sits in front of
+   * the R1.6 quotas: quotas bound *what* a user may do per window; the token
+   * bucket and flood guard bound *how fast* they may ask. Idempotent replays
+   * are exempt inside the controller, so a retry storm cannot self-lockout.
+   */
+  private async enforceUserRateLimit(
+    actor: Actor,
+    actionClass: "read" | "write",
+    idempotencyKey?: string,
+  ): Promise<void> {
+    const decision = await this.abuseController.admit({
+      scope: "user",
+      subject: actor.userId,
+      actionClass,
+      idempotencyKey: idempotencyKey ?? null,
+    });
+    if (!decision.allowed) throw rateLimited(decision.detail, decision.retryAfterSeconds);
+  }
+
+  /**
+   * Budget alert hooks (P05-R1.10): each crossed threshold of the AI-cost
+   * budget is claimed exactly once in distributed state, then emitted to the
+   * outbox (`guardrail.budget_alert`) and the optional ops sink. Sink failures
+   * never break the learning flow.
+   */
+  private async checkBudgetAlerts(input: {
+    userId: string;
+    quotaKey: string;
+    windowStart: string;
+    windowEnd: string;
+    limitUnits: number;
+    usedUnits: number;
+  }): Promise<void> {
+    const alerts = await this.abuseController.collectBudgetAlerts(input);
+    for (const alert of alerts) {
+      this.emit({ userId: alert.userId }, "guardrail.budget_alert", "user", alert.userId, {
+        quotaKey: alert.quotaKey,
+        windowStart: alert.windowStart,
+        windowEnd: alert.windowEnd,
+        thresholdPct: alert.thresholdPct,
+        limitUnits: alert.limitUnits,
+        usedUnits: alert.usedUnits,
+      });
+      if (!this.budgetAlertSink) continue;
+      try {
+        await this.budgetAlertSink(alert);
+      } catch {
+        console.error(
+          JSON.stringify({
+            level: "error",
+            event: "budget_alert_sink_failed",
+            quotaKey: alert.quotaKey,
+            thresholdPct: alert.thresholdPct,
+          }),
+        );
+      }
+    }
+  }
+
   /** Shared fail-closed block path for content-safety rejections (P05-R1.8). */
   private blockArtifact(actor: Actor, artifact: ArtifactRecord, failureCode: string): void {
     artifact.safetyStatus = "blocked";
@@ -1633,6 +1712,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const body = ensureRecord(bodyValue);
     const prompt = requiredString(body, "prompt", { minLength: 1, maxLength: 20_000 });
     const goal = requiredString(body, "goal", { minLength: 1, maxLength: 500 });
@@ -1796,6 +1876,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const project = this.requireOwnedProject(actor, projectId);
     const body = ensureRecord(bodyValue);
     const kind = requiredEnum(body, "kind", ["text", "website_url", "youtube_url", "facebook_url"] as const);
@@ -1933,6 +2014,7 @@ class GonServiceCore {
 
   async retryArtifactProcessing(actor: Actor, artifactId: string): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write");
     const artifact = this.requireOwnedArtifact(actor, artifactId);
     if (artifact.extractionStatus !== "failed_retryable") {
       throw conflict("INVALID_STATE_TRANSITION", "Artifact không ở trạng thái retryable", "Chỉ artifact lỗi tạm thời mới được xử lý lại.");
@@ -1958,6 +2040,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string; baseUrl?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const project = this.requireOwnedProject(actor, projectId);
     const body = ensureRecord(bodyValue);
     const kind = requiredEnum(body, "kind", ["file", "image"] as const);
@@ -2197,6 +2280,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const project = this.requireOwnedProject(actor, projectId);
     const artifact = this.requireOwnedArtifact(actor, artifactId);
     if (artifact.projectId !== project.id) throw notFound();
@@ -2349,6 +2433,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const project = this.requireOwnedProject(actor, projectId);
     const body = bodyValue ? ensureRecord(bodyValue) : {};
     const requestedArtifactIds = stringArray(body, "artifactIds", { maxItems: 50 });
@@ -3036,6 +3121,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const project = this.requireOwnedProject(actor, projectId);
     const body = ensureRecord(bodyValue);
     const searchAttemptId = requiredString(body, "searchAttemptId", { maxLength: 128 });
@@ -3129,6 +3215,16 @@ class GonServiceCore {
     if (!costBudget.reserved) {
       throw quotaExceeded(`Ngân sách AI trong ngày đã hết (${this.quotas.brewCostUnitsPerDay} cost units/người/ngày).`);
     }
+    // Budget alert hooks (P05-R1.10): reservation crossed one or more usage
+    // thresholds — fire each exactly once via the distributed claim store.
+    await this.checkBudgetAlerts({
+      userId: actor.userId,
+      quotaKey: "brew_cost_units_per_day",
+      windowStart: dayStart,
+      windowEnd: dayEnd,
+      limitUnits: this.quotas.brewCostUnitsPerDay,
+      usedUnits: costBudget.usedUnitsAfter,
+    });
     const brew = { jobId: job.id, projectId: project.id, searchAttemptId, resultModuleVersionId: null as string | null };
     this.repositories.brewJobs.set(job.id, brew);
     project.currentBrewJobId = job.id;
@@ -3554,6 +3650,23 @@ class GonServiceCore {
       at: this.now(),
     });
     job.actualCostUnits = Math.max(0, consumedUnits);
+    // Budget alert hooks (P05-R1.10): re-check usage after the actual AI-run
+    // cost settles (the remainder refund can move usage across thresholds).
+    const { windowStart, windowEnd } = utcDayWindow(this.clock());
+    const usedAfterSettle = await this.repositories.targetedQueries.sumActiveQuotaUnits({
+      userId: job.ownerUserId,
+      quotaKey: "brew_cost_units_per_day",
+      windowStart,
+      windowEnd,
+    });
+    await this.checkBudgetAlerts({
+      userId: job.ownerUserId,
+      quotaKey: "brew_cost_units_per_day",
+      windowStart,
+      windowEnd,
+      limitUnits: this.quotas.brewCostUnitsPerDay,
+      usedUnits: usedAfterSettle,
+    });
   }
 
   private recordAiRun(run: AiRunDraft, jobId: string): void {
@@ -4063,6 +4176,7 @@ class GonServiceCore {
     options: { idempotencyKey?: string } = {},
   ): Promise<SubmitAttemptPhaseOne> {
     this.requireActiveUser(actor);
+    await this.enforceUserRateLimit(actor, "write", options.idempotencyKey);
     const { journey, attempt } = this.requireOwnedAttempt(actor, journeyId, attemptId);
     if (attempt.status !== "draft") {
       return { kind: "settled", result: { data: this.attemptDto(attempt), status: 200, replay: true } };
@@ -4530,6 +4644,12 @@ export class GonService {
   private readonly urlFetcher?: SafeUrlFetcher;
   private readonly now?: () => Date;
   private readonly quotas?: GonServiceOptions["quotas"];
+  /**
+   * Shared across every Unit-of-Work core: token buckets and flood strikes
+   * must survive the per-transaction core instances (P05-R1.10).
+   */
+  private readonly abuseControls: AbuseController;
+  private readonly budgetAlertSink?: BudgetAlertSink;
   private readonly coreContext = new AsyncLocalStorage<GonServiceCore>();
 
   constructor(options: GonServiceOptions = {}) {
@@ -4547,6 +4667,8 @@ export class GonService {
     this.urlFetcher = options.urlFetcher;
     this.now = options.now;
     this.quotas = options.quotas;
+    this.abuseControls = options.abuseControls ?? new AbuseController({ store: new MemoryAbuseStateStore() });
+    this.budgetAlertSink = options.budgetAlertSink;
   }
 
   private async run<T>(work: (core: GonServiceCore) => T | Promise<T>): Promise<T> {
@@ -4566,6 +4688,8 @@ export class GonService {
         urlFetcher: this.urlFetcher,
         now: this.now,
         quotas: this.quotas,
+        abuseControls: this.abuseControls,
+        budgetAlertSink: this.budgetAlertSink,
       });
       return this.coreContext.run(core, async () => work(core));
     });

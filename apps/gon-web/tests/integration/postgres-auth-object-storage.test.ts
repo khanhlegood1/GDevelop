@@ -145,7 +145,7 @@ beforeAll(async () => {
   const files = (await readdir(migrationsDir))
     .filter((file) => /^\d{4}_[a-z0-9_]+\.sql$/i.test(file))
     .sort((a, b) => a.localeCompare(b));
-  expect(files).toHaveLength(9);
+  expect(files).toHaveLength(10);
   for (const file of files) {
     await db.exec(await readFile(path.join(migrationsDir, file), "utf8"));
   }

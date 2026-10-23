@@ -64,6 +64,9 @@ export function problemResponse(error: unknown, requestId: string): NextResponse
     response.headers.set("Content-Type", "application/problem+json");
     response.headers.set("Cache-Control", "no-store");
     response.headers.set("X-Request-Id", requestId);
+    if (error.retryAfterSeconds !== undefined && Number.isFinite(error.retryAfterSeconds)) {
+      response.headers.set("Retry-After", String(Math.max(1, Math.ceil(error.retryAfterSeconds))));
+    }
     return response;
   }
 
