@@ -14,8 +14,8 @@ const sql = migrationFiles
 
 describe("PostgreSQL migration contract (static, not executed)", () => {
   it("uses ordered unique SQL-first migration files", () => {
-    expect(migrationFiles).toHaveLength(8);
-    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(8);
+    expect(migrationFiles).toHaveLength(9);
+    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(9);
     for (const file of migrationFiles) {
       expect(file).toMatch(/^\d{4}_[a-z0-9_]+\.sql$/i);
     }
@@ -97,5 +97,11 @@ describe("PostgreSQL migration contract (static, not executed)", () => {
     expect(sql).toContain("create policy gon_rls_owner_journeys on journeys");
     // Roles stay deploy-time (managed platforms own role administration).
     expect(sql).not.toContain("create role");
+  });
+
+  it("locks the R1.7 privacy slice: user_personalization with deny-by-default RLS", () => {
+    expect(sql).toContain("create table user_personalization");
+    expect(sql).toContain("alter table user_personalization enable row level security");
+    expect(sql).toContain("create policy gon_rls_owner_user_personalization");
   });
 });

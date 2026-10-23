@@ -23,8 +23,10 @@ import type {
   CandidateSetRecord,
   ChunkRecord,
   ConsentRecord,
+  DataRequestRecord,
   DevSessionRecord,
   FeatureFlagRecord,
+  FootprintEventRecord,
   IdempotencyRecord,
   IdentityLinkRecord,
   InviteRecord,
@@ -34,6 +36,7 @@ import type {
   ModuleRecord,
   ModuleVersionRecord,
   OutboxEventRecord,
+  PersonalizationRecord,
   ProfileRecord,
   ProjectRecord,
   ProofRecord,
@@ -201,6 +204,22 @@ export interface GonRepositories {
   readonly featureFlags: RepositoryCollection<string, FeatureFlagRecord>;
 
   /**
+   * Privacy data requests (P05-R1.7): export / delete_footprint /
+   * delete_account lifecycle rows.
+   */
+  readonly dataRequests: RepositoryCollection<string, DataRequestRecord>;
+
+  /** Per-user personalization preferences (P05-R1.7). */
+  readonly personalizations: RepositoryCollection<string, PersonalizationRecord>;
+
+  /**
+   * Detailed footprint events (P05-R1.7). Keyed by the persistence id
+   * (PostgreSQL bigint identity as string, local correlation id in memory).
+   * Deletes are permitted for privacy erasure and are flushed as hard deletes.
+   */
+  readonly footprintEvents: RepositoryCollection<string, FootprintEventRecord>;
+
+  /**
    * Targeted guardrail queries (P05-R1.6): persistent quota reservations,
    * budget settle/refund and job fingerprint lookups run through this port
    * instead of scanning identity-map collections. Bound to targeted SQL by
@@ -267,6 +286,9 @@ const MAP_COLLECTION_NAMES = [
   "idempotencyRecords",
   "featureFlags",
   "quotaReservations",
+  "dataRequests",
+  "personalizations",
+  "footprintEvents",
 ] as const;
 
 type MapCollectionName = (typeof MAP_COLLECTION_NAMES)[number];
@@ -314,6 +336,9 @@ export class InMemoryGonRepositories implements GonRepositories {
   readonly aiRuns = new ArrayAppendOnlyCollection<AiRunRecord>();
   readonly idempotencyRecords = new MapRepositoryCollection<string, IdempotencyRecord>();
   readonly featureFlags = new MapRepositoryCollection<string, FeatureFlagRecord>();
+  readonly dataRequests = new MapRepositoryCollection<string, DataRequestRecord>();
+  readonly personalizations = new MapRepositoryCollection<string, PersonalizationRecord>();
+  readonly footprintEvents = new MapRepositoryCollection<string, FootprintEventRecord>();
   /**
    * Memory-adapter backing store for the targeted quota port. The PostgreSQL
    * Unit of Work binds `targetedQueries` to targeted SQL instead and leaves
