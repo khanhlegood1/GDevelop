@@ -46,7 +46,7 @@ async function activate(name: string): Promise<Actor> {
 beforeAll(async () => {
   db = new PGlite({ extensions: { pgcrypto, pg_trgm, unaccent, vector } });
   const files = await migrationFiles();
-  expect(files).toHaveLength(9);
+  expect(files).toHaveLength(10);
   for (const file of files) {
     await db.exec(await readFile(path.join(migrationsDir, file), "utf8"));
   }

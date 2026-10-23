@@ -14,8 +14,8 @@ const sql = migrationFiles
 
 describe("PostgreSQL migration contract (static, not executed)", () => {
   it("uses ordered unique SQL-first migration files", () => {
-    expect(migrationFiles).toHaveLength(9);
-    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(9);
+    expect(migrationFiles).toHaveLength(10);
+    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(10);
     for (const file of migrationFiles) {
       expect(file).toMatch(/^\d{4}_[a-z0-9_]+\.sql$/i);
     }
@@ -103,5 +103,21 @@ describe("PostgreSQL migration contract (static, not executed)", () => {
     expect(sql).toContain("create table user_personalization");
     expect(sql).toContain("alter table user_personalization enable row level security");
     expect(sql).toContain("create policy gon_rls_owner_user_personalization");
+  });
+
+  it("locks the R1.10 abuse/cost control state: hashed keys, CAS versions, alert claims", () => {
+    expect(sql).toContain("create table abuse_rate_buckets");
+    expect(sql).toContain("create table abuse_flood_strikes");
+    expect(sql).toContain("create table abuse_idempotency_markers");
+    expect(sql).toContain("create table budget_alert_claims");
+    // Optimistic concurrency for shared token/strike accounting.
+    expect(sql).toContain("version integer not null default 0");
+    // Exactly-once budget alert claims per user/quota window/threshold.
+    expect(sql).toContain("unique (user_id, quota_key, window_start, threshold_pct)");
+    // Hash-keyed infra tables: deny-by-default, no user policies on purpose.
+    expect(sql).toContain("alter table abuse_rate_buckets enable row level security");
+    expect(sql).toContain("alter table abuse_flood_strikes enable row level security");
+    expect(sql).toContain("alter table abuse_idempotency_markers enable row level security");
+    expect(sql).toContain("create policy gon_rls_owner_budget_alert_claims");
   });
 });

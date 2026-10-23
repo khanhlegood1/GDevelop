@@ -11,6 +11,8 @@ export class ApiError extends Error {
   readonly retryable: boolean;
   readonly nextAction?: string;
   readonly issues: ValidationIssue[];
+  /** Advisory for 429s: seconds until the client may retry (Retry-After). */
+  readonly retryAfterSeconds?: number;
 
   constructor(init: {
     status: number;
@@ -20,6 +22,7 @@ export class ApiError extends Error {
     retryable?: boolean;
     nextAction?: string;
     issues?: ValidationIssue[];
+    retryAfterSeconds?: number;
   }) {
     super(init.detail ?? init.title);
     this.name = "ApiError";
@@ -29,6 +32,7 @@ export class ApiError extends Error {
     this.retryable = init.retryable ?? false;
     this.nextAction = init.nextAction;
     this.issues = init.issues ?? [];
+    this.retryAfterSeconds = init.retryAfterSeconds;
   }
 }
 
@@ -81,6 +85,24 @@ export function quotaExceeded(detail: string): ApiError {
     detail,
     retryable: true,
     nextAction: "try_later",
+  });
+}
+
+/**
+ * Rate-limit / flood-guard denial (P05-R1.10). `RATE_LIMITED` is the 429
+ * code already listed in the locked P03 API contract (API-CONTRACT.md §errors).
+ */
+export function rateLimited(detail: string, retryAfterSeconds?: number): ApiError {
+  return new ApiError({
+    status: 429,
+    code: "RATE_LIMITED",
+    title: "Quá nhiều yêu cầu",
+    detail,
+    retryable: true,
+    nextAction: "try_later",
+    ...(retryAfterSeconds !== undefined && Number.isFinite(retryAfterSeconds)
+      ? { retryAfterSeconds: Math.max(1, Math.ceil(retryAfterSeconds)) }
+      : {}),
   });
 }
 
