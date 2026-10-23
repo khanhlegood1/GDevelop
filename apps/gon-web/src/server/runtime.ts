@@ -4,6 +4,7 @@ import { PostgresJobQueue } from "./postgres-job-queue";
 import { PostgresOutboxPublisher } from "./postgres-outbox";
 import type { SqlExecutor } from "./postgres-search";
 import { MemoryGonStore } from "./memory-store";
+import { createObjectStorage, type ObjectStorage } from "./object-storage";
 import {
   createPgPoolTransactionRunner,
   PostgresGonStore,
@@ -13,9 +14,23 @@ import { GonService, type BrewExecutionMode } from "./service";
 
 interface GonGlobal {
   __gonService?: GonService;
+  __gonObjectStorage?: ObjectStorage;
 }
 
 const gonGlobal = globalThis as typeof globalThis & GonGlobal;
+
+export function getGonObjectStorage(): ObjectStorage {
+  if (gonGlobal.__gonObjectStorage) return gonGlobal.__gonObjectStorage;
+  const config = readConfig();
+  const storage = createObjectStorage(process.env, {
+    production: config.production,
+    // This mirrors the explicit isolated-test memory-store override. Normal
+    // production composition rejects process-local/filesystem bytes.
+    allowLocalInProduction: config.allowMemoryStoreInProduction,
+  });
+  gonGlobal.__gonObjectStorage = storage;
+  return storage;
+}
 
 export function getGonService(): GonService {
   if (gonGlobal.__gonService) return gonGlobal.__gonService;
@@ -46,6 +61,7 @@ export function getGonService(): GonService {
 
   const service = new GonService({
     store,
+    objectStorage: getGonObjectStorage(),
     requireInvite: config.requireInvite,
     brewExecutionMode,
     featureFlags: {

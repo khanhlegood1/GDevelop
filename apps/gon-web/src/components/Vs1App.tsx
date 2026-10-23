@@ -11,7 +11,7 @@ import {
   apiPage,
   apiRequest,
   ApiClientError,
-  relativeUploadPath,
+  resolveUploadRequest,
   sha256Hex,
   type AnyRecord,
 } from "@/lib/api";
@@ -360,9 +360,12 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
         rightsBasis: "created_by_user",
       },
     });
-    const uploadResponse = await fetch(relativeUploadPath(String(session.uploadUrl)), {
+    const uploadMethod = String(session.method ?? "PUT").toUpperCase();
+    if (uploadMethod !== "PUT") throw new Error(`Upload method ${uploadMethod} chưa được hỗ trợ.`);
+    const uploadRequest = resolveUploadRequest(String(session.uploadUrl));
+    const uploadResponse = await fetch(uploadRequest.url, {
       method: "PUT",
-      credentials: "include",
+      credentials: uploadRequest.credentials,
       headers: session.headers as Record<string, string>,
       body: file,
     });

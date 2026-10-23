@@ -22,9 +22,10 @@ Tài liệu chi tiết:
 6. Remediation sau vòng review gốc:
    - [P05-R1.1 — PostgreSQL Foundation, Hybrid Search Repository và CI Gates](P05-R1-POSTGRES-FOUNDATION.md);
    - [P05-R1.2 — Domain Repository Boundaries & Unit of Work](P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md);
-   - [P05-R1.3 — Durable Jobs & Transactional Outbox](P05-R1.3-DURABLE-JOBS-OUTBOX.md).
+   - [P05-R1.3 — Durable Jobs & Transactional Outbox](P05-R1.3-DURABLE-JOBS-OUTBOX.md);
+   - [P05-R1.4 — Auth Staging Contract & Private Object Storage](P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md).
 
-> Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1/R1.2/R1.3 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue, nhưng chưa đóng các blocker staging/Auth thật/object storage/worker deployment/AI/DR; kết luận gate vẫn **NOT YET PASS**.
+> Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1/R1.2/R1.3/R1.4 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue/Auth contract/object-storage boundary, nhưng chưa đóng các blocker Google/GCS/managed staging, worker deployment, AI thật và DR; kết luận gate vẫn **NOT YET PASS**.
 
 Mức bằng chứng dùng trong toàn bộ gói:
 
@@ -89,8 +90,8 @@ P06 chỉ được bắt đầu theo nghĩa triển khai production-like khi cá
 
 | ID | Blocker | Điều kiện đóng tối thiểu |
 |---|---|---|
-| B-P05-01 | PostgreSQL domain repositories/UoW và durable job/outbox primitives đã chạy local qua PGlite; worker process/sink, object storage và managed PostgreSQL vẫn chưa kiểm chứng | Lặp lại migrations + domain/queue tests trên managed PostgreSQL staging; worker retry/lease/reconciler, outbox consumers và signed storage hoạt động trên staging |
-| B-P05-02 | Google OAuth/database session/revoke/account lifecycle chưa chạy thật | Staging Google sign-in, DB session revoke, expired/revoked invite, suspended/deleted account E2E |
+| B-P05-01 | PostgreSQL domain repositories/UoW, durable job/outbox primitives và private object-storage port/GCS adapter đã chạy local qua PGlite/fake transport; worker process/sink, bucket/IAM/CORS và managed PostgreSQL vẫn chưa kiểm chứng | Lặp lại migrations + domain/queue/Auth/storage tests trên managed PostgreSQL + private GCS staging; worker retry/lease/reconciler, outbox consumers và signed upload hoạt động trên staging |
+| B-P05-02 | Auth.js PG adapter/database session/revoke/expiry và GON identity mapping đã chạy trên PostgreSQL engine; Google OAuth thật và account lifecycle staging chưa chạy | Staging Google sign-in first/repeat, sign-out/revoke, expired/revoked invite, suspended/deleted account E2E qua Next HTTPS route |
 | B-P05-03 | S-P03-01 và S-P03-03 chưa passed; Gemini/ADK chưa nối | Hybrid Search trên corpus đại diện; TS worker → ADK → Gemini có AiRun/cost/repair/retry không tạo module trùng |
 | B-P05-04 | Upload/URL/extraction security chưa đủ | Malware scan, parser sandbox, image/PDF limits, DNS/redirect/rebinding defense cho fetcher; chưa bật tính năng nào chưa qua kiểm chứng |
 | B-P05-05 | Privacy/retention/data-rights chưa hoàn chỉnh | Export/delete/footprint purge/retention jobs, legal review cho self-attestation 18+ và policy versions |
@@ -115,7 +116,7 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 
 ## 7. Lộ trình đóng P05
 
-1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation, R1.2 domain repositories/Unit of Work và R1.3 durable jobs/outbox primitives đã có bằng chứng local/PGlite; tiếp theo là Auth DB-session E2E, object storage, worker runtime/outbox consumers, ADK integration, targeted repository queries/RLS và persistent quotas.
+1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation, R1.2 domain repositories/Unit of Work, R1.3 durable jobs/outbox primitives và R1.4 Auth DB-session contract + private object-storage port đã có bằng chứng local/PGlite; tiếp theo là Google/GCS/managed-PostgreSQL staging verification, worker runtime/outbox consumers, ADK integration, targeted repository queries/RLS và persistent quotas.
 2. **P05-R2 — Staging verification:** S-P03-01/02/03/04, load/DAST/AI evaluation, accessibility browser test, backup/restore và rollback drills.
 3. **P05-R3 — Re-review:** chạy lại toàn bộ gates trên cùng một staging build, đóng findings hoặc xin ngoại lệ có hạn, sau đó mới trình PO duyệt P05.
 4. **P06:** chỉ bắt đầu sau P05 APPROVED; Go-Live vẫn cần quyết định riêng.

@@ -97,7 +97,26 @@ export async function sha256Hex(file: File): Promise<string> {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function relativeUploadPath(uploadUrl: string): string {
+export interface ResolvedUploadRequest {
+  url: string;
+  credentials: RequestCredentials;
+}
+
+export function resolveUploadRequest(uploadUrl: string): ResolvedUploadRequest {
   const parsed = new URL(uploadUrl, globalThis.location.origin);
-  return `${parsed.pathname}${parsed.search}`;
+  if (
+    parsed.origin === globalThis.location.origin ||
+    parsed.pathname.startsWith("/api/local-uploads/")
+  ) {
+    return {
+      url: `${parsed.pathname}${parsed.search}`,
+      credentials: "include",
+    };
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("Signed upload URL phải sử dụng HTTPS.");
+  }
+  // A GCS signed URL is a bearer capability scoped to one private object.
+  // Preserve its host/query exactly and do not send GON cookies cross-origin.
+  return { url: parsed.toString(), credentials: "omit" };
 }

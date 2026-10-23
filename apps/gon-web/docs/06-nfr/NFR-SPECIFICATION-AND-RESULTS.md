@@ -36,7 +36,7 @@
 | Artifact processing | 20/người/ngày trong memory | `GonServiceOptions.quotas` |
 | ADK body | 2.500.000 bytes theo stream; timeout cấu hình mặc định 120 giây | `apps/gon-adk/src/gon_adk/{main,config}.py` |
 | Gemini embedding adapter | timeout 20 giây, bắt buộc vector 768D | `src/server/embeddings.ts` |
-| Session | Auth.js max age 30 ngày; database strategy chỉ khi có PG pool | `src/server/auth.ts` |
+| Session | Auth.js max age 30 ngày, update age 24 giờ; database strategy chỉ khi có PG adapter, JWT là local fallback | `src/server/auth-config.ts`, `src/server/auth.ts` |
 | Lifelong Level | `floor(LifetimeXP / 100)`, Forever là Era mở từ Lv.35+, không cap | `gon-level-v1` |
 
 Các quota trên là **domain guardrails local**; chúng mất hiệu lực khi restart/khác instance và không thay thế rate limit ở edge hay quota persistence.

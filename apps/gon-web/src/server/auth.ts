@@ -1,70 +1,22 @@
 import PostgresAdapter from "@auth/pg-adapter";
 import NextAuth from "next-auth";
-import Google from "next-auth/providers/google";
+import { createGonAuthOptions, resolveAuthEnv } from "./auth-config";
 import { getPostgresPool } from "./db";
 import { getGonService } from "./runtime";
 
 const pool = getPostgresPool();
-const googleClientId = process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID;
-const googleClientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET;
-const googleConfigured = Boolean(googleClientId && googleClientSecret);
-// Production must opt in only after P06 proves the edge proxy overwrites the
-// forwarded Host/proto headers. Auth.js treats trusted hosts as deployment
-// input, not as user input that should be accepted unconditionally.
-const authTrustHost = process.env.AUTH_TRUST_HOST === undefined
-  ? process.env.NODE_ENV !== "production"
-  : ["1", "true", "yes", "on"].includes(process.env.AUTH_TRUST_HOST.toLocaleLowerCase());
+const authEnv = resolveAuthEnv();
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
-  ...(pool ? { adapter: PostgresAdapter(pool) } : {}),
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
-  trustHost: authTrustHost,
-  session: {
-    // P03 requires revocable database sessions for production. JWT is only a
-    // local fallback when no Auth.js PostgreSQL database is configured.
-    strategy: pool ? "database" : "jwt",
-    maxAge: 30 * 24 * 60 * 60,
-  },
-  providers: googleConfigured
-    ? [
-        Google({
-          clientId: googleClientId,
-          clientSecret: googleClientSecret,
-        }),
-      ]
-    : [],
-  callbacks: {
-    async signIn({ user, account, profile }) {
-      if (account?.provider !== "google" || !account.providerAccountId) return false;
-      const service = getGonService();
-      await service.ensureGoogleUser({
-        providerSubject: account.providerAccountId,
-        email: typeof profile?.email === "string" ? profile.email : user.email,
-        displayName: typeof profile?.name === "string" ? profile.name : user.name,
-        authUserId: user.id === undefined || user.id === null ? undefined : String(user.id),
-      });
-      return true;
+export const { handlers, auth, signIn, signOut } = NextAuth(
+  createGonAuthOptions({
+    ...(pool ? { adapter: PostgresAdapter(pool) } : {}),
+    ...(authEnv.googleClientId ? { googleClientId: authEnv.googleClientId } : {}),
+    ...(authEnv.googleClientSecret ? { googleClientSecret: authEnv.googleClientSecret } : {}),
+    ...(authEnv.secret ? { secret: authEnv.secret } : {}),
+    trustHost: authEnv.trustHost,
+    identity: {
+      ensureGoogleUser: (input) => getGonService().ensureGoogleUser(input),
+      findUserIdByAuthUserId: (authUserId) => getGonService().findUserIdByAuthUserId(authUserId),
     },
-    async jwt({ token, user }) {
-      const authUserId = user?.id === undefined || user?.id === null ? token.sub : String(user.id);
-      if (authUserId) {
-        token.gonUserId = await getGonService().findUserIdByAuthUserId(authUserId);
-      }
-      return token;
-    },
-    async session({ session, user, token }) {
-      const service = getGonService();
-      let gonUserId: string | undefined;
-      if (typeof user?.gonUserId === "string") gonUserId = user.gonUserId;
-      if (!gonUserId && typeof token?.gonUserId === "string") gonUserId = token.gonUserId;
-      if (!gonUserId && user?.id !== undefined && user?.id !== null) {
-        gonUserId = await service.findUserIdByAuthUserId(String(user.id));
-      }
-      if (!gonUserId && typeof token?.sub === "string") {
-        gonUserId = await service.findUserIdByAuthUserId(token.sub);
-      }
-      if (session.user) session.user.gonUserId = gonUserId;
-      return session;
-    },
-  },
-});
+  }),
+);

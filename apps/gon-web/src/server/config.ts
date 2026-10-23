@@ -1,3 +1,8 @@
+import {
+  inspectObjectStorageConfig,
+  type ObjectStorageKind,
+} from "./object-storage-config";
+
 export const TERMS_VERSION = "terms-alpha-v1";
 export const PRIVACY_VERSION = "privacy-alpha-v1";
 
@@ -13,7 +18,12 @@ export interface GonConfig {
   devAuthEnabled: boolean;
   devInviteCode?: string;
   googleConfigured: boolean;
+  authSecretConfigured: boolean;
+  authDatabaseSessions: boolean;
   databaseConfigured: boolean;
+  objectStorageKind: ObjectStorageKind;
+  objectStorageConfigured: boolean;
+  objectStorageErrorCode?: string;
   trustProxyHeaders: boolean;
   allowMemoryStoreInProduction: boolean;
   publicOrigin?: string;
@@ -46,6 +56,7 @@ export function assertRuntimeStoreAllowed(config: GonConfig): void {
 }
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): GonConfig {
+  const objectStorage = inspectObjectStorageConfig(env);
   return {
     storeKind: env.GON_STORE ?? "memory",
     production: env.NODE_ENV === "production",
@@ -59,10 +70,15 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GonConfig {
     devAuthEnabled: env.NODE_ENV !== "production" && envFlag(env.GON_DEV_AUTH, false),
     devInviteCode: env.GON_DEV_INVITE_CODE,
     googleConfigured: Boolean(
-      (env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET) ||
-      (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+      (env.AUTH_GOOGLE_ID?.trim() && env.AUTH_GOOGLE_SECRET?.trim()) ||
+      (env.GOOGLE_CLIENT_ID?.trim() && env.GOOGLE_CLIENT_SECRET?.trim()),
     ),
-    databaseConfigured: Boolean(env.DATABASE_URL),
+    authSecretConfigured: Boolean(env.AUTH_SECRET?.trim() || env.NEXTAUTH_SECRET?.trim()),
+    authDatabaseSessions: Boolean(env.DATABASE_URL?.trim()),
+    databaseConfigured: Boolean(env.DATABASE_URL?.trim()),
+    objectStorageKind: objectStorage.kind,
+    objectStorageConfigured: objectStorage.configured,
+    ...(objectStorage.errorCode ? { objectStorageErrorCode: objectStorage.errorCode } : {}),
     // Forwarded headers are client-controlled unless a trusted edge proxy
     // overwrites them. They are therefore opt-in rather than implicit.
     trustProxyHeaders: envFlag(env.GON_TRUST_PROXY_HEADERS, false),

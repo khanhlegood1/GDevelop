@@ -17,6 +17,21 @@ export interface ReadinessReport {
       latencyMs?: number;
       errorCode?: string;
     };
+    auth: {
+      googleConfigured: boolean;
+      secretConfigured: boolean;
+      databaseSessions: boolean;
+      required: boolean;
+      ok: boolean;
+      errorCode?: string;
+    };
+    objectStorage: {
+      kind: string;
+      configured: boolean;
+      required: boolean;
+      ok: boolean;
+      errorCode?: string;
+    };
   };
 }
 
@@ -64,8 +79,27 @@ export async function getReadiness(
 
   const databaseOk = databaseRequired ? database.ok : database.ok || !database.configured;
 
+  const authRequired = config.production;
+  let authErrorCode: string | undefined;
+  if (authRequired) {
+    if (!config.googleConfigured) authErrorCode = "GOOGLE_AUTH_NOT_CONFIGURED";
+    else if (!config.authSecretConfigured) authErrorCode = "AUTH_SECRET_NOT_CONFIGURED";
+    else if (!config.authDatabaseSessions) authErrorCode = "AUTH_DATABASE_SESSIONS_NOT_CONFIGURED";
+    else if (!database.ok) authErrorCode = "AUTH_DATABASE_NOT_READY";
+  }
+  const authOk = !authRequired || !authErrorCode;
+
+  const objectStorageRequired = config.production;
+  let objectStorageErrorCode: string | undefined;
+  if (!config.objectStorageConfigured) {
+    objectStorageErrorCode = config.objectStorageErrorCode ?? "OBJECT_STORAGE_NOT_CONFIGURED";
+  } else if (objectStorageRequired && config.objectStorageKind !== "gcs") {
+    objectStorageErrorCode = "OBJECT_STORAGE_NOT_DURABLE";
+  }
+  const objectStorageOk = !objectStorageErrorCode;
+
   return {
-    status: storeOk && databaseOk ? "ready" : "not_ready",
+    status: storeOk && databaseOk && authOk && objectStorageOk ? "ready" : "not_ready",
     checks: {
       store: {
         kind: config.storeKind,
@@ -78,6 +112,21 @@ export async function getReadiness(
         ok: databaseOk,
         ...(database.latencyMs !== undefined ? { latencyMs: database.latencyMs } : {}),
         ...(database.errorCode ? { errorCode: database.errorCode } : {}),
+      },
+      auth: {
+        googleConfigured: config.googleConfigured,
+        secretConfigured: config.authSecretConfigured,
+        databaseSessions: config.authDatabaseSessions,
+        required: authRequired,
+        ok: authOk,
+        ...(authErrorCode ? { errorCode: authErrorCode } : {}),
+      },
+      objectStorage: {
+        kind: config.objectStorageKind,
+        configured: config.objectStorageConfigured,
+        required: objectStorageRequired,
+        ok: objectStorageOk,
+        ...(objectStorageErrorCode ? { errorCode: objectStorageErrorCode } : {}),
       },
     },
   };

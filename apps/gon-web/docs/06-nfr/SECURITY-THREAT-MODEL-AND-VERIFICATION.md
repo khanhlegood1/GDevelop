@@ -66,7 +66,7 @@ ADK không có DB/publish quyền; TypeScript policy service phải validate l�
 - Search gọi `visibleModuleVersions(actor)` trước scoring; module `draft_private` của người khác không được đưa vào tập ứng viên.
 - Report cho phép reporter hoặc role reviewer/admin đọc; chưa có route admin làm thay đổi trạng thái trong VS1.
 - Dev session token được hash trước khi lưu, có expiry/revoke; route bị tắt trong production. P05 siết thêm CSRF cho cả tạo và xóa dev session.
-- Auth.js dùng database sessions khi có PG pool; JWT chỉ là fallback local. Đây là cấu hình **chưa đủ cho production nếu thiếu `DATABASE_URL`**.
+- Auth.js dùng database sessions khi có PG pool; JWT chỉ là fallback local. Từ R1.4, Google profile phải có email đã xác minh, domain identity chỉ được provision ở `events.signIn` bằng Auth database ID đã persist, session response dùng allow-list không lộ `sessionToken`, và readiness production fail-closed nếu thiếu Google/Auth secret/`DATABASE_URL`/GCS.
 
 ### CSRF, browser và HTTP
 
@@ -107,7 +107,7 @@ Các kiểm soát trên **không** tương đương malware scanning hoặc SSRF
 | F-P05-04 | High (nếu deploy nhầm) | Production có thể chạy memory store và mất dữ liệu âm thầm | `assertRuntimeStoreAllowed` fail-closed; Problem Details cho lỗi runtime | Override chỉ dành cho môi trường cô lập không dữ liệu thật |
 | F-P05-05 | Medium | ADK unauthenticated flag có thể bật ngoài local | Chỉ hiệu lực khi `GON_ADK_ENV=local`; pytest staging case | Production vẫn cần IAM/OIDC hoặc token rotation |
 | F-P05-06 | Low | Dev-session mutation chỉ dựa Origin | Dùng CSRF token cho POST/DELETE và UI dùng API client | Dev Auth vẫn tuyệt đối không phải production identity |
-| F-P05-07 | Medium reliability | Auth PG serial ID dạng số có thể không map được sang GON user | Chuẩn hóa `authUserId` sang string tại service/Auth callbacks; unit test số 42 | Vẫn cần Google + DB E2E thật |
+| F-P05-07 | Medium reliability | Auth PG serial ID dạng số và first-login `signIn` ID có thể không map được sang GON user; session callback có nguy cơ echo DB session token | Chuẩn hóa `authUserId` sang string; từ R1.4 chuyển provisioning sang `events.signIn` với persisted Auth ID, allow-list session response, và kiểm chứng adapter/session/revoke/expiry trên PGlite | Vẫn cần Google OAuth + Next HTTPS route E2E thật trên staging |
 
 ## 7. Findings còn mở
 
@@ -116,7 +116,7 @@ Mức độ dưới đây tính theo tác động nếu đưa bề mặt tương
 | ID | Mức | Finding | Điều kiện đóng / owner đề xuất |
 |---|---|---|---|
 | F-P05-08 | **High** | Chưa có edge/IP rate limit, distributed quota, queue backpressure hoặc budget reservation; quota hiện chỉ trong một process | Cloud Armor/API gateway + persistent quotas/token budget; load/abuse test — Platform + Web/API |
-| F-P05-09 | **High** | Google OAuth, DB session revoke, account linking/suspension/deletion chưa chạy thật; thiếu DB sẽ rơi xuống JWT fallback | Staging Auth E2E và production config gate bắt buộc DB sessions — Web/API |
+| F-P05-09 | **High** | DB session revoke/expiry và account linking đã chạy bằng adapter trên PGlite, readiness production đã bắt buộc DB sessions; nhưng Google OAuth thật, Next HTTPS route và suspension/deletion lifecycle chưa chạy trên staging | Staging Auth E2E với Google test accounts, proxy/HTTPS và account lifecycle đầy đủ — Web/API |
 | F-P05-10 | **Medium** | Transitive `opentelemetry-api 1.42.1` có `CVE-2026-114603`; fix `1.45.1` xung đột `google-adk 2.12.0` | Nâng ADK khi có bản tương thích hoặc ngoại lệ D-P05-07 có hạn; không gắn ASGI propagation middleware; giới hạn header tại edge — AI/Platform |
 | F-P05-11 | **Medium** | Invite code dùng SHA-256 nhanh và chưa có rate limit/entropy/expiry policy production | Mã mời high-entropy, rate limit theo IP/account, Audit failures, revoke/rotation — Web/API |
 | F-P05-12 | **High** | Upload mới dừng ở magic bytes; chưa có malware scan, parser sandbox, image dimension/decompression/polyglot defenses hoặc re-encode khi phục vụ file | S-P03-02 trên staging; không serve/parser file ngoài allowlist đã kiểm chứng — Platform + Web/API |
