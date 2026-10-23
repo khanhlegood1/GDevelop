@@ -18,6 +18,7 @@ export type IdPrefix =
   | "rpt"
   | "evt"
   | "airun"
+  | "qrsv"
   | "game"
   | "req"
   | "case"

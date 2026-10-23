@@ -24,9 +24,10 @@ Tài liệu chi tiết:
    - [P05-R1.2 — Domain Repository Boundaries & Unit of Work](P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md);
    - [P05-R1.3 — Durable Jobs & Transactional Outbox](P05-R1.3-DURABLE-JOBS-OUTBOX.md);
    - [P05-R1.4 — Auth Staging Contract & Private Object Storage](P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md);
-   - [P05-R1.5 — Worker runtime & ADK integration](P05-R1.5-WORKER-RUNTIME-ADK-INTEGRATION.md).
+   - [P05-R1.5 — Worker runtime & ADK integration](P05-R1.5-WORKER-RUNTIME-ADK-INTEGRATION.md);
+   - [P05-R1.6 — Persistent guardrails, targeted queries & RLS](P05-R1.6-PERSISTENT-GUARDRAILS-RLS-TARGETED-QUERIES.md).
 
-> Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1–R1.5 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue/Auth contract/object-storage boundary/worker runtime/outbox sink/TS→ADK wiring, nhưng chưa đóng các blocker Google/GCS/managed staging, worker deployment, Gemini thật và DR; kết luận gate vẫn **NOT YET PASS**.
+> Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1–R1.6 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue/Auth contract/object-storage boundary/worker runtime/outbox sink/TS→ADK wiring/persistent quotas/kill switches/circuit breaker/targeted queries/RLS, nhưng chưa đóng các blocker Google/GCS/managed staging, worker deployment, Gemini thật và DR; kết luận gate vẫn **NOT YET PASS**.
 
 Mức bằng chứng dùng trong toàn bộ gói:
 
@@ -117,7 +118,7 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 
 ## 7. Lộ trình đóng P05
 
-1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation, R1.2 domain repositories/Unit of Work, R1.3 durable jobs/outbox primitives và R1.4 Auth DB-session contract + private object-storage port đã có bằng chứng local/PGlite; tiếp theo là Google/GCS/managed-PostgreSQL staging verification, worker runtime/outbox consumers, ADK integration, targeted repository queries/RLS và persistent quotas.
+1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation, R1.2 domain repositories/Unit of Work, R1.3 durable jobs/outbox primitives, R1.4 Auth DB-session contract + private object-storage port, R1.5 worker runtime/outbox consumers/ADK integration và R1.6 targeted repository queries/RLS + persistent quotas/kill switches/circuit breaker đã có bằng chứng local/PGlite; còn lại của R1 là Google/GCS/managed-PostgreSQL staging verification (trong đó có roles/IAM cho RLS) và TS→ADK→Gemini với credentials thật.
 2. **P05-R2 — Staging verification:** S-P03-01/02/03/04, load/DAST/AI evaluation, accessibility browser test, backup/restore và rollback drills.
 3. **P05-R3 — Re-review:** chạy lại toàn bộ gates trên cùng một staging build, đóng findings hoặc xin ngoại lệ có hạn, sau đó mới trình PO duyệt P05.
 4. **P06:** chỉ bắt đầu sau P05 APPROVED; Go-Live vẫn cần quyết định riêng.

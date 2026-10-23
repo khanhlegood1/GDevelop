@@ -37,6 +37,7 @@ import {
   type ObjectStorage,
 } from "./object-storage";
 import type { GonRepositories, GonStore } from "./repositories";
+import { utcDayWindow, utcHourWindow } from "./targeted-queries";
 import {
   BREW_POLICY_VERSION,
   GENERATE_MODULE_INPUT_SCHEMA_VERSION,
@@ -128,6 +129,7 @@ export interface GonServiceOptions {
     searchPerHour: number;
     brewPerDay: number;
     artifactProcessingPerDay: number;
+    brewCostUnitsPerDay: number;
   }>;
 }
 
@@ -226,6 +228,7 @@ class GonServiceCore {
       searchPerHour: options.quotas?.searchPerHour ?? 60,
       brewPerDay: options.quotas?.brewPerDay ?? 5,
       artifactProcessingPerDay: options.quotas?.artifactProcessingPerDay ?? 20,
+      brewCostUnitsPerDay: options.quotas?.brewCostUnitsPerDay ?? 20,
     };
   }
 
@@ -910,10 +913,17 @@ class GonServiceCore {
     };
   }
 
-  private brewJobDto(jobId: string): JsonRecord {
+  private async brewJobDto(jobId: string): Promise<JsonRecord> {
     const job = this.repositories.jobs.get(jobId);
     const brew = this.repositories.brewJobs.get(jobId);
     if (!job || !brew) throw notFound();
+    const { windowStart, windowEnd } = utcDayWindow(this.clock());
+    const usedToday = await this.repositories.targetedQueries.sumActiveQuotaUnits({
+      userId: job.ownerUserId,
+      quotaKey: "brew_per_day",
+      windowStart,
+      windowEnd,
+    });
     return {
       ...this.jobDto(job),
       projectId: brew.projectId,
@@ -923,25 +933,37 @@ class GonServiceCore {
         ? { clarificationQuestions: job.payload.clarificationQuestions }
         : {}),
       quota: {
-        usedToday: [...this.repositories.brewJobs.values()].filter((item) => {
-          const related = this.repositories.jobs.get(item.jobId);
-          return related?.ownerUserId === job.ownerUserId && related.createdAt.slice(0, 10) === this.now().slice(0, 10);
-        }).length,
+        usedToday,
         dailyLimit: this.quotas.brewPerDay,
       },
     };
   }
 
-  private countArtifactsProcessedSince(userId: string, sinceIso: string): number {
-    return [...this.repositories.artifacts.values()].filter(
-      (artifact) => artifact.ownerUserId === userId && artifact.createdAt >= sinceIso,
-    ).length;
+  /**
+   * Persistent kill switch (P05-R1.6): the feature_flags row is checked
+   * in-memory inside the Unit of Work and fails closed — a row explicitly
+   * disabled in the database stops the guarded operation even when process
+   * flags still allow it. A missing row means "no persistent switch", so the
+   * process/env flags remain the default layer.
+   */
+  private persistentKillSwitchActive(key: string): boolean {
+    const flag = this.repositories.featureFlags.get(key);
+    return Boolean(flag && !flag.enabled);
   }
 
-  private enforceArtifactQuota(actor: Actor): void {
-    const startOfDay = new Date(this.clock());
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    if (this.countArtifactsProcessedSince(actor.userId, startOfDay.toISOString()) >= this.quotas.artifactProcessingPerDay) {
+  private async enforceArtifactQuota(actor: Actor): Promise<void> {
+    const { windowStart, windowEnd } = utcDayWindow(this.clock());
+    const reservation = await this.repositories.targetedQueries.reserveQuotaUnits({
+      userId: actor.userId,
+      quotaKey: "artifact_per_day",
+      windowStart,
+      windowEnd,
+      units: 1,
+      limit: this.quotas.artifactProcessingPerDay,
+      mode: "consume",
+      createdAt: this.now(),
+    });
+    if (!reservation.reserved) {
       throw quotaExceeded(`Private Alpha cho phép tối đa ${this.quotas.artifactProcessingPerDay} artifact xử lý/người/ngày.`);
     }
   }
@@ -1078,7 +1100,7 @@ class GonServiceCore {
       if (existing) return { data: this.projectDto(existing), status: 201, replay: true };
     }
 
-    this.enforceArtifactQuota(actor);
+    await this.enforceArtifactQuota(actor);
     const now = this.now();
     const artifactId = createId("art");
     const project: ProjectRecord = {
@@ -1180,7 +1202,7 @@ class GonServiceCore {
     return this.projectDto(this.requireOwnedProject(actor, projectId));
   }
 
-  getProjectWorkspace(actor: Actor, projectId: string): JsonRecord {
+  async getProjectWorkspace(actor: Actor, projectId: string): Promise<JsonRecord> {
     this.requireActiveUser(actor);
     const project = this.requireOwnedProject(actor, projectId);
     const { nextAction } = this.projectStatusAndNextAction(project);
@@ -1214,7 +1236,7 @@ class GonServiceCore {
       nextAction,
       artifacts: this.projectArtifacts(project.id).map((artifact) => this.artifactDto(artifact)),
       latestSearch: latestSearch ? this.searchAttemptDto(latestSearch) : null,
-      latestBrewJob: latestBrew ? this.brewJobDto(latestBrew.id) : null,
+      latestBrewJob: latestBrew ? await this.brewJobDto(latestBrew.id) : null,
     };
   }
 
@@ -1239,7 +1261,7 @@ class GonServiceCore {
       if (existing) return { data: this.artifactDto(existing), status: 200, replay: true };
     }
 
-    this.enforceArtifactQuota(actor);
+    await this.enforceArtifactQuota(actor);
     const now = this.now();
 
     if (kind === "text") {
@@ -1422,7 +1444,7 @@ class GonServiceCore {
     const totalBytes = existingFiles.reduce((sum, artifact) => sum + (artifact.byteSize ?? 0), 0);
     if (totalBytes + (byteSize as number) > MAX_PROJECT_UPLOAD_BYTES) throw quotaExceeded("Tổng upload của project vượt 100 MB.");
 
-    this.enforceArtifactQuota(actor);
+    await this.enforceArtifactQuota(actor);
     const now = this.now();
     const artifact: ArtifactRecord = {
       id: createId("art"),
@@ -1778,11 +1800,18 @@ class GonServiceCore {
       if (existing) return { data: this.searchAttemptDto(existing), status: 200, replay: true };
     }
 
-    const oneHourAgo = new Date(this.clock().getTime() - 60 * 60 * 1000).toISOString();
-    const recentSearches = [...this.repositories.searchAttempts.values()].filter(
-      (attempt) => attempt.ownerUserId === actor.userId && attempt.createdAt >= oneHourAgo,
-    ).length;
-    if (recentSearches >= this.quotas.searchPerHour) {
+    const { windowStart, windowEnd } = utcHourWindow(this.clock());
+    const searchQuota = await this.repositories.targetedQueries.reserveQuotaUnits({
+      userId: actor.userId,
+      quotaKey: "search_per_hour",
+      windowStart,
+      windowEnd,
+      units: 1,
+      limit: this.quotas.searchPerHour,
+      mode: "consume",
+      createdAt: this.now(),
+    });
+    if (!searchQuota.reserved) {
       throw quotaExceeded(`Private Alpha cho phép tối đa ${this.quotas.searchPerHour} search attempts/người/giờ.`);
     }
 
@@ -2454,7 +2483,7 @@ class GonServiceCore {
     if (body.confirmed !== true) {
       throw unprocessable("BREW_CONFIRMATION_REQUIRED", "Cần xác nhận Brew", "GON không tự chạy Brew khi user chưa xác nhận.");
     }
-    if (!this.featureFlags.brew_enabled) {
+    if (!this.featureFlags.brew_enabled || this.persistentKillSwitchActive("brew_enabled")) {
       throw serviceUnavailable("BREW_DISABLED", "Brew đang tạm dừng", "Kill switch Brew đang bật. Search và module đã có vẫn có thể dùng nếu an toàn.");
     }
     const searchAttempt = this.repositories.searchAttempts.get(searchAttemptId);
@@ -2485,23 +2514,19 @@ class GonServiceCore {
     const replay = this.findIdempotentReplay(actor, "createBrewJob", options.idempotencyKey, payload);
     if (replay) {
       const existing = this.repositories.jobs.get(replay.resourceId);
-      if (existing) return { data: this.brewJobDto(existing.id), status: 200, replay: true };
+      if (existing) return { data: await this.brewJobDto(existing.id), status: 200, replay: true };
     }
-    const existingByFingerprint = [...this.repositories.jobs.values()].find(
-      (job) => job.ownerUserId === actor.userId && job.jobType === "brew_module" && job.inputFingerprint === fingerprint && ["queued", "running", "succeeded"].includes(job.status),
-    );
+    const existingByFingerprint = await this.repositories.targetedQueries.findJobByInputFingerprint({
+      userId: actor.userId,
+      jobType: "brew_module",
+      fingerprint,
+      statuses: ["queued", "running", "succeeded"],
+    });
     if (existingByFingerprint) {
-      return { data: this.brewJobDto(existingByFingerprint.id), status: 200, replay: true };
+      return { data: await this.brewJobDto(existingByFingerprint.id), status: 200, replay: true };
     }
 
-    const startOfDay = new Date(this.clock());
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const brewToday = [...this.repositories.jobs.values()].filter(
-      (job) => job.ownerUserId === actor.userId && job.jobType === "brew_module" && job.createdAt >= startOfDay.toISOString(),
-    ).length;
-    if (brewToday >= this.quotas.brewPerDay) {
-      throw quotaExceeded(`Private Alpha cho phép tối đa ${this.quotas.brewPerDay} Brew job/người/ngày.`);
-    }
+    const { windowStart: dayStart, windowEnd: dayEnd } = utcDayWindow(this.clock());
 
     const job = this.createJob({
       actor,
@@ -2513,6 +2538,38 @@ class GonServiceCore {
       estimatedCostUnits: 1,
       payload: { projectId: project.id, searchAttemptId, stepsCompleted: [] },
     });
+
+    // Persistent quota/budget reservations (P05-R1.6) run through the
+    // targeted port. Failing either reservation throws before COMMIT, so the
+    // job insert above rolls back with the Unit of Work.
+    const brewQuota = await this.repositories.targetedQueries.reserveQuotaUnits({
+      userId: actor.userId,
+      quotaKey: "brew_per_day",
+      windowStart: dayStart,
+      windowEnd: dayEnd,
+      units: 1,
+      limit: this.quotas.brewPerDay,
+      mode: "consume",
+      jobId: job.id,
+      createdAt: this.now(),
+    });
+    if (!brewQuota.reserved) {
+      throw quotaExceeded(`Private Alpha cho phép tối đa ${this.quotas.brewPerDay} Brew job/người/ngày.`);
+    }
+    const costBudget = await this.repositories.targetedQueries.reserveQuotaUnits({
+      userId: actor.userId,
+      quotaKey: "brew_cost_units_per_day",
+      windowStart: dayStart,
+      windowEnd: dayEnd,
+      units: job.estimatedCostUnits,
+      limit: this.quotas.brewCostUnitsPerDay,
+      mode: "reserve",
+      jobId: job.id,
+      createdAt: this.now(),
+    });
+    if (!costBudget.reserved) {
+      throw quotaExceeded(`Ngân sách AI trong ngày đã hết (${this.quotas.brewCostUnitsPerDay} cost units/người/ngày).`);
+    }
     const brew = { jobId: job.id, projectId: project.id, searchAttemptId, resultModuleVersionId: null as string | null };
     this.repositories.brewJobs.set(job.id, brew);
     project.currentBrewJobId = job.id;
@@ -2521,7 +2578,7 @@ class GonServiceCore {
     // Inline processing is orchestrated by GonService.createBrewJob after this
     // Unit of Work commits: AI provider calls must run outside DB transactions.
     this.saveIdempotentResult(actor, "createBrewJob", options.idempotencyKey, payload, "brew_job", job.id, 202);
-    return { data: this.brewJobDto(job.id), status: 202 };
+    return { data: await this.brewJobDto(job.id), status: 202 };
   }
 
   /**
@@ -2547,7 +2604,7 @@ class GonServiceCore {
     const job = this.repositories.jobs.get(jobId);
     if (!job || job.jobType !== "brew_module" || !this.repositories.brewJobs.get(jobId)) throw notFound();
     if (["succeeded", "failed_terminal", "cancelled", "needs_input"].includes(job.status)) {
-      return { kind: "settled", job: this.brewJobDto(jobId) };
+      return { kind: "settled", job: await this.brewJobDto(jobId) };
     }
 
     const owner = this.repositories.users.get(job.ownerUserId);
@@ -2557,15 +2614,15 @@ class GonServiceCore {
     const leaseExpired = !job.leaseExpiresAt || Date.parse(job.leaseExpiresAt) <= nowMs;
     if (job.status === "running" && !leaseExpired) {
       if (!options.alreadyClaimed || job.leaseOwner !== workerId) {
-        return { kind: "settled", job: this.brewJobDto(jobId) };
+        return { kind: "settled", job: await this.brewJobDto(jobId) };
       }
     } else {
       if (job.status !== "running" && Date.parse(job.availableAt) > nowMs && !options.alreadyClaimed) {
-        return { kind: "settled", job: this.brewJobDto(jobId) };
+        return { kind: "settled", job: await this.brewJobDto(jobId) };
       }
       if (job.attemptCount >= job.maxAttempts) {
         this.failJob(job, "JOB_LEASE_EXPIRED", false, job.currentStep);
-        return { kind: "settled", job: this.brewJobDto(jobId) };
+        return { kind: "settled", job: await this.brewJobDto(jobId) };
       }
       job.status = "running";
       job.attemptCount += 1;
@@ -2605,7 +2662,7 @@ class GonServiceCore {
         if (!validation.valid) {
           this.failJob(job, "MODULE_GRAPH_INVALID", false, "verify_citations");
           this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-          return { kind: "settled", job: this.brewJobDto(jobId) };
+          return { kind: "settled", job: await this.brewJobDto(jobId) };
         }
 
         job.currentStep = "persist_draft";
@@ -2639,7 +2696,7 @@ class GonServiceCore {
           projectId: project.id,
           resultModuleVersionId: version.id,
         }, job.id);
-        return { kind: "settled", job: this.brewJobDto(jobId) };
+        return { kind: "settled", job: await this.brewJobDto(jobId) };
       }
 
       job.currentStep = "topic_and_safety_check";
@@ -2650,7 +2707,7 @@ class GonServiceCore {
       if (this.topicIsBlocked(evidenceText)) {
         this.failJob(job, "TOPIC_BLOCKED_BY_POLICY", false, "topic_and_safety_check");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-        return { kind: "settled", job: this.brewJobDto(jobId) };
+        return { kind: "settled", job: await this.brewJobDto(jobId) };
       }
       completeStep("topic_and_safety_check");
 
@@ -2677,7 +2734,7 @@ class GonServiceCore {
         job.leaseOwner = null;
         job.leaseExpiresAt = null;
         this.emit(actor, "brew.job.needs_input", "brew_job", job.id, { projectId: project.id }, job.id);
-        return { kind: "settled", job: this.brewJobDto(jobId) };
+        return { kind: "settled", job: await this.brewJobDto(jobId) };
       }
       completeStep("build_evidence_bundle");
 
@@ -2744,7 +2801,7 @@ class GonServiceCore {
     } catch {
       this.failJob(job, "BREW_FAILED", true, job.currentStep);
       this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-      return { kind: "settled", job: this.brewJobDto(jobId) };
+      return { kind: "settled", job: await this.brewJobDto(jobId) };
     }
   }
 
@@ -2780,13 +2837,14 @@ class GonServiceCore {
         Boolean(job.leaseExpiresAt) &&
         Date.parse(job.leaseExpiresAt!) > this.clock().getTime();
       if (!leaseHeld) {
-        return this.brewJobDto(work.jobId);
+        return await this.brewJobDto(work.jobId);
       }
 
       if (outcome.kind === "provider_error") {
         this.failJob(job, outcome.errorCode, outcome.retryable, "generate_module_graph");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-        return this.brewJobDto(work.jobId);
+        if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, runs);
+        return await this.brewJobDto(work.jobId);
       }
 
       if (outcome.kind === "topic_decision") {
@@ -2809,7 +2867,8 @@ class GonServiceCore {
             clarificationQuestionCount: questions.length,
           }, job.id);
         }
-        return this.brewJobDto(work.jobId);
+        await this.settleBrewCostBudget(job, runs);
+        return await this.brewJobDto(work.jobId);
       }
 
       // Policy revalidation of the provider output (TS stays the authority).
@@ -2820,7 +2879,8 @@ class GonServiceCore {
       if (!validation.valid) {
         this.failJob(job, "MODULE_GRAPH_INVALID", false, "verify_citations");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-        return this.brewJobDto(work.jobId);
+        await this.settleBrewCostBudget(job, runs);
+        return await this.brewJobDto(work.jobId);
       }
       graph.quality.citationCoverage = validation.citationCoverage;
       completeStep("verify_citations");
@@ -2897,18 +2957,44 @@ class GonServiceCore {
       await this.buildCandidateSet(actor, project, searchAttempt, [brewResult], version.id);
       completeStep("build_candidate_set");
 
-      job.actualCostUnits = 0;
       this.succeedJob(job, "succeeded");
+      await this.settleBrewCostBudget(job, runs);
       this.emit(actor, "brew.job.succeeded", "brew_job", job.id, {
         projectId: project.id,
         resultModuleVersionId: version.id,
       }, job.id);
-      return this.brewJobDto(work.jobId);
+      return await this.brewJobDto(work.jobId);
     } catch {
       this.failJob(job, "BREW_FAILED", true, job.currentStep);
       this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-      return this.brewJobDto(work.jobId);
+      if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, runs);
+      return await this.brewJobDto(work.jobId);
     }
+  }
+
+  /**
+   * Settle the persistent AI-cost budget reservation (P05-R1.6) when a Brew
+   * job reaches a terminal state. Consumed units equal the recorded AiRun
+   * cost for this processing pass; the unspent remainder is refunded inside
+   * the same reservation. Retryable failures keep the reservation open so
+   * in-flight budget stays held until the final attempt.
+   */
+  private async settleBrewCostBudget(job: JobRecord, runs: readonly AiRunDraft[]): Promise<void> {
+    const reservations = await this.repositories.targetedQueries.findReservationsByJobId(job.id);
+    const costReservation = reservations.find(
+      (reservation) => reservation.quotaKey === "brew_cost_units_per_day",
+    );
+    if (!costReservation || costReservation.status !== "reserved") return;
+    const consumedUnits = runs.reduce(
+      (sum, run) => sum + (Number.isFinite(run.telemetry.costUnits) ? run.telemetry.costUnits : 0),
+      0,
+    );
+    await this.repositories.targetedQueries.settleQuotaReservation({
+      reservationId: costReservation.id,
+      consumedUnits: Math.max(0, consumedUnits),
+      at: this.now(),
+    });
+    job.actualCostUnits = Math.max(0, consumedUnits);
   }
 
   private recordAiRun(run: AiRunDraft, jobId: string): void {
@@ -2934,18 +3020,18 @@ class GonServiceCore {
     });
   }
 
-  getBrewJob(actor: Actor, jobId: string): JsonRecord {
+  async getBrewJob(actor: Actor, jobId: string): Promise<JsonRecord> {
     this.requireActiveUser(actor);
     const job = this.repositories.jobs.get(jobId);
     if (!job || job.ownerUserId !== actor.userId || job.jobType !== "brew_module") throw notFound();
-    return this.brewJobDto(jobId);
+    return await this.brewJobDto(jobId);
   }
 
-  getJob(actor: Actor, jobId: string): JsonRecord {
+  async getJob(actor: Actor, jobId: string): Promise<JsonRecord> {
     this.requireActiveUser(actor);
     const job = this.repositories.jobs.get(jobId);
     if (!job || job.ownerUserId !== actor.userId) throw notFound();
-    return job.jobType === "brew_module" ? this.brewJobDto(jobId) : this.jobDto(job);
+    return job.jobType === "brew_module" ? await this.brewJobDto(jobId) : this.jobDto(job);
   }
 
   /**
