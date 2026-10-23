@@ -1,0 +1,113 @@
+/*
+ * Storybook-only presentation helpers.
+ *
+ * The product styles still come from src/app/globals.css. These classes are
+ * deliberately namespaced so catalog/specimen layout never leaks into the
+ * production Next.js bundle.
+ */
+.sb-gon-root {
+  min-height: 100vh;
+}
+
+.sb-gon-specimen-shell {
+  width: min(var(--max-width), calc(100% - 32px));
+  margin: 26px auto 80px;
+}
+
+.sb-gon-specimen-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.sb-gon-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sb-gon-swatch {
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid var(--line-on-dark);
+  border-radius: var(--radius-m);
+  color: #fff;
+}
+
+.sb-gon-swatch strong,
+.sb-gon-swatch code,
+.sb-gon-swatch span {
+  display: block;
+}
+
+.sb-gon-swatch code {
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.sb-gon-swatch span {
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.88rem;
+}
+
+.sb-gon-swatch--light {
+  color: var(--ink);
+}
+
+.sb-gon-swatch--light span {
+  color: var(--body-on-light);
+}
+
+.sb-gon-token-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sb-gon-token-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-on-dark);
+}
+
+.sb-gon-radius-demo {
+  min-height: 72px;
+  border: 1px solid rgba(255, 183, 3, 0.48);
+  background: rgba(255, 183, 3, 0.1);
+}
+
+.sb-gon-touch-demo {
+  display: grid;
+  place-items: center;
+  min-height: var(--touch);
+  border: 1px dashed rgba(56, 213, 245, 0.55);
+  border-radius: 999px;
+  color: #9be9ff;
+  font-weight: 900;
+}
+
+.sb-gon-level-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sb-gon-inline-code {
+  padding: 2px 7px;
+  border: 1px solid var(--line-on-dark);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  font-size: 0.88em;
+}
+
+@media (max-width: 900px) {
+  .sb-gon-swatch-grid,
+  .sb-gon-level-grid {
+    grid-template-columns: 1fr;
+  }
+}

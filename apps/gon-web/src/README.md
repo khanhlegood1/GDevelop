@@ -10,6 +10,10 @@
 |---|---|
 | `app/page.tsx`, `app/layout.tsx`, `app/globals.css` | Entry/layout/CSS của VS1 UI |
 | `components/Vs1App.tsx` | Màn hình sign-in/onboarding, project intake, Search/Brew, Output Explorer, Journey Player, Progress và Proof Vault |
+| `components/Vs1App.stories.tsx` | Storybook stories chạy `Vs1App` thật với mock API theo từng trạng thái signed-out/onboarding/workspace/outputs/player/progress/proofs/lỗi/loading |
+| `stories/gonFixtures.ts`, `stories/gonStorybookApi.ts` | Fixture DTO xác định và fetch mock chỉ dùng trong Storybook; mô phỏng envelope/page/Problem Details cùng chuyển trạng thái attempt/XP/proof mà không gọi backend thật |
+| `stories/GonDesignSystem.stories.tsx`, `stories/Introduction.mdx` | Catalog token/pattern dùng CSS production và tài liệu ranh giới Storybook; chưa phải component library đã tách khỏi `Vs1App` |
+| `../.storybook/` | Cấu hình Storybook 10 + Next.js/Vite, manager theme GON, preview tiếng Việt và CSS chỉ dành cho specimen |
 | `lib/api.ts` | Browser client: envelope/Problem Details, CSRF, Idempotency-Key, SHA-256 upload |
 | `app/v1/[...segments]/route.ts` | Mount `/v1` vào dispatcher phía server |
 | `app/api/auth/[...nextauth]/route.ts` | Auth.js handlers |
@@ -51,6 +55,21 @@ npm run dev -- --hostname 0.0.0.0 --port 3000
 
 Dev Auth bị tắt trong `NODE_ENV=production` kể cả khi đặt biến môi trường. Production build có thể render UI và Auth boundary, nhưng domain API dùng memory sẽ fail-closed nếu không có `GON_ALLOW_MEMORY_STORE_IN_PRODUCTION=1`. Override này chỉ dành cho môi trường cô lập không chứa dữ liệu thật; nó không biến memory thành persistence production.
 
+## Storybook custom cho GON
+
+Storybook dùng `Vs1App` và CSS production nhưng thay toàn bộ API bằng fixture/mock deterministic trong trình duyệt. Nó phù hợp để rà soát signed-out, onboarding 18+, workspace, Search/Brew, Output Explorer, Journey Player, Lifelong Progress, Proof Vault, lỗi bootstrap và loading mà không cần Google/PostgreSQL/GCS/Gemini/ADK thật.
+
+```bash
+cd apps/gon-web
+npm ci
+npm run storybook
+# mở http://localhost:6006
+npm run storybook:build
+npm run storybook:smoke
+```
+
+`storybook-static/` là artifact build và đã được ignore. Storybook không phải bằng chứng staging/production, không thay đổi trạng thái P05 **IN REVIEW — NOT YET PASS** và không phải quyết định bắt đầu P06/Go-Live.
+
 Kiểm chứng:
 
 ```bash
@@ -58,6 +77,7 @@ npm test
 npm run test:postgres
 npm run typecheck
 npm run build
+npm run storybook:build
 npm run db:check
 ```
 

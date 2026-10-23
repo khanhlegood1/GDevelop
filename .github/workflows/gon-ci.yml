@@ -66,6 +66,30 @@ jobs:
       - name: Dependency audit
         run: npm audit --audit-level=high
 
+  gon-storybook:
+    name: GON Storybook
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/gon-web
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/gon-web/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Build GON Storybook
+        run: npm run storybook:build
+
   gon-adk:
     name: GON ADK
     runs-on: ubuntu-latest
