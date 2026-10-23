@@ -40,7 +40,7 @@
 | # | Lát cắt | Nội dung chính | Trạng thái |
 |---|---|---|---|
 | R1.7 | Privacy export/delete + account lifecycle | Chuẩn P03 `privacy.request.*`, xóa/ẩn danh dữ liệu user, E2E lifecycle | **xong** — [evidence](../06-nfr/P05-R1.7-PRIVACY-EXPORT-DELETE.md) |
-| R1.8 | Upload/URL safety hardening | SSRF guard, MIME/magic-byte, quarantine theo `safety_status`, chặn URL nội bộ | chờ |
+| R1.8 | Upload/URL safety hardening | SSRF guard, MIME/magic-byte, quarantine theo `safety_status`, chặn URL nội bộ | **xong** — [evidence](../06-nfr/P05-R1.8-UPLOAD-URL-SAFETY.md) |
 | R1.9 | Assess-attempt AI + AI evaluation | Tích hợp `assess_attempt` qua AI provider port + `ai_runs`, eval harness | chờ |
 | R1.10 | Abuse/cost distributed controls | Rate-limit per-IP/edge module, token bucket, budget alert hooks, idempotent flood guard | chờ |
 | R1.11 | Observability + backup/restore/DR | Metrics/logs có cấu trúc, readiness sâu, backup/restore scripts, DR runbook | chờ |
