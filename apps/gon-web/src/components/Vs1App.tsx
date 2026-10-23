@@ -89,6 +89,14 @@ function formatDate(value: unknown): string {
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function isActiveBrewStatus(status: unknown): boolean {
+  return ["queued", "running", "failed_retryable"].includes(String(status));
+}
+
 function statusTone(status: string): string {
   if (["ready", "passed", "completed", "succeeded", "active", "allowed"].includes(status)) return "success";
   if (["metadata_only", "partial", "needs_decision", "needs_revision", "pending_human_review", "ready_with_shortfall"].includes(status)) return "warning";
@@ -430,15 +438,34 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
   async function handleBrew() {
     if (!selectedProjectId || !search?.id) return;
     await run("brew", async () => {
-      const data = await apiRequest<AnyRecord>(`/v1/projects/${selectedProjectId}/brew-jobs`, {
+      let data = await apiRequest<AnyRecord>(`/v1/projects/${selectedProjectId}/brew-jobs`, {
         method: "POST",
         body: { searchAttemptId: String(search.id), confirmed: true },
       });
       setBrewJob(data);
+
+      // Inline mode normally returns a terminal state immediately. In queued
+      // mode the durable job is the source of truth, so poll its public DTO
+      // for a bounded period instead of treating `queued` as a failure.
+      for (let poll = 0; poll < 90 && isActiveBrewStatus(data.status); poll += 1) {
+        setNotice(
+          data.status === "failed_retryable"
+            ? "Brew gặp lỗi tạm thời và đang chờ worker thử lại theo lịch durable job."
+            : "Brew đã vào hàng đợi durable; GON đang chờ worker xử lý.",
+        );
+        await sleep(2_000);
+        data = await apiRequest<AnyRecord>(`/v1/brew-jobs/${String(data.id)}`);
+        setBrewJob(data);
+      }
+
       await loadProjectWorkspace(selectedProjectId);
       if (data.status === "succeeded") {
         setView("outputs");
         setNotice("Brew đã tạo ModuleVersion draft_private và Candidate Outputs. Module chưa được publish cho người khác.");
+      } else if (isActiveBrewStatus(data.status)) {
+        setNotice(
+          `Brew vẫn ở trạng thái ${String(data.status)}. Job đã được lưu durable; bạn có thể tải lại workspace sau khi worker xử lý.`,
+        );
       } else {
         setNotice(`Brew kết thúc ở trạng thái ${String(data.status)}${data.failureCode ? ` (${String(data.failureCode)})` : ""}.`);
       }
@@ -911,7 +938,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                         {brewJob ? <p><span className={`badge ${statusTone(String(brewJob.status))}`}>{String(brewJob.status)}</span> {brewJob.currentStep ? `· ${String(brewJob.currentStep)}` : ""}</p> : null}
                         <div className="button-row">
                           <button className="button gold" type="button" onClick={() => void handleBrew()} disabled={busy !== null || brewJob?.status === "succeeded"}>
-                            {brewJob?.status === "succeeded" ? "Brew đã hoàn tất" : "Bắt đầu Brew"}
+                            {brewJob?.status === "succeeded" ? "Brew đã hoàn tất" : isActiveBrewStatus(brewJob?.status) ? "Theo dõi Brew" : "Bắt đầu Brew"}
                           </button>
                           {explorer ? <button className="button secondary" type="button" onClick={() => setView("outputs")}>Xem hướng học sẵn có</button> : null}
                         </div>

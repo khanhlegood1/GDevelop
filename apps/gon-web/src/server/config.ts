@@ -6,6 +6,7 @@ export interface GonConfig {
   production: boolean;
   requireInvite: boolean;
   brewEnabled: boolean;
+  brewExecutionMode: string;
   arenaEnabled: boolean;
   trendEnabled: boolean;
   gameEventsEnabled: boolean;
@@ -50,6 +51,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): GonConfig {
     production: env.NODE_ENV === "production",
     requireInvite: envFlag(env.GON_REQUIRE_INVITE, true),
     brewEnabled: envFlag(env.GON_BREW_ENABLED, true),
+    brewExecutionMode: env.GON_BREW_EXECUTION_MODE ?? "inline",
     arenaEnabled: envFlag(env.GON_ARENA_ENABLED, true),
     trendEnabled: envFlag(env.GON_TREND_ENABLED, false),
     gameEventsEnabled: envFlag(env.GON_GAME_EVENTS_ENABLED, false),

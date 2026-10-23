@@ -1,12 +1,15 @@
 import { assertRuntimeStoreAllowed, readConfig } from "./config";
 import { getPostgresPool } from "./db";
+import { PostgresJobQueue } from "./postgres-job-queue";
+import { PostgresOutboxPublisher } from "./postgres-outbox";
+import type { SqlExecutor } from "./postgres-search";
 import { MemoryGonStore } from "./memory-store";
 import {
   createPgPoolTransactionRunner,
   PostgresGonStore,
   type PgPoolLike,
 } from "./postgres-store";
-import { GonService } from "./service";
+import { GonService, type BrewExecutionMode } from "./service";
 
 interface GonGlobal {
   __gonService?: GonService;
@@ -19,6 +22,10 @@ export function getGonService(): GonService {
 
   const config = readConfig();
   assertRuntimeStoreAllowed(config);
+  if (!["inline", "queued"].includes(config.brewExecutionMode)) {
+    throw new Error(`Unsupported GON_BREW_EXECUTION_MODE: ${config.brewExecutionMode}`);
+  }
+  const brewExecutionMode = config.brewExecutionMode as BrewExecutionMode;
 
   let store: MemoryGonStore | PostgresGonStore;
   if (config.storeKind === "memory") {
@@ -40,6 +47,7 @@ export function getGonService(): GonService {
   const service = new GonService({
     store,
     requireInvite: config.requireInvite,
+    brewExecutionMode,
     featureFlags: {
       brew_enabled: config.brewEnabled,
       arena_enabled: config.arenaEnabled,
@@ -49,4 +57,18 @@ export function getGonService(): GonService {
   });
   gonGlobal.__gonService = service;
   return service;
+}
+
+function requirePostgresExecutor(): SqlExecutor {
+  const pool = getPostgresPool();
+  if (!pool) throw new Error("PostgreSQL job/outbox workers require DATABASE_URL.");
+  return pool as unknown as SqlExecutor;
+}
+
+export function getPostgresJobQueue(): PostgresJobQueue {
+  return new PostgresJobQueue(requirePostgresExecutor());
+}
+
+export function getPostgresOutboxPublisher(): PostgresOutboxPublisher {
+  return new PostgresOutboxPublisher(requirePostgresExecutor());
 }

@@ -47,7 +47,7 @@ export type AttemptStatus =
 export interface Actor {
   userId: string;
   roles: Array<"learner" | "reviewer" | "admin">;
-  authProvider: "google" | "dev" | "test";
+  authProvider: "google" | "dev" | "test" | "service";
   requestId?: string;
 }
 
@@ -261,6 +261,9 @@ export interface JobRecord {
   actualCostUnits: number;
   failureCode: string | null;
   retryable: boolean;
+  availableAt: string;
+  leaseOwner: string | null;
+  leaseExpiresAt: string | null;
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
@@ -568,6 +571,10 @@ export interface OutboxEventRecord {
   causationId: string | null;
   data: JsonRecord;
   publishState: "pending" | "publishing" | "published" | "failed";
+  availableAt: string;
+  publishedAt: string | null;
+  publishAttemptCount: number;
+  lastErrorCode: string | null;
 }
 
 export interface AuditRecord {

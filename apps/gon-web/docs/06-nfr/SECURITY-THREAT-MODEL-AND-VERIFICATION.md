@@ -37,7 +37,7 @@ Browser (untrusted input/session cookie)
 Next.js web/API ── Auth.js ↔ Google OAuth
   ├─ PostgreSQL/pgvector (wired; bằng chứng hiện tại là PGlite, staging NOT RUN)
   ├─ Object Storage signed uploads (chưa wired)
-  ├─ Durable queue/outbox (chưa wired)
+  ├─ Durable queue/outbox (primitives + Brew runner đã wired local; worker process/sink staging chưa có)
   │    └─ Worker ── service identity ──► Python ADK ──► Gemini
   └─ Embedding provider ───────────────────────────────► Gemini
 

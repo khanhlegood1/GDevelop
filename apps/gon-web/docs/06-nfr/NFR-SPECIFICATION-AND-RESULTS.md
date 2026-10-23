@@ -17,7 +17,7 @@
 
 - PostgreSQL domain repositories/Unit of Work trên managed staging (R1.2 mới có bằng chứng PGlite local);
 - signed Cloud Storage, malware scanning, PDF/OCR/transcript và external URL fetching;
-- durable queue/outbox publisher/reconciler;
+- worker process/sink/consumers cho durable queue/outbox trên staging (primitives đã có bằng chứng PGlite ở R1.3);
 - TypeScript worker → ADK và Gemini generation/embedding thật;
 - Arena vote/realtime, GDevelop game sessions, trend/creator analytics của các slice sau;
 - staging/production infrastructure, CI/CD và observability platform.
@@ -71,7 +71,7 @@ Các quota trên là **domain guardrails local**; chúng mất hiệu lực khi 
 |---|---|---|---|
 | NFR-REL-01 | Availability Private Alpha ≥ 99,5%/tháng cho web/API, không tính downtime bảo trì đã thông báo theo policy PO duyệt | Uptime + error budget | Chưa deploy |
 | NFR-REL-02 | RPO ≤ 1 giờ bằng PITR/backup; RTO ≤ 4 giờ cho Private Alpha | Restore drill có timestamp và kiểm tra dữ liệu | **NOT RUN**; memory hiện mất toàn bộ khi restart |
-| NFR-REL-03 | Job chạy lại sau crash không tạo module/XP/proof trùng; stale running jobs được lease/reconciler thu hồi | Chaos/retry tests trên queue/DB | Idempotency local có test tuần tự; race/multi-instance chưa đạt |
+| NFR-REL-03 | Job chạy lại sau crash không tạo module/XP/proof trùng; stale running jobs được lease/reconciler thu hồi | Chaos/retry tests trên queue/DB | PostgreSQL lease/fencing/retry/reconciler và queued Brew đã qua PGlite; race/multi-instance + crash chaos trên managed staging chưa đạt |
 | NFR-REL-04 | Provider 429/5xx/timeout được phân loại retryable/terminal, có backoff+jitter, circuit breaker và không fallback giả danh provider khác | Fault injection Gemini/ADK | Local fail-closed một phần; provider thật **NOT RUN** |
 | NFR-REL-05 | Migration chỉ tiến về phía trước, checksum immutable; rollback app tương thích schema trước/sau theo expand-contract | Migration rehearsal trên bản sao staging | Static checker đạt; execution **NOT RUN** |
 | NFR-REL-06 | XP/mastery/proof chỉ thay đổi từ server rules đã version; reversal có Audit và không sửa lịch sử âm thầm | Concurrency + Audit tests trên DB | Local service và PostgreSQL UoW trên PGlite đạt các case chính; concurrency/managed-DB drill vẫn chưa chạy |
