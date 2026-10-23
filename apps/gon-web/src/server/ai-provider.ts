@@ -1,9 +1,16 @@
+import { assessAttemptDeterministically } from "./assessment";
 import { stableHash } from "./hash";
 import {
   generateLocalModuleGraph,
   type EvidenceArtifactForGraph,
 } from "./module-graph";
-import type { LearningMode, ModuleGraph } from "./types";
+import type {
+  LearningMode,
+  ModuleGraph,
+  ModuleGraphNode,
+  ModuleGraphRubric,
+} from "./types";
+import type { JsonRecord } from "./validation";
 
 export const TOPIC_CHECK_INPUT_SCHEMA_VERSION =
   "gon.agent.topic-check.input/1.0" as const;
@@ -13,6 +20,10 @@ export const GENERATE_MODULE_INPUT_SCHEMA_VERSION =
   "gon.agent.generate-module.input/1.0" as const;
 export const GENERATE_MODULE_OUTPUT_SCHEMA_VERSION =
   "gon.agent.generate-module.output/1.0" as const;
+export const ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION =
+  "gon.agent.assess-attempt.input/1.0" as const;
+export const ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION =
+  "gon.agent.assess-attempt.output/1.0" as const;
 export const BREW_POLICY_VERSION = "gon-brew-policy/1.0" as const;
 
 const LOCAL_PIPELINE_VERSION = "vs1-local-brew-v1";
@@ -95,6 +106,42 @@ export interface GenerateModuleWork {
   };
 }
 
+/**
+ * Assess-attempt contract (P03 `agent-contracts.schema.json` — the input is
+ * `additionalProperties: false`, so only contract fields cross the ADK HTTP
+ * boundary). `local` carries in-process-only context for the deterministic
+ * adapter and is never serialized to the ADK.
+ */
+export interface AssessAttemptInput {
+  schemaVersion: typeof ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION;
+  attemptId: string;
+  node: JsonRecord;
+  rubric: JsonRecord;
+  answer: { text?: string; artifactSummaries?: string[] };
+}
+
+export interface AssessAttemptOutput {
+  schemaVersion: typeof ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION;
+  decision: "passed" | "needs_revision" | "pending_human_review";
+  criteria: Array<{ criterionId: string; passed: boolean; feedback: string }>;
+  feedback: string;
+  confidence: number;
+  integritySignals?: string[];
+}
+
+export interface AssessAttemptWork {
+  contractInput: AssessAttemptInput;
+  local: {
+    node: ModuleGraphNode;
+    rubric: ModuleGraphRubric;
+    answerText: string;
+    artifactIds: string[];
+    sourceDisclosure: JsonRecord;
+    aiAssistanceDisclosure: JsonRecord;
+    sourceTexts: string[];
+  };
+}
+
 export interface AiCallTelemetry {
   provider: string;
   modelId: string;
@@ -145,6 +192,7 @@ export interface BrewAiProvider {
   readonly pipelineVersion: string;
   topicCheck(input: TopicCheckInput): Promise<AiCallResult<TopicCheckOutput>>;
   generateModule(work: GenerateModuleWork): Promise<AiCallResult<GenerateModuleOutput>>;
+  assessAttempt(work: AssessAttemptWork): Promise<AiCallResult<AssessAttemptOutput>>;
 }
 
 function baseTelemetry(input: {
@@ -183,6 +231,55 @@ export class LocalDeterministicBrewAiProvider implements BrewAiProvider {
   readonly pipelineVersion = LOCAL_PIPELINE_VERSION;
 
   constructor(private readonly now: () => number = () => Date.now()) {}
+
+  /**
+   * Deterministic assessment adapter (P03 §8: rules grade first). Exposed
+   * through the provider port so the service can keep AI calls outside the
+   * Unit of Work uniformly, whether the backend is local or ADK.
+   */
+  async assessAttempt(work: AssessAttemptWork): Promise<AiCallResult<AssessAttemptOutput>> {
+    const startedAt = this.now();
+    const { local } = work;
+    const result = assessAttemptDeterministically({
+      node: local.node,
+      rubric: local.rubric,
+      answerText: local.answerText,
+      artifactIds: local.artifactIds,
+      sourceDisclosure: local.sourceDisclosure,
+      aiAssistanceDisclosure: local.aiAssistanceDisclosure,
+      sourceTexts: local.sourceTexts,
+    });
+    return {
+      output: {
+        schemaVersion: ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION,
+        decision:
+          result.decision === "passed"
+            ? "passed"
+            : result.decision === "needs_revision"
+              ? "needs_revision"
+              : "pending_human_review",
+        criteria: result.criteria.map((item) => ({
+          criterionId: item.criterionId,
+          passed: item.passed,
+          feedback: item.feedback.slice(0, 1000),
+        })),
+        feedback: result.feedback.slice(0, 3000),
+        confidence: result.confidence,
+        integritySignals: [...result.integritySignals],
+      },
+      telemetry: {
+        ...baseTelemetry({
+          provider: this.id,
+          modelId: LOCAL_MODEL_ID,
+          agentPipelineVersion: LOCAL_PIPELINE_VERSION,
+          inputSchemaVersion: ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION,
+          outputSchemaVersion: ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION,
+        }),
+        latencyMs: elapsedMs(startedAt, this.now),
+        finishReason: "completed",
+      },
+    };
+  }
 
   async topicCheck(
     input: TopicCheckInput,
@@ -271,6 +368,44 @@ function stringArray(value: unknown, maxItems: number, maxLength: number): strin
   if (!Array.isArray(value) || value.length > maxItems) return null;
   if (!value.every((item) => typeof item === "string" && item.length <= maxLength)) return null;
   return value;
+}
+
+function parseAssessAttemptOutput(value: unknown): AssessAttemptOutput {
+  const record = (value ?? {}) as Record<string, unknown>;
+  if (record.schemaVersion !== ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION) {
+    throw new Error("ADK assess output schemaVersion mismatch");
+  }
+  const decision = record.decision;
+  if (decision !== "passed" && decision !== "needs_revision" && decision !== "pending_human_review") {
+    throw new Error("ADK assess output decision invalid");
+  }
+  const criteriaRaw = Array.isArray(record.criteria) ? record.criteria : [];
+  if (criteriaRaw.length === 0) throw new Error("ADK assess output criteria missing");
+  const criteria = criteriaRaw.map((item) => {
+    const criterion = (item ?? {}) as Record<string, unknown>;
+    if (typeof criterion.criterionId !== "string" || typeof criterion.passed !== "boolean") {
+      throw new Error("ADK assess output criterion invalid");
+    }
+    return {
+      criterionId: criterion.criterionId,
+      passed: criterion.passed,
+      feedback: typeof criterion.feedback === "string" ? criterion.feedback.slice(0, 1000) : "",
+    };
+  });
+  const confidence = Number(record.confidence);
+  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+    throw new Error("ADK assess output confidence invalid");
+  }
+  return {
+    schemaVersion: ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION,
+    decision,
+    criteria,
+    feedback: typeof record.feedback === "string" ? record.feedback.slice(0, 3000) : "",
+    confidence,
+    integritySignals: Array.isArray(record.integritySignals)
+      ? record.integritySignals.filter((item): item is string => typeof item === "string").slice(0, 32)
+      : [],
+  };
 }
 
 function parseTopicCheckOutput(value: unknown): TopicCheckOutput {
@@ -403,6 +538,19 @@ export class HttpAdkBrewAiProvider implements BrewAiProvider {
       inputSchemaVersion: TOPIC_CHECK_INPUT_SCHEMA_VERSION,
       outputSchemaVersion: TOPIC_CHECK_OUTPUT_SCHEMA_VERSION,
       parse: parseTopicCheckOutput,
+    });
+  }
+
+  async assessAttempt(
+    work: AssessAttemptWork,
+  ): Promise<AiCallResult<AssessAttemptOutput>> {
+    // Only the contract input crosses the boundary (additionalProperties:false).
+    return this.post({
+      path: "/v1/assess-attempt",
+      input: work.contractInput,
+      inputSchemaVersion: ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION,
+      outputSchemaVersion: ASSESS_ATTEMPT_OUTPUT_SCHEMA_VERSION,
+      parse: parseAssessAttemptOutput,
     });
   }
 
@@ -681,6 +829,18 @@ export class CircuitBreakingBrewAiProvider implements BrewAiProvider {
     this.admit();
     try {
       const result = await this.inner.generateModule(work);
+      this.recordSuccess();
+      return result;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
+  }
+
+  async assessAttempt(work: AssessAttemptWork): Promise<AiCallResult<AssessAttemptOutput>> {
+    this.admit();
+    try {
+      const result = await this.inner.assessAttempt(work);
       this.recordSuccess();
       return result;
     } catch (error) {

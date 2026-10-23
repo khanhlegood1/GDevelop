@@ -46,8 +46,11 @@ import {
   LocalDeterministicBrewAiProvider,
   TOPIC_CHECK_INPUT_SCHEMA_VERSION,
   TOPIC_CHECK_OUTPUT_SCHEMA_VERSION,
+  ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION,
   AiProviderError,
   type AiCallTelemetry,
+  type AssessAttemptOutput,
+  type AssessAttemptWork,
   type BrewAiProvider,
   type GenerateModuleInput,
   type GenerateModuleOutput,
@@ -67,6 +70,7 @@ import {
   LEARNING_MODES,
   type Actor,
   type ArtifactRecord,
+  type AssessmentResult,
   type AttemptRecord,
   type CandidateRecord,
   type CandidateSetRecord,
@@ -79,6 +83,8 @@ import {
   type LearningMode,
   type MasteryLevel,
   type ModuleGraph,
+  type ModuleGraphNode,
+  type ModuleGraphRubric,
   type ModuleVersionRecord,
   type PersonalizationRecord,
   type ProjectRecord,
@@ -150,9 +156,29 @@ interface GonServiceCoreOptions extends Omit<GonServiceOptions, "store"> {
 
 /** One AI-provider call's safe telemetry, queued for `ai_runs` persistence. */
 interface AiRunDraft {
-  operation: "topic_check" | "generate_module";
+  operation: "topic_check" | "generate_module" | "assess_attempt";
   telemetry: AiCallTelemetry;
 }
+
+/** AI rubric assessment outcome for a submitted attempt (P05-R1.9). */
+type AttemptAssessOutcome =
+  | { kind: "assessed"; output: AssessAttemptOutput; telemetry: AiCallTelemetry }
+  | { kind: "provider_error"; errorCode: string; retryable: boolean };
+
+interface AttemptAssessWorkPackage {
+  actor: Actor;
+  journeyId: string;
+  attemptId: string;
+  jobId: string;
+  idempotencyKey?: string;
+  payload: JsonRecord;
+  deterministic: AssessmentResult;
+  work: AssessAttemptWork;
+}
+
+type SubmitAttemptPhaseOne =
+  | { kind: "settled"; result: CommandResult<JsonRecord> }
+  | { kind: "assess_ai"; work: AttemptAssessWorkPackage };
 
 /** Generation inputs prepared in a Unit of Work; the AI calls run outside it. */
 interface BrewGenerationWorkPackage {
@@ -4035,15 +4061,15 @@ class GonServiceCore {
     journeyId: string,
     attemptId: string,
     options: { idempotencyKey?: string } = {},
-  ): Promise<CommandResult<JsonRecord>> {
+  ): Promise<SubmitAttemptPhaseOne> {
     this.requireActiveUser(actor);
     const { journey, attempt } = this.requireOwnedAttempt(actor, journeyId, attemptId);
     if (attempt.status !== "draft") {
-      return { data: this.attemptDto(attempt), status: 200, replay: true };
+      return { kind: "settled", result: { data: this.attemptDto(attempt), status: 200, replay: true } };
     }
     const payload = { journeyId, attemptId, version: attempt.version, answerHash: sha256Hex(attempt.answerText ?? "") };
     const replay = this.findIdempotentReplay(actor, "submitAttempt", options.idempotencyKey, payload);
-    if (replay) return { data: this.attemptDto(attempt), status: 200, replay: true };
+    if (replay) return { kind: "settled", result: { data: this.attemptDto(attempt), status: 200, replay: true } };
 
     if (!attempt.answerText || attempt.answerText.trim().length === 0) {
       throw validationError("Cần nhập bài làm trước khi nộp.", [
@@ -4089,17 +4115,73 @@ class GonServiceCore {
       aiAssistanceDisclosure: attempt.aiAssistanceDisclosure,
       sourceTexts,
     });
+    // P03 §8: deterministic rules first. Only unresolved rubric criteria go
+    // to the AI assessor — that provider call runs OUTSIDE this Unit of Work
+    // (R1.5 rule), orchestrated by the GonService wrapper.
+    const wantsAiAssessment =
+      assessment.decision === "pending_human_review" && assessment.integritySignals.length === 0;
+    if (wantsAiAssessment) {
+      attempt.assessment = assessment;
+      attempt.updatedAt = this.now();
+      return {
+        kind: "assess_ai",
+        work: {
+          actor,
+          journeyId: journey.id,
+          attemptId: attempt.id,
+          jobId: job.id,
+          idempotencyKey: options.idempotencyKey,
+          payload,
+          deterministic: assessment,
+          work: {
+            contractInput: {
+              schemaVersion: ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION,
+              attemptId: attempt.id,
+              node: node as unknown as JsonRecord,
+              rubric: rubric as unknown as JsonRecord,
+              answer: { text: attempt.answerText ?? "", artifactSummaries: [] },
+            },
+            local: {
+              node,
+              rubric,
+              answerText: attempt.answerText ?? "",
+              artifactIds: attempt.artifactIds,
+              sourceDisclosure: attempt.sourceDisclosure,
+              aiAssistanceDisclosure: attempt.aiAssistanceDisclosure,
+              sourceTexts,
+            },
+          },
+        },
+      };
+    }
+
     attempt.assessment = assessment;
     attempt.status = assessment.decision;
     attempt.updatedAt = this.now();
+    this.applyAssessmentAndAdvance(actor, journey, attempt, node, version, rubric, assessment, job.id);
+    this.succeedJob(job, "assessment_recorded");
+    this.saveIdempotentResult(actor, "submitAttempt", options.idempotencyKey, payload, "learning_attempt", attempt.id, 202);
+    return { kind: "settled", result: { data: this.attemptDto(attempt), status: 202 } };
+  }
 
+  /** Apply a settled assessment: XP/mastery/proofs and journey advancement. */
+  private applyAssessmentAndAdvance(
+    actor: Actor,
+    journey: JourneyRecord,
+    attempt: AttemptRecord,
+    node: ModuleGraphNode,
+    version: ModuleVersionRecord,
+    rubric: ModuleGraphRubric,
+    assessment: AssessmentResult,
+    jobId: string,
+  ): void {
     if (node.type === "boss_proof") {
       this.appendCommit(journey, actor, "boss_submitted", "Đã nộp Boss Proof", { attemptId: attempt.id });
     }
 
     if (assessment.decision === "passed") {
       for (const conceptId of node.conceptIds) {
-        this.upsertMastery(actor.userId, conceptId, node.assessment.masteryTarget, attempt.id);
+        this.upsertMastery(actor.userId, conceptId, node.assessment!.masteryTarget, attempt.id);
       }
       attempt.xpAwarded = this.postXpForPassedAttempt(actor, journey, attempt, rubric.xpRuleId);
       this.appendCommit(journey, actor, "attempt_passed", `Đạt node ${node.title}`, {
@@ -4111,11 +4193,11 @@ class GonServiceCore {
         journeyId: journey.id,
         nodeId: node.id,
         rubricVersion: rubric.version,
-      }, job.id);
+      }, jobId);
       this.emit(actor, "mastery.changed", "journey_branch", journey.id, {
         nodeId: node.id,
-        masteryTarget: node.assessment.masteryTarget,
-      }, job.id);
+        masteryTarget: node.assessment!.masteryTarget,
+      }, jobId);
 
       if (node.type === "boss_proof") {
         const proof = this.createSystemProof(actor, journey, attempt, version);
@@ -4137,14 +4219,86 @@ class GonServiceCore {
       this.emit(actor, "learning.attempt.needs_revision", "learning_attempt", attempt.id, {
         journeyId: journey.id,
         nodeId: node.id,
-      }, job.id);
+      }, jobId);
     }
 
     journey.currentNodeId = this.computeCurrentNodeId(journey, version.graph);
     journey.version += 1;
     journey.updatedAt = this.now();
+  }
+
+  /** Merge an AI rubric assessment with the deterministic first pass (P03 §8). */
+  private mergeAiAssessment(
+    deterministic: AssessmentResult,
+    output: AssessAttemptOutput,
+    telemetry: AiCallTelemetry,
+  ): AssessmentResult {
+    // P03: confidence < 0.70 must stay pending human review; AI never
+    // auto-upgrades proofs and never concludes fraud from similarity alone.
+    const decision: AssessmentResult["decision"] =
+      output.confidence < 0.7 ? "pending_human_review" : output.decision;
+    return {
+      decision,
+      criteria: output.criteria.map((item) => ({
+        criterionId: item.criterionId,
+        passed: item.passed,
+        feedback: item.feedback,
+      })),
+      feedback: output.feedback || deterministic.feedback,
+      confidence: output.confidence,
+      assessorType: "ai",
+      assessorVersion: telemetry.agentPipelineVersion,
+      integritySignals: [
+        ...deterministic.integritySignals,
+        ...(output.integritySignals ?? []).filter(
+          (signal) => !deterministic.integritySignals.includes(signal),
+        ),
+      ],
+    };
+  }
+
+  /** Phase 3 of AI-assisted submission: settle the attempt in a fresh UoW. */
+  async finishAttemptAiAssessment(
+    workPackage: AttemptAssessWorkPackage,
+    outcome: AttemptAssessOutcome,
+    runs: readonly AiRunDraft[],
+  ): Promise<CommandResult<JsonRecord>> {
+    const { actor, journeyId, attemptId, jobId } = workPackage;
+    const journey = this.repositories.journeys.get(journeyId);
+    const attempt = this.repositories.attempts.get(attemptId);
+    const job = this.repositories.jobs.get(jobId);
+    if (!journey || !attempt || !job) throw notFound();
+    for (const run of runs) this.recordAiRun(run, job.id);
+
+    let assessment = workPackage.deterministic;
+    if (outcome.kind === "assessed") {
+      assessment = this.mergeAiAssessment(workPackage.deterministic, outcome.output, outcome.telemetry);
+    }
+    // provider_error keeps the deterministic pending_human_review outcome:
+    // fail-closed, no XP without an assessment decision.
+    attempt.assessment = assessment;
+    attempt.status = assessment.decision;
+    attempt.updatedAt = this.now();
+
+    const version = this.requireVisibleModuleVersion(actor, journey.upstreamModuleVersionId);
+    const node = version.graph.nodes.find((item) => item.id === attempt.nodeId);
+    const rubric = version.graph.rubrics.find(
+      (item) => item.id === attempt.rubricId && item.version === attempt.rubricVersion,
+    );
+    if (!node || !rubric || !node.assessment) {
+      throw unprocessable("ASSESSMENT_CONTRACT_INVALID", "Module thiếu node/rubric để chấm", "Hãy báo cáo module này để reviewer kiểm tra.");
+    }
+    this.applyAssessmentAndAdvance(actor, journey, attempt, node, version, rubric, assessment, job.id);
     this.succeedJob(job, "assessment_recorded");
-    this.saveIdempotentResult(actor, "submitAttempt", options.idempotencyKey, payload, "learning_attempt", attempt.id, 202);
+    this.saveIdempotentResult(
+      actor,
+      "submitAttempt",
+      workPackage.idempotencyKey,
+      workPackage.payload,
+      "learning_attempt",
+      attempt.id,
+      202,
+    );
     return { data: this.attemptDto(attempt), status: 202 };
   }
 
@@ -4804,7 +4958,49 @@ export class GonService {
     attemptId: string,
     options: { idempotencyKey?: string } = {},
   ): Promise<CommandResult<JsonRecord>> {
-    return this.run((core) => core.submitAttempt(actor, journeyId, attemptId, options));
+    // Phase 1: deterministic submission inside one Unit of Work. Unresolved
+    // rubric criteria hand back an AI work package instead of settling.
+    const phase1 = await this.run((core) => core.submitAttempt(actor, journeyId, attemptId, options));
+    if (phase1.kind === "settled") return phase1.result;
+
+    // Phase 2: the AI rubric call runs OUTSIDE any database transaction
+    // (P05-R1.5 rule). Failures fall back to the deterministic assessment.
+    const workPackage = phase1.work;
+    let outcome: AttemptAssessOutcome;
+    const runs: AiRunDraft[] = [];
+    try {
+      const provider = this.brewAiProvider ?? new LocalDeterministicBrewAiProvider();
+      const result = await provider.assessAttempt(workPackage.work);
+      outcome = { kind: "assessed", output: result.output, telemetry: result.telemetry };
+      runs.push({ operation: "assess_attempt", telemetry: result.telemetry });
+    } catch (error) {
+      outcome = {
+        kind: "provider_error",
+        errorCode: error instanceof AiProviderError ? error.code : "ASSESS_AI_FAILED",
+        retryable: error instanceof AiProviderError ? error.retryable : true,
+      };
+      runs.push({
+        operation: "assess_attempt",
+        telemetry: {
+          provider: "none",
+          modelId: "none",
+          agentPipelineVersion: "none",
+          promptTemplateVersions: [],
+          inputSchemaVersion: ASSESS_ATTEMPT_INPUT_SCHEMA_VERSION,
+          outputSchemaVersion: "gon.agent.assess-attempt.output/1.0",
+          evidenceBundleHash: null,
+          inputTokens: null,
+          outputTokens: null,
+          costUnits: 0,
+          latencyMs: 0,
+          finishReason: null,
+          errorCode: outcome.errorCode,
+        },
+      });
+    }
+
+    // Phase 3: settle in a fresh Unit of Work (XP/mastery only on decision).
+    return this.run((core) => core.finishAttemptAiAssessment(workPackage, outcome, runs));
   }
 
   async getMyProgress(actor: Actor): Promise<JsonRecord> {

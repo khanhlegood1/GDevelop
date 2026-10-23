@@ -68,6 +68,10 @@ class FakeBrewAiProvider implements BrewAiProvider {
   async generateModule(_work: GenerateModuleWork): Promise<never> {
     return this.result() as never;
   }
+
+  async assessAttempt(_work: unknown): Promise<never> {
+    return this.result() as never;
+  }
 }
 
 function topicInput(): TopicCheckInput {
