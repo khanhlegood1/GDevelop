@@ -68,7 +68,7 @@ npm run storybook:build
 npm run storybook:smoke
 ```
 
-`storybook-static/` là artifact build và đã được ignore. Storybook không phải bằng chứng staging/production, không thay đổi trạng thái P05 **IN REVIEW — NOT YET PASS** và không phải quyết định bắt đầu P06/Go-Live.
+`storybook-static/` là artifact build và đã được ignore. Storybook không phải bằng chứng staging/production, không thay đổi trạng thái P05 **IN REVIEW — NOT YET PASS** và không phải quyết định bắt đầu P06/Go-Live. Phân tích phạm vi ảnh hưởng và các quyết định core GDevelop chờ PO chốt sau production được ghi tại [Storybook scope, impact & core decision](../docs/05-build/STORYBOOK-SCOPE-IMPACT-AND-CORE-DECISION.md) (`D-SB-01`…`D-SB-06`).
 
 Kiểm chứng:
 
