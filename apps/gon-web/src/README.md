@@ -2,7 +2,7 @@
 
 Đây là Next.js/TypeScript modular monolith cho GON Private Alpha. Nó không thay thế các prototype tĩnh ở `../index.html` và `../ux-prototype/`; prototype được giữ làm bằng chứng P02/lịch sử, còn thư mục này là nơi triển khai contract P03.
 
-> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; durable job/outbox primitives và queued Brew đã được kiểm chứng trên PGlite. Đây vẫn chưa phải production deployment vì worker process/sink, object storage, Gemini/ADK thật, Google staging E2E và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md), [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) và [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md).
+> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; durable job/outbox primitives, queued Brew, Auth.js DB-session contract và private object-storage port đã được kiểm chứng trên PGlite/fake transport. Đây vẫn chưa phải production deployment vì worker process/sink, bucket/Google/managed staging thật, Gemini/ADK thật và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md), [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md) và [R1.4 evidence](../docs/06-nfr/P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md).
 
 ## Cấu trúc
 
@@ -15,9 +15,11 @@
 | `app/api/auth/[...nextauth]/route.ts` | Auth.js handlers |
 | `app/api/csrf/route.ts` | Double-submit CSRF cookie/token |
 | `app/api/dev/session/route.ts` | Dev session chỉ khi không phải production và `GON_DEV_AUTH=1` |
-| `app/api/local-uploads/[artifactId]/route.ts` | Authorize upload token trước, sau đó mới đọc bytes theo stream trong giới hạn đã khai báo cho local signed-upload simulation |
+| `app/api/local-uploads/[artifactId]/route.ts` | Authorize upload token trước, sau đó mới đọc bytes theo stream trong giới hạn đã khai báo cho local/memory/filesystem adapters; route bị vô hiệu khi storage là GCS |
 | `server/routes.ts` | Dispatcher cho tập VS1 endpoints hiện đã implement |
-| `server/service.ts` | `GonServiceCore` chứa domain rules trên repositories và async `GonService` facade mở một Unit of Work cho mỗi use case |
+| `server/service.ts` | `GonServiceCore` chứa domain rules trên repositories/object-storage port và async `GonService` facade mở một Unit of Work cho mỗi use case |
+| `server/object-storage-config.ts` | Parse/validate `GON_OBJECT_STORAGE`, local directory và GCS service-account config không lộ secret |
+| `server/object-storage.ts` | Private object-storage port; repository/memory/filesystem adapters và GCS V4 signed PUT, bounded download, resumable server-side put |
 | `server/repositories.ts` | Boundary `GonRepositories`/`GonStore`, identity-map collections theo aggregate và capability Search tùy chọn |
 | `server/memory-store.ts` | Local/test Unit-of-Work adapter: clone identity map, rollback khi lỗi, swap khi commit; không phải persistence production |
 | `server/postgres-store.ts` | PostgreSQL Unit-of-Work adapter: load normalized aggregates, diff/flush theo FK order, serializable transaction và retry có giới hạn |
@@ -28,12 +30,12 @@
 | `server/module-graph.ts` | AJV + semantic validation cho `gon.module-graph/1.0`, local graph, player projection không lộ đáp án |
 | `server/assessment.ts` | Deterministic rubric, disclosure và human-review safeguards |
 | `server/embeddings.ts` | Biên `gon-semantic-v1` 768D; local hash provider và Gemini adapter chưa có bằng chứng chạy thật |
-| `server/auth.ts`, `actor.ts` | Auth.js Google boundary và actor resolution từ session server-side |
+| `server/auth-config.ts`, `auth.ts`, `actor.ts` | Auth.js options có thể test độc lập: verified Google profile, persisted-ID identity provisioning ở `events.signIn`, allow-listed session response và actor resolution server-side |
 | `server/http.ts` | Request ID, envelope, Problem Details, same-origin/CSRF, streamed body limits, proxy-header trust có điều kiện, If-Match/Idempotency-Key parsing |
 | `server/db.ts` | `pg.Pool` dùng chung cho Auth.js adapter/domain store với timeout/TLS bounds, redacted pool-error log, schema-aware readiness và close helper |
 | `server/postgres-search.ts` | PostgreSQL hybrid Search repository; authorization trước candidate limit và được thực thi bằng savepoint trong Unit of Work |
-| `server/health.ts` | Liveness/readiness semantics có thể test bằng dependency injection; PostgreSQL phải qua runtime + ping + required-table checks |
-| `server/runtime.ts` | Composition root: chọn memory hoặc PostgreSQL store tường minh; PostgreSQL thiếu `DATABASE_URL` thì fail-fast, memory bị cấm trong production nếu không có override cô lập |
+| `server/health.ts` | Liveness/readiness semantics có thể test bằng dependency injection; production phải qua runtime + PostgreSQL schema + Google/Auth secret/database sessions + GCS checks |
+| `server/runtime.ts` | Composition root: chọn memory/PostgreSQL store và memory/filesystem/GCS object storage tường minh; thiếu cấu hình durable trong production thì fail-fast/readiness fail-closed |
 
 ## Chạy local
 
@@ -69,6 +71,9 @@ npm run db:check
 | `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` hoặc `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` | Google OAuth credentials cho Auth.js. |
 | `AUTH_SECRET` hoặc `NEXTAUTH_SECRET` | Secret của Auth.js. |
 | `AUTH_TRUST_HOST` | Production mặc định không tin forwarded host. Chỉ bật sau khi P06 chứng minh edge proxy ghi đè các forwarded headers. |
+| `GON_OBJECT_STORAGE=memory\|filesystem\|gcs` | Mặc định `memory` cho local/test. Production yêu cầu `gcs`; `filesystem` chỉ durable trên cùng host/PVC và không đạt production readiness. |
+| `GON_LOCAL_OBJECT_DIR` | Thư mục gốc bắt buộc khi dùng filesystem adapter; object key bị khóa dưới root này. |
+| `GON_GCS_BUCKET`, `GON_GCS_SERVICE_ACCOUNT_EMAIL`, `GON_GCS_SERVICE_ACCOUNT_PRIVATE_KEY` | Private bucket và service-account signer cho GCS V4 signed PUT/metadata/download/delete. Private key nhận PEM newline thật hoặc literal `\n`; không commit secret thật. Bucket vẫn phải cấu hình IAM/CORS/lifecycle ngoài repo. |
 | `GON_TRUST_PROXY_HEADERS` | Mặc định tắt. Chỉ bật khi proxy tin cậy tự đặt `X-Forwarded-Host/Proto`; không bật cho traffic trực tiếp từ client. |
 | `GON_PUBLIC_ORIGIN` | Origin công khai dạng `https://...` không path/query; khi hợp lệ sẽ được ưu tiên hơn request host để tạo upload URL. |
 | `GON_REQUIRE_INVITE` | Mặc định bật; invite chỉ lưu SHA-256 hash. |
@@ -88,7 +93,7 @@ npm run db:check
 5. External proof không được nâng lên Issuer-verified bởi client.
 6. Artifact `metadata_only` không được trình bày như đã đọc transcript/nội dung chính.
 7. PDF hiện là `unsupported`; ảnh là `metadata_only`; URL chưa fetch ngoài trong increment local.
-8. PostgreSQL là canonical target theo ADR-0006. Domain repositories đã chạy trên PGlite/PostgreSQL WASM ở R1.2, nhưng chưa được coi là staging/production evidence cho tới khi lặp lại trên managed PostgreSQL với dữ liệu/tải đại diện, TLS/IAM, backup/restore và RLS/role policy đã chốt.
+8. PostgreSQL là canonical target theo ADR-0006. Domain repositories, durable queues, Auth adapter/session và object-storage boundary đã chạy trên PGlite/PostgreSQL WASM/fake transport qua R1.2–R1.4, nhưng chưa được coi là staging/production evidence cho tới khi lặp lại trên managed PostgreSQL + Google OAuth + private GCS với dữ liệu/tải đại diện, TLS/IAM/CORS, backup/restore và RLS/role policy đã chốt.
 9. ADK là worker không trạng thái ở [`../../gon-adk/README.md`](../../gon-adk/README.md); nó không có quyền DB/publish.
 
 ## Phần chưa implement trong dispatcher

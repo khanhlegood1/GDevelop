@@ -130,7 +130,43 @@ describe("health and readiness semantics", () => {
     expect(report).toMatchObject({ status: "ready", checks: { store: { ok: true } } });
   });
 
-  it("calls PostgreSQL ready only when the wired runtime and database both pass", async () => {
+  it("calls PostgreSQL ready only when runtime, database, Auth and object storage pass", async () => {
+    const report = await getReadiness({
+      config: readConfig({
+        NODE_ENV: "production",
+        GON_STORE: "postgres",
+        DATABASE_URL: "postgresql://db.example/gon",
+        AUTH_GOOGLE_ID: "google-client-id",
+        AUTH_GOOGLE_SECRET: "google-client-secret",
+        AUTH_SECRET: "auth-secret",
+        GON_OBJECT_STORAGE: "gcs",
+        GON_GCS_BUCKET: "gon-private-test",
+        GON_GCS_SERVICE_ACCOUNT_EMAIL: "gon@example.iam.gserviceaccount.com",
+        GON_GCS_SERVICE_ACCOUNT_PRIVATE_KEY:
+          "-----BEGIN PRIVATE KEY-----\nplaceholder\n-----END PRIVATE KEY-----",
+      } as NodeJS.ProcessEnv),
+      ensureRuntime: () => undefined,
+      checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
+    });
+    expect(report.status).toBe("ready");
+    expect(report.checks.store).toMatchObject({ kind: "postgres", ok: true });
+    expect(report.checks.database).toMatchObject({ configured: true, required: true, ok: true });
+    expect(report.checks.auth).toMatchObject({
+      googleConfigured: true,
+      secretConfigured: true,
+      databaseSessions: true,
+      required: true,
+      ok: true,
+    });
+    expect(report.checks.objectStorage).toMatchObject({
+      kind: "gcs",
+      configured: true,
+      required: true,
+      ok: true,
+    });
+  });
+
+  it("keeps production not-ready without database Auth or durable private object storage", async () => {
     const report = await getReadiness({
       config: readConfig({
         NODE_ENV: "production",
@@ -140,9 +176,9 @@ describe("health and readiness semantics", () => {
       ensureRuntime: () => undefined,
       checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
     });
-    expect(report.status).toBe("ready");
-    expect(report.checks.store).toMatchObject({ kind: "postgres", ok: true });
-    expect(report.checks.database).toMatchObject({ configured: true, required: true, ok: true });
+    expect(report.status).toBe("not_ready");
+    expect(report.checks.auth.errorCode).toBe("GOOGLE_AUTH_NOT_CONFIGURED");
+    expect(report.checks.objectStorage.errorCode).toBe("OBJECT_STORAGE_NOT_DURABLE");
   });
 
   it("keeps PostgreSQL not-ready when runtime construction fails", async () => {

@@ -32,6 +32,10 @@ import { sha256Hex, stableHash, timingSafeStringEqual } from "./hash";
 import { createId, createOpaqueToken } from "./ids";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { MemoryGonStore } from "./memory-store";
+import {
+  RepositoryObjectStorage,
+  type ObjectStorage,
+} from "./object-storage";
 import type { GonRepositories, GonStore } from "./repositories";
 import {
   generateLocalModuleGraph,
@@ -92,6 +96,7 @@ export interface ProcessQueuedBrewJobOptions {
 
 export interface GonServiceOptions {
   store?: GonStore;
+  objectStorage?: ObjectStorage;
   embeddingProvider?: EmbeddingProvider;
   requireInvite?: boolean;
   brewExecutionMode?: BrewExecutionMode;
@@ -149,6 +154,7 @@ const DEFAULT_FEATURE_FLAGS: Record<string, boolean> = {
 
 class GonServiceCore {
   private readonly repositories: GonRepositories;
+  private readonly objectStorage: ObjectStorage;
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite: boolean;
   private readonly brewExecutionMode: BrewExecutionMode;
@@ -158,6 +164,8 @@ class GonServiceCore {
 
   constructor(options: GonServiceCoreOptions) {
     this.repositories = options.repositories;
+    this.objectStorage =
+      options.objectStorage ?? new RepositoryObjectStorage(this.repositories.objects, options.now);
     this.embeddingProvider = options.embeddingProvider ?? createEmbeddingProvider();
     this.requireInvite = options.requireInvite ?? true;
     this.brewExecutionMode = options.brewExecutionMode ?? "inline";
@@ -1281,13 +1289,19 @@ class GonServiceCore {
     return this.artifactDto(this.requireOwnedArtifact(actor, artifactId));
   }
 
-  deleteArtifact(actor: Actor, artifactId: string): void {
+  async deleteArtifact(actor: Actor, artifactId: string): Promise<void> {
     this.requireActiveUser(actor);
     const artifact = this.requireOwnedArtifact(actor, artifactId);
     artifact.deletedAt = this.now();
     artifact.version += 1;
     this.removeArtifactChunks(artifact.id);
-    if (artifact.storageObjectKey) this.repositories.objects.delete(artifact.storageObjectKey);
+    if (artifact.storageObjectKey) {
+      // Object stores cannot join the database transaction. Deleting bytes
+      // before commit fails toward privacy; a rollback can leave metadata
+      // pointing to a missing object, and the idempotent delete can be
+      // retried. A durable deletion job remains a later hardening item.
+      await this.objectStorage.deleteObject(artifact.storageObjectKey);
+    }
     artifact.sourceText = null;
     const project = this.repositories.projects.get(artifact.projectId);
     if (project) project.updatedAt = this.now();
@@ -1306,19 +1320,21 @@ class GonServiceCore {
     } else if (artifact.originUri) {
       await this.processUrlArtifact(actor, artifact, new URL(artifact.originUri));
     } else if (artifact.storageObjectKey) {
-      const object = this.repositories.objects.get(artifact.storageObjectKey);
+      const object = await this.objectStorage.getObject(artifact.storageObjectKey, {
+        maxBytes: MAX_DOCUMENT_BYTES,
+      });
       if (!object) throw notFound("Object của artifact không còn tồn tại.");
       await this.processUploadedObject(actor, artifact, object.bytes);
     }
     return { data: this.artifactDto(artifact), status: 202 };
   }
 
-  initiateArtifactUpload(
+  async initiateArtifactUpload(
     actor: Actor,
     projectId: string,
     bodyValue: unknown,
     options: { idempotencyKey?: string; baseUrl?: string } = {},
-  ): CommandResult<JsonRecord> {
+  ): Promise<CommandResult<JsonRecord>> {
     this.requireActiveUser(actor);
     const project = this.requireOwnedProject(actor, projectId);
     const body = ensureRecord(bodyValue);
@@ -1387,6 +1403,18 @@ class GonServiceCore {
 
     const token = createOpaqueToken(32);
     const expiresAt = new Date(this.clock().getTime() + 15 * 60 * 1000).toISOString();
+    const baseUrl = (options.baseUrl ?? "http://localhost:3000").replace(/\/$/, "");
+    const uploadPlan = await this.objectStorage.createSignedUpload({
+      key: objectKey,
+      contentType: declaredMimeType,
+      byteSize: byteSize as number,
+      sha256,
+      expiresAt,
+      localUpload: {
+        url: `${baseUrl}/api/local-uploads/${artifact.id}`,
+        token,
+      },
+    });
     this.repositories.artifacts.set(artifact.id, artifact);
     this.repositories.uploadSessions.set(artifact.id, {
       artifactId: artifact.id,
@@ -1405,23 +1433,25 @@ class GonServiceCore {
     });
     this.saveIdempotentResult(actor, "initiateArtifactUpload", options.idempotencyKey, payload, "upload_session", artifact.id, 201);
 
-    const baseUrl = (options.baseUrl ?? "http://localhost:3000").replace(/\/$/, "");
     return {
       status: 201,
       data: {
         artifactId: artifact.id,
-        uploadUrl: `${baseUrl}/api/local-uploads/${artifact.id}`,
-        method: "PUT",
-        headers: {
-          "Content-Type": declaredMimeType,
-          "X-GON-Upload-Token": token,
-        },
-        expiresAt,
+        uploadUrl: uploadPlan.url,
+        method: uploadPlan.method,
+        headers: uploadPlan.headers,
+        expiresAt: uploadPlan.expiresAt,
       },
     };
   }
 
   private requireLocalUploadSession(artifactId: string, token: string | null) {
+    if (this.objectStorage.kind === "gcs") {
+      // Direct-to-GCS uploads must not fall back to the process-local PUT
+      // endpoint, even if a caller presents the otherwise-unused local
+      // session token. The route authorizes before reading a body.
+      throw notFound("Upload session không tồn tại.");
+    }
     const session = this.repositories.uploadSessions.get(artifactId);
     const artifact = this.repositories.artifacts.get(artifactId);
     if (!session || !artifact || artifact.deletedAt) throw notFound("Upload session không tồn tại.");
@@ -1444,22 +1474,35 @@ class GonServiceCore {
     };
   }
 
-  acceptLocalUpload(artifactId: string, token: string | null, bytes: Uint8Array, contentType: string | null): JsonRecord {
+  async acceptLocalUpload(
+    artifactId: string,
+    token: string | null,
+    bytes: Uint8Array,
+    contentType: string | null,
+  ): Promise<JsonRecord> {
     const { session } = this.requireLocalUploadSession(artifactId, token);
     const buffer = Buffer.from(bytes);
     if (buffer.length === 0) throw validationError("File upload rỗng.");
     if (buffer.length > session.declaredByteSize) {
       throw validationError("File thực tế lớn hơn kích thước đã khai báo cho upload session.");
     }
-    this.repositories.objects.set(session.objectKey, {
+    const actualSha256 = sha256Hex(buffer);
+    const stored = await this.objectStorage.putObject({
       key: session.objectKey,
       bytes: buffer,
       contentType: contentType ?? session.declaredMimeType,
-      createdAt: this.now(),
+      sha256: actualSha256,
     });
+    if (stored.byteSize !== buffer.length) {
+      throw serviceUnavailable(
+        "OBJECT_STORAGE_SIZE_MISMATCH",
+        "Object storage chưa xác nhận đúng upload",
+        "Kích thước object storage xác nhận không khớp với bytes đã gửi; hãy thử upload lại.",
+      );
+    }
     session.uploadedAt = this.now();
     session.actualByteSize = buffer.length;
-    session.actualSha256 = sha256Hex(buffer);
+    session.actualSha256 = actualSha256;
     return {
       artifactId,
       byteSize: buffer.length,
@@ -1532,16 +1575,73 @@ class GonServiceCore {
 
     const replay = this.findIdempotentReplay(actor, "completeArtifactUpload", options.idempotencyKey, payload);
     if (replay || session.completedAt) return { data: this.artifactDto(artifact), status: 200, replay: true };
-    if (!session.uploadedAt || !session.actualSha256 || !session.actualByteSize) {
+    const metadata = await this.objectStorage.headObject(session.objectKey);
+    if (!metadata) {
       throw conflict("UPLOAD_NOT_RECEIVED", "Server chưa nhận object upload", "Hãy PUT file tới upload URL trước khi complete-upload.");
     }
-    if (typeof body.sha256 === "string" && body.sha256.toLocaleLowerCase() !== session.actualSha256) {
+    if (metadata.byteSize > MAX_DOCUMENT_BYTES) {
+      artifact.safetyStatus = "blocked";
+      artifact.extractionStatus = "blocked";
+      artifact.failureCode = "ARTIFACT_TOO_LARGE";
+      session.completedAt = this.now();
+      this.saveIdempotentResult(actor, "completeArtifactUpload", options.idempotencyKey, payload, "source_artifact", artifact.id, 202);
+      return { data: this.artifactDto(artifact), status: 202 };
+    }
+    if (
+      !session.uploadedAt &&
+      metadata.updatedAt &&
+      Date.parse(metadata.updatedAt) > Date.parse(session.expiresAt)
+    ) {
+      throw conflict(
+        "UPLOAD_SESSION_EXPIRED",
+        "Upload session đã hết hạn",
+        "Object được ghi sau thời hạn signed upload; hãy khởi tạo upload session mới.",
+      );
+    }
+
+    const object = await this.objectStorage.getObject(session.objectKey, {
+      maxBytes: MAX_DOCUMENT_BYTES,
+    });
+    if (!object) {
+      throw conflict("UPLOAD_NOT_RECEIVED", "Server chưa nhận object upload", "Hãy PUT file tới upload URL trước khi complete-upload.");
+    }
+    const actualByteSize = object.bytes.length;
+    const actualSha256 = sha256Hex(object.bytes);
+    const previouslyAccepted =
+      Boolean(session.uploadedAt) &&
+      typeof session.actualByteSize === "number" &&
+      typeof session.actualSha256 === "string";
+    if (
+      previouslyAccepted &&
+      (session.actualByteSize !== actualByteSize || session.actualSha256 !== actualSha256)
+    ) {
+      artifact.safetyStatus = "blocked";
+      artifact.extractionStatus = "blocked";
+      artifact.failureCode = "ARTIFACT_HASH_OR_SIZE_MISMATCH";
+      session.completedAt = this.now();
+      this.saveIdempotentResult(actor, "completeArtifactUpload", options.idempotencyKey, payload, "source_artifact", artifact.id, 202);
+      return { data: this.artifactDto(artifact), status: 202 };
+    }
+    if (!previouslyAccepted) {
+      // Direct signed-storage uploads bypass GON's local PUT endpoint, so the
+      // session learns the received size/hash only at completion. Recompute
+      // both from bounded server-side bytes instead of trusting storage or
+      // client metadata.
+      session.uploadedAt =
+        metadata.updatedAt && Number.isFinite(Date.parse(metadata.updatedAt))
+          ? new Date(metadata.updatedAt).toISOString()
+          : this.now();
+      session.actualByteSize = actualByteSize;
+      session.actualSha256 = actualSha256;
+    }
+
+    if (typeof body.sha256 === "string" && body.sha256.toLocaleLowerCase() !== actualSha256) {
       throw unprocessable("ARTIFACT_HASH_MISMATCH", "Hash file không khớp", "SHA-256 client gửi khi complete không khớp object server đã nhận.");
     }
-    if (typeof body.byteSize === "number" && body.byteSize !== session.actualByteSize) {
+    if (typeof body.byteSize === "number" && body.byteSize !== actualByteSize) {
       throw unprocessable("ARTIFACT_SIZE_MISMATCH", "Kích thước file không khớp", "Byte size client gửi khi complete không khớp object server đã nhận.");
     }
-    if (session.actualSha256 !== session.declaredSha256 || session.actualByteSize !== session.declaredByteSize) {
+    if (actualSha256 !== session.declaredSha256 || actualByteSize !== session.declaredByteSize) {
       artifact.safetyStatus = "blocked";
       artifact.extractionStatus = "blocked";
       artifact.failureCode = "ARTIFACT_HASH_OR_SIZE_MISMATCH";
@@ -1550,11 +1650,9 @@ class GonServiceCore {
       return { data: this.artifactDto(artifact), status: 202 };
     }
 
-    const object = this.repositories.objects.get(session.objectKey);
-    if (!object) throw notFound("Object upload không tồn tại.");
     session.completedAt = this.now();
-    artifact.byteSize = session.actualByteSize;
-    artifact.sha256 = session.actualSha256;
+    artifact.byteSize = actualByteSize;
+    artifact.sha256 = actualSha256;
     artifact.version += 1;
     await this.processUploadedObject(actor, artifact, object.bytes);
     project.updatedAt = this.now();
@@ -3451,6 +3549,7 @@ class GonServiceCore {
 export class GonService {
   readonly store: GonStore;
 
+  private readonly objectStorage?: ObjectStorage;
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite?: boolean;
   private readonly brewExecutionMode?: BrewExecutionMode;
@@ -3461,6 +3560,7 @@ export class GonService {
 
   constructor(options: GonServiceOptions = {}) {
     this.store = options.store ?? new MemoryGonStore();
+    this.objectStorage = options.objectStorage;
     this.embeddingProvider = options.embeddingProvider ?? createEmbeddingProvider();
     this.requireInvite = options.requireInvite;
     this.brewExecutionMode = options.brewExecutionMode;
@@ -3479,6 +3579,7 @@ export class GonService {
     return this.store.runInTransaction(async (repositories) => {
       const core = new GonServiceCore({
         repositories,
+        objectStorage: this.objectStorage,
         embeddingProvider: this.embeddingProvider,
         requireInvite: this.requireInvite,
         brewExecutionMode: this.brewExecutionMode,

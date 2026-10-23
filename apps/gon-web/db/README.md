@@ -5,7 +5,7 @@ Thư mục này chứa SQL-first migrations cho canonical datastore đã đượ
 ## Trạng thái trung thực hiện tại
 
 - **Đã có:** bảy migration cho Auth.js, GON identity/consent, project/artifact, chunk + `vector(768)`, job/search/module/candidate/ranking, journey/attempt/XP/proof/moderation, outbox/audit/quota/AI run và lease indexes cho durable jobs/outbox.
-- **Đã thực thi local:** R1.1/R1.2/R1.3 đã áp dụng migrations trên PGlite (PostgreSQL 18.6 WASM + pgvector), chạy hybrid Search, toàn bộ domain VS1 qua normalized repositories và durable job/outbox/Brew worker flow. Xem [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) và [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md).
+- **Đã thực thi local:** R1.1/R1.2/R1.3/R1.4 đã áp dụng migrations trên PGlite (PostgreSQL 18.6 WASM + pgvector), chạy hybrid Search, toàn bộ domain VS1 qua normalized repositories, durable job/outbox/Brew worker flow, Auth.js PG adapter/database-session contract và upload completion qua private object-storage port. Xem [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md) và [R1.4 evidence](../docs/06-nfr/P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md).
 - **Đã wired:** `GON_STORE=postgres` dùng PostgreSQL Unit-of-Work khi có `DATABASE_URL` và schema đã migrate. Web runtime không tự chạy migration; thiếu cấu hình/schema thì fail-closed thay vì âm thầm fallback.
 - **Chưa được chứng minh:** managed PostgreSQL/Cloud SQL latency, IAM/TLS/network, RLS/database roles, backup/PITR/restore, load và corpus Search đại diện. PGlite không phải production evidence.
 
@@ -67,5 +67,5 @@ Script chạy trong một transaction rồi rollback. Nó kiểm tra:
 1. Lặp lại migrations, domain tests và S-P03-01 trên managed PostgreSQL staging với TLS/IAM, network policy và corpus đại diện; ghi EXPLAIN/latency thật.
 2. Chuyển các đường nóng từ identity-map load-all của R1.2 sang targeted repository queries/pagination khi corpus tăng, có load test chứng minh.
 3. Chốt database roles/RLS, retention/deletion jobs, backup/PITR/restore drill, region/tier, metrics và alert.
-4. Nối private object storage cho raw bytes, triển khai worker process/scheduler và outbox sink/consumers; queue primitives trên PostgreSQL một mình chưa làm artifact/job/event trở nên durable end-to-end ở production.
-5. Chạy Google/Auth.js database-session/revoke E2E và kiểm tra migration rehearsal/rollback app theo expand-contract trên bản sao staging.
+4. Kiểm chứng private GCS bucket/IAM/CORS/lifecycle thật cho raw bytes, bổ sung orphan/deletion reconciliation, triển khai worker process/scheduler và outbox sink/consumers; code adapter + queue primitives một mình chưa làm artifact/job/event trở nên durable end-to-end ở production.
+5. Chạy Google OAuth/Auth.js Next-route/session/revoke E2E trên staging và kiểm tra migration rehearsal/rollback app theo expand-contract trên bản sao staging; bằng chứng PGlite ở R1.4 không thay thế bước này.
