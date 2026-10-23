@@ -13,6 +13,69 @@ export interface PostgresReadiness {
   errorCode?: string;
 }
 
+/**
+ * Tables required before the PostgreSQL domain Unit of Work or the Auth.js
+ * database adapter can serve traffic. Readiness must fail closed on an empty
+ * or partially migrated database instead of treating `select 1` as proof
+ * that the application schema exists.
+ */
+export const POSTGRES_REQUIRED_TABLES = [
+  "users",
+  "accounts",
+  "sessions",
+  "verification_token",
+  "gon_users",
+  "role_grants",
+  "identity_links",
+  "user_profiles",
+  "invites",
+  "age_attestations",
+  "consents",
+  "learning_projects",
+  "source_artifacts",
+  "artifact_upload_sessions",
+  "content_chunks",
+  "chunk_embeddings",
+  "async_jobs",
+  "modules",
+  "module_versions",
+  "concepts",
+  "module_concepts",
+  "citation_references",
+  "search_attempts",
+  "search_attempt_artifacts",
+  "search_results",
+  "brew_jobs",
+  "candidate_sets",
+  "output_candidates",
+  "ranking_snapshots",
+  "ranking_snapshot_items",
+  "journeys",
+  "branch_commits",
+  "learning_attempts",
+  "learning_attempt_artifacts",
+  "assessment_results",
+  "mastery_states",
+  "xp_ledger_entries",
+  "xp_projections",
+  "proofs",
+  "proof_artifacts",
+  "proof_verification_events",
+  "reports",
+  "moderation_cases",
+  "outbox_events",
+  "audit_logs",
+  "idempotency_records",
+] as const;
+
+export const POSTGRES_SCHEMA_READINESS_SQL = `
+select count(*)::int as present_count
+from (
+  values ${POSTGRES_REQUIRED_TABLES.map((table) => `('${table}')`).join(", ")}
+) as required(table_name)
+where to_regclass(required.table_name) is not null
+`;
+
 function boundedInteger(
   env: NodeJS.ProcessEnv,
   name: string,
@@ -123,6 +186,17 @@ export async function checkPostgresReadiness(timeoutMs = 2_000): Promise<Postgre
     const client = await pool.connect();
     try {
       await client.query("select 1 as ok");
+      const schema = await client.query(POSTGRES_SCHEMA_READINESS_SQL);
+      const presentCount = Number(
+        (schema.rows[0] as { present_count?: unknown } | undefined)?.present_count,
+      );
+      if (presentCount !== POSTGRES_REQUIRED_TABLES.length) {
+        const error = new Error("PostgreSQL schema is not fully migrated") as Error & {
+          code?: string;
+        };
+        error.code = "DATABASE_SCHEMA_NOT_READY";
+        throw error;
+      }
     } finally {
       client.release();
     }

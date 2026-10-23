@@ -6,9 +6,9 @@
 
 | Sự cố | Hành vi hiện tại | Rủi ro | Điều kiện production |
 |---|---|---|---|
-| Web process restart | Toàn bộ `MemoryGonStore`, objects, sessions, jobs, outbox/Audit bị mất | Mất dữ liệu và không thể scale ngang | PostgreSQL/object storage là nguồn sự thật; web stateless |
-| Hai instance cùng chạy | Mỗi process có store riêng; quota/idempotency không nhất quán | Dữ liệu phân mảnh, trùng XP/module | DB transactions/unique constraints/leases |
-| Crash giữa artifact/Search/Brew | Job trong memory biến mất cùng process; không có reconciler | Người dùng không biết trạng thái thật; retry thủ công có thể trùng | Outbox + queue + job lease/heartbeat + idempotent workers |
+| Web process restart | Với `memory` vẫn mất toàn bộ store/objects/dev sessions; với `postgres`, domain rows/outbox/Audit còn nhưng raw object bytes và dev sessions vẫn process-local | Vẫn chưa stateless end-to-end; memory tuyệt đối không dùng cho dữ liệu thật | PostgreSQL + private object storage là nguồn sự thật; Auth.js DB sessions; web stateless |
+| Hai instance cùng chạy | `memory` vẫn phân mảnh theo process; `postgres` dùng serializable transaction/unique constraints nhưng chưa có job leases và chưa load/concurrency test | Vẫn có rủi ro contention/retry và job trùng khi worker xuất hiện | Managed-DB concurrency/load evidence + leases/idempotent workers |
+| Crash giữa artifact/Search/Brew | Job rows có thể đã persist nhưng chưa có worker/reconciler; xử lý hiện vẫn đồng bộ trong use case | Người dùng có thể thấy job dở dang; retry phải dựa idempotency hiện có | Outbox + queue + job lease/heartbeat + idempotent workers |
 | Provider timeout/429/5xx | Embedding timeout 20 giây; Search ghi failed-retryable; ADK timeout cấu hình 120 giây và Google fail-closed | Chưa có backoff/jitter/circuit breaker/budget protection khi retry thật | Error taxonomy, bounded retries, repair tối đa theo P03, circuit breaker |
 | PostgreSQL không sẵn sàng | Runtime domain chưa dùng PostgreSQL; Auth adapter có pool timeout 5 giây, max 10 | Không thể kết luận auth/domain degradation | Readiness tách liveness, pool/statement timeouts, staging fault tests |
 | Migration lỗi | Runner dùng advisory lock, checksum và transaction từng file | Chưa chạy DB thật; rollback app/schema chưa diễn tập | Migration rehearsal trên snapshot staging và expand-contract |

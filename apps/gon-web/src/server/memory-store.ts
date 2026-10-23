@@ -1,5 +1,9 @@
-import { sha256Hex } from "./hash";
-import { createId } from "./ids";
+import {
+  InMemoryGonRepositories,
+  type GonRepositories,
+  type GonStore,
+  type MapRepositoryCollection,
+} from "./repositories";
 import type {
   ArtifactRecord,
   AttemptRecord,
@@ -35,70 +39,175 @@ import type {
 } from "./types";
 
 /**
- * Local/test persistence adapter for the first P04 increment.
- * It is deliberately labelled as memory storage: production persistence is
- * PostgreSQL (see db/migrations) and is not claimed by this class.
+ * Explicit local/test Unit-of-Work adapter.
+ *
+ * Each transaction works on a cloned identity map and swaps it back only
+ * after the use case succeeds. Transactions are serialized in-process: this
+ * adapter is for hermetic tests and local development, not a horizontally
+ * scalable production store. Production persistence is PostgreSQL.
  */
-export class MemoryGonStore {
-  readonly users = new Map<string, UserRecord>();
-  readonly identityLinks = new Map<string, IdentityLinkRecord>();
-  readonly profiles = new Map<string, ProfileRecord>();
-  readonly invitesByHash = new Map<string, InviteRecord>();
-  readonly attestations = new Map<string, AttestationRecord>();
-  readonly consents = new Map<string, ConsentRecord>();
-  readonly devSessions = new Map<string, DevSessionRecord>();
+export class MemoryGonStore implements GonStore {
+  readonly kind = "memory" as const;
+  readonly repositories = new InMemoryGonRepositories();
 
-  readonly projects = new Map<string, ProjectRecord>();
-  readonly artifacts = new Map<string, ArtifactRecord>();
-  readonly chunks = new Map<string, ChunkRecord>();
-  readonly uploadSessions = new Map<string, UploadSessionRecord>();
-  readonly objects = new Map<string, StoredObjectRecord>();
+  private transactionQueue: Promise<void> = Promise.resolve();
 
-  readonly searchAttempts = new Map<string, SearchAttemptRecord>();
-  readonly jobs = new Map<string, JobRecord>();
-  readonly brewJobs = new Map<string, BrewJobRecord>();
-  readonly modules = new Map<string, ModuleRecord>();
-  readonly moduleVersions = new Map<string, ModuleVersionRecord>();
-
-  readonly candidateSets = new Map<string, CandidateSetRecord>();
-  readonly candidates = new Map<string, CandidateRecord>();
-  readonly rankingSnapshots = new Map<string, RankingSnapshotRecord>();
-
-  readonly journeys = new Map<string, JourneyRecord>();
-  readonly branchCommits = new Map<string, BranchCommitRecord>();
-  readonly attempts = new Map<string, AttemptRecord>();
-  readonly mastery = new Map<string, MasteryRecord>();
-  readonly xpLedger = new Map<string, XpLedgerRecord>();
-  readonly proofs = new Map<string, ProofRecord>();
-  readonly reports = new Map<string, ReportRecord>();
-  readonly reviewCases = new Map<string, ReviewCaseRecord>();
-
-  readonly outboxEvents: OutboxEventRecord[] = [];
-  readonly auditLogs: AuditRecord[] = [];
-  readonly idempotencyRecords = new Map<string, IdempotencyRecord>();
-
-  private xpSequenceByUser = new Map<string, number>();
-
-  seedInvite(code: string, expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()): InviteRecord {
-    const codeHash = sha256Hex(code.trim());
-    const existing = this.invitesByHash.get(codeHash);
-    if (existing) return existing;
-    const invite: InviteRecord = {
-      id: createId("inv"),
-      codeHash,
-      status: "active",
-      expiresAt,
-      redeemedByUserId: null,
-      redeemedAt: null,
-      createdAt: new Date().toISOString(),
+  async runInTransaction<T>(
+    work: (repositories: GonRepositories) => Promise<T>,
+  ): Promise<T> {
+    const execute = async (): Promise<T> => {
+      const workingCopy = this.repositories.cloneIdentityMap();
+      const result = await work(workingCopy);
+      this.repositories.replaceIdentityMapFrom(workingCopy);
+      return result;
     };
-    this.invitesByHash.set(codeHash, invite);
-    return invite;
+
+    const result = this.transactionQueue.then(execute, execute);
+    this.transactionQueue = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  async ensureSeedInvite(code: string, expiresAt?: string): Promise<InviteRecord> {
+    return this.seedInvite(code, expiresAt);
+  }
+
+  seedInvite(
+    code: string,
+    expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  ): InviteRecord {
+    return this.repositories.seedInvite(code, expiresAt);
   }
 
   nextXpSequence(userId: string): number {
-    const next = (this.xpSequenceByUser.get(userId) ?? 0) + 1;
-    this.xpSequenceByUser.set(userId, next);
-    return next;
+    return this.repositories.nextXpSequence(userId);
+  }
+
+  // Compatibility accessors for existing hermetic tests and diagnostics.
+  // Domain code uses GonRepositories, not these concrete maps.
+  get users(): Map<string, UserRecord> {
+    return (this.repositories.users as MapRepositoryCollection<string, UserRecord>).map;
+  }
+
+  get identityLinks(): Map<string, IdentityLinkRecord> {
+    return (this.repositories.identityLinks as MapRepositoryCollection<string, IdentityLinkRecord>).map;
+  }
+
+  get profiles(): Map<string, ProfileRecord> {
+    return (this.repositories.profiles as MapRepositoryCollection<string, ProfileRecord>).map;
+  }
+
+  get invitesByHash(): Map<string, InviteRecord> {
+    return (this.repositories.invitesByHash as MapRepositoryCollection<string, InviteRecord>).map;
+  }
+
+  get attestations(): Map<string, AttestationRecord> {
+    return (this.repositories.attestations as MapRepositoryCollection<string, AttestationRecord>).map;
+  }
+
+  get consents(): Map<string, ConsentRecord> {
+    return (this.repositories.consents as MapRepositoryCollection<string, ConsentRecord>).map;
+  }
+
+  get devSessions(): Map<string, DevSessionRecord> {
+    return (this.repositories.devSessions as MapRepositoryCollection<string, DevSessionRecord>).map;
+  }
+
+  get projects(): Map<string, ProjectRecord> {
+    return (this.repositories.projects as MapRepositoryCollection<string, ProjectRecord>).map;
+  }
+
+  get artifacts(): Map<string, ArtifactRecord> {
+    return (this.repositories.artifacts as MapRepositoryCollection<string, ArtifactRecord>).map;
+  }
+
+  get chunks(): Map<string, ChunkRecord> {
+    return (this.repositories.chunks as MapRepositoryCollection<string, ChunkRecord>).map;
+  }
+
+  get uploadSessions(): Map<string, UploadSessionRecord> {
+    return (this.repositories.uploadSessions as MapRepositoryCollection<string, UploadSessionRecord>).map;
+  }
+
+  get objects(): Map<string, StoredObjectRecord> {
+    return (this.repositories.objects as MapRepositoryCollection<string, StoredObjectRecord>).map;
+  }
+
+  get searchAttempts(): Map<string, SearchAttemptRecord> {
+    return (this.repositories.searchAttempts as MapRepositoryCollection<string, SearchAttemptRecord>).map;
+  }
+
+  get jobs(): Map<string, JobRecord> {
+    return (this.repositories.jobs as MapRepositoryCollection<string, JobRecord>).map;
+  }
+
+  get brewJobs(): Map<string, BrewJobRecord> {
+    return (this.repositories.brewJobs as MapRepositoryCollection<string, BrewJobRecord>).map;
+  }
+
+  get modules(): Map<string, ModuleRecord> {
+    return (this.repositories.modules as MapRepositoryCollection<string, ModuleRecord>).map;
+  }
+
+  get moduleVersions(): Map<string, ModuleVersionRecord> {
+    return (this.repositories.moduleVersions as MapRepositoryCollection<string, ModuleVersionRecord>).map;
+  }
+
+  get candidateSets(): Map<string, CandidateSetRecord> {
+    return (this.repositories.candidateSets as MapRepositoryCollection<string, CandidateSetRecord>).map;
+  }
+
+  get candidates(): Map<string, CandidateRecord> {
+    return (this.repositories.candidates as MapRepositoryCollection<string, CandidateRecord>).map;
+  }
+
+  get rankingSnapshots(): Map<string, RankingSnapshotRecord> {
+    return (this.repositories.rankingSnapshots as MapRepositoryCollection<string, RankingSnapshotRecord>).map;
+  }
+
+  get journeys(): Map<string, JourneyRecord> {
+    return (this.repositories.journeys as MapRepositoryCollection<string, JourneyRecord>).map;
+  }
+
+  get branchCommits(): Map<string, BranchCommitRecord> {
+    return (this.repositories.branchCommits as MapRepositoryCollection<string, BranchCommitRecord>).map;
+  }
+
+  get attempts(): Map<string, AttemptRecord> {
+    return (this.repositories.attempts as MapRepositoryCollection<string, AttemptRecord>).map;
+  }
+
+  get mastery(): Map<string, MasteryRecord> {
+    return (this.repositories.mastery as MapRepositoryCollection<string, MasteryRecord>).map;
+  }
+
+  get xpLedger(): Map<string, XpLedgerRecord> {
+    return (this.repositories.xpLedger as MapRepositoryCollection<string, XpLedgerRecord>).map;
+  }
+
+  get proofs(): Map<string, ProofRecord> {
+    return (this.repositories.proofs as MapRepositoryCollection<string, ProofRecord>).map;
+  }
+
+  get reports(): Map<string, ReportRecord> {
+    return (this.repositories.reports as MapRepositoryCollection<string, ReportRecord>).map;
+  }
+
+  get reviewCases(): Map<string, ReviewCaseRecord> {
+    return (this.repositories.reviewCases as MapRepositoryCollection<string, ReviewCaseRecord>).map;
+  }
+
+  get outboxEvents(): OutboxEventRecord[] {
+    return (this.repositories.outboxEvents as { items: OutboxEventRecord[] }).items;
+  }
+
+  get auditLogs(): AuditRecord[] {
+    return (this.repositories.auditLogs as { items: AuditRecord[] }).items;
+  }
+
+  get idempotencyRecords(): Map<string, IdempotencyRecord> {
+    return (this.repositories.idempotencyRecords as MapRepositoryCollection<string, IdempotencyRecord>).map;
   }
 }

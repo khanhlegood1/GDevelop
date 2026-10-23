@@ -5,9 +5,9 @@ Thư mục này chứa SQL-first migrations cho canonical datastore đã đượ
 ## Trạng thái trung thực hiện tại
 
 - **Đã có:** sáu migration cho Auth.js, GON identity/consent, project/artifact, chunk + `vector(768)`, job/search/module/candidate/ranking, journey/attempt/XP/proof/moderation, outbox/audit/quota/AI run.
-- **Chưa được chứng minh trong sandbox:** migration chưa chạy trên PostgreSQL thật vì môi trường hiện tại không có PostgreSQL/container runtime và không có `DATABASE_URL` dùng cho kiểm thử.
-- **Chưa wired:** runtime hiện tại vẫn chỉ chấp nhận `GON_STORE=memory` cho increment VS1 đầu tiên. `GON_STORE=postgres` cố tình fail-fast thay vì âm thầm fallback.
-- Vì vậy các file này là **schema + migration tooling đã sẵn sàng để Audit/spike**, chưa phải bằng chứng PostgreSQL production đã hoạt động.
+- **Đã thực thi local:** R1.1/R1.2 đã áp dụng migrations trên PGlite (PostgreSQL 18.6 WASM + pgvector), chạy hybrid Search và toàn bộ domain VS1 qua normalized repositories. Xem [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md).
+- **Đã wired:** `GON_STORE=postgres` dùng PostgreSQL Unit-of-Work khi có `DATABASE_URL` và schema đã migrate. Web runtime không tự chạy migration; thiếu cấu hình/schema thì fail-closed thay vì âm thầm fallback.
+- **Chưa được chứng minh:** managed PostgreSQL/Cloud SQL latency, IAM/TLS/network, RLS/database roles, backup/PITR/restore, load và corpus Search đại diện. PGlite không phải production evidence.
 
 ## Chạy migration
 
@@ -15,6 +15,13 @@ Thư mục này chứa SQL-first migrations cho canonical datastore đã đượ
 cd apps/gon-web
 npm run db:check
 DATABASE_URL='postgresql://...' npm run db:migrate
+GON_STORE=postgres DATABASE_URL='postgresql://...' npm run dev
+```
+
+Hermetic regression không cần database ngoài:
+
+```bash
+npm run test:postgres
 ```
 
 `db:migrate`:
@@ -54,10 +61,10 @@ Script chạy trong một transaction rồi rollback. Nó kiểm tra:
 - XP không có cột level tối đa. Projection lưu Lifetime XP; level tính bằng `floor(LifetimeXP/100)` theo `gon-level-v1`.
 - Raw binary không lưu trong PostgreSQL; `storage_object_key` trỏ tới private object storage trong triển khai Cloud.
 
-## Những gì còn cần để wired PostgreSQL
+## Những gì còn cần trước staging/production
 
-1. Tách `GonService` khỏi `MemoryGonStore` thành repository interface theo aggregate và Unit of Work.
-2. Implement PostgreSQL write repositories với transaction cho attestation, upload completion, search result, Brew persist, vote về sau, attempt pass → mastery/XP/commit/proof/outbox.
-3. Nối `PostgresHybridSearchRepository` vào cùng transaction/read model sau khi project/artifact/module data đã được persist thật.
-4. Chạy toàn bộ production service tests một lần với memory adapter và một lần với PostgreSQL adapter; sau đó lặp lại migration/S-P03-01 trên managed PostgreSQL staging với corpus đại diện.
-5. Chốt database role/RLS, backup/restore, retention, region/tier và alert trước Go-Live.
+1. Lặp lại migrations, domain tests và S-P03-01 trên managed PostgreSQL staging với TLS/IAM, network policy và corpus đại diện; ghi EXPLAIN/latency thật.
+2. Chuyển các đường nóng từ identity-map load-all của R1.2 sang targeted repository queries/pagination khi corpus tăng, có load test chứng minh.
+3. Chốt database roles/RLS, retention/deletion jobs, backup/PITR/restore drill, region/tier, metrics và alert.
+4. Nối private object storage cho raw bytes và durable queue/outbox worker; PostgreSQL metadata một mình chưa làm artifact/job trở nên durable end-to-end.
+5. Chạy Google/Auth.js database-session/revoke E2E và kiểm tra migration rehearsal/rollback app theo expand-contract trên bản sao staging.

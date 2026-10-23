@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   try {
     requireDevAuth();
     const cookies = parseCookies(request.headers.get("cookie"));
-    const actor = getGonService().resolveDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
+    const actor = await getGonService().resolveDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
     return jsonData({ enabled: true, signedIn: Boolean(actor), userId: actor?.userId ?? null }, 200, requestId);
   } catch (error) {
     return problemResponse(error, requestId);
@@ -40,8 +40,11 @@ export async function POST(request: Request) {
     const body = ensureRecord(await readJsonBody(request));
     const displayName = requiredString(body, "displayName", { minLength: 2, maxLength: 120 });
     const service = getGonService();
-    const user = service.ensureDevUser(displayName);
-    const session = service.createDevSession(user.id);
+    const { user, session } = await service.runInTransaction(async (transactionalService) => {
+      const transactionalUser = await transactionalService.ensureDevUser(displayName);
+      const transactionalSession = await transactionalService.createDevSession(transactionalUser.id);
+      return { user: transactionalUser, session: transactionalSession };
+    });
     const response = jsonData({ userId: user.id, displayName, expiresAt: session.expiresAt }, 201, requestId);
     response.cookies.set({
       name: DEV_SESSION_COOKIE_NAME,
@@ -64,7 +67,7 @@ export async function DELETE(request: Request) {
     requireDevAuth();
     assertCsrf(request);
     const cookies = parseCookies(request.headers.get("cookie"));
-    getGonService().revokeDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
+    await getGonService().revokeDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
     const response = new NextResponse(null, { status: 204 });
     response.headers.set("X-Request-Id", requestId);
     response.cookies.set({

@@ -31,12 +31,13 @@
 4. [Performance, Accessibility và AI Evaluation](06-nfr/PERFORMANCE-ACCESSIBILITY-AND-AI-EVALUATION.md)
 5. [Reliability, Observability, DR và Well-Architected gaps](06-nfr/RELIABILITY-OBSERVABILITY-AND-WELL-ARCHITECTED.md)
 6. [P05-R1.1 — PostgreSQL Foundation, Hybrid Search Repository và CI Gates](06-nfr/P05-R1-POSTGRES-FOUNDATION.md) — remediation partial, gate vẫn chưa đạt
+7. [P05-R1.2 — Domain Repository Boundaries & Unit of Work](06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) — VS1 đã chạy qua PostgreSQL normalized repositories trên PGlite; managed staging/storage/queue vẫn mở
 
 ## Tài liệu P04 đã được phê duyệt
 
 1. [P04 — Vertical Slice Build: baseline, spike và bằng chứng VS1](05-build/README.md) — **APPROVED**
 2. [Production GON Web application](../src/README.md) — Next.js/TypeScript modular monolith theo P03; vẫn là local/test increment, không phải deployment
-3. [PostgreSQL schema & migrations](../db/README.md) — SQL-first schema đã có; chưa chạy trên PostgreSQL thật trong sandbox
+3. [PostgreSQL schema & migrations](../db/README.md) — migrations/domain repositories đã thực thi trên PGlite/PostgreSQL WASM; managed PostgreSQL staging vẫn chưa kiểm chứng
 4. [GON ADK contract service](../../gon-adk/README.md) — Python/FastAPI/ADK harness; local provider đã test, Gemini thật chưa chạy
 
 ## Tài liệu P03 đã được phê duyệt

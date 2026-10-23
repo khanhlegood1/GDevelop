@@ -30,7 +30,9 @@ import {
 } from "./errors";
 import { sha256Hex, stableHash, timingSafeStringEqual } from "./hash";
 import { createId, createOpaqueToken } from "./ids";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { MemoryGonStore } from "./memory-store";
+import type { GonRepositories, GonStore } from "./repositories";
 import {
   generateLocalModuleGraph,
   toPlayerGraph,
@@ -48,6 +50,7 @@ import {
   type CandidateSetRecord,
   type ChunkRecord,
   type ConsentRecord,
+  type InviteRecord,
   type JobRecord,
   type JourneyRecord,
   type LearningMode,
@@ -80,7 +83,7 @@ export interface CommandResult<T> {
 }
 
 export interface GonServiceOptions {
-  store?: MemoryGonStore;
+  store?: GonStore;
   embeddingProvider?: EmbeddingProvider;
   requireInvite?: boolean;
   featureFlags?: Record<string, boolean>;
@@ -90,6 +93,10 @@ export interface GonServiceOptions {
     brewPerDay: number;
     artifactProcessingPerDay: number;
   }>;
+}
+
+interface GonServiceCoreOptions extends Omit<GonServiceOptions, "store"> {
+  repositories: GonRepositories;
 }
 
 const CONSENT_PURPOSES = [
@@ -131,16 +138,16 @@ const DEFAULT_FEATURE_FLAGS: Record<string, boolean> = {
   internal_publish_enabled: false,
 };
 
-export class GonService {
-  readonly store: MemoryGonStore;
+class GonServiceCore {
+  private readonly repositories: GonRepositories;
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite: boolean;
   private readonly featureFlags: Record<string, boolean>;
   private readonly clock: () => Date;
   private readonly quotas: Required<NonNullable<GonServiceOptions["quotas"]>>;
 
-  constructor(options: GonServiceOptions = {}) {
-    this.store = options.store ?? new MemoryGonStore();
+  constructor(options: GonServiceCoreOptions) {
+    this.repositories = options.repositories;
     this.embeddingProvider = options.embeddingProvider ?? createEmbeddingProvider();
     this.requireInvite = options.requireInvite ?? true;
     this.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...(options.featureFlags ?? {}) };
@@ -168,7 +175,7 @@ export class GonService {
     data: JsonRecord = {},
     causationId: string | null = null,
   ): void {
-    this.store.outboxEvents.push({
+    this.repositories.outboxEvents.append({
       eventId: createId("evt"),
       eventType,
       eventVersion: 1,
@@ -184,7 +191,7 @@ export class GonService {
   }
 
   private Audit(actor: Actor, action: string, objectType: string, objectId: string, reason: string | null = null): void {
-    this.store.auditLogs.push({
+    this.repositories.auditLogs.append({
       id: createId("evt"),
       actorType: "user",
       actorId: actor.userId,
@@ -203,7 +210,7 @@ export class GonService {
 
   private findIdempotentReplay(actor: Actor, operation: string, key: string | undefined, payload: unknown) {
     if (!key) return null;
-    const record = this.store.idempotencyRecords.get(this.idempotencyScope(actor, operation, key));
+    const record = this.repositories.idempotencyRecords.get(this.idempotencyScope(actor, operation, key));
     if (!record) return null;
     if (record.requestFingerprint !== stableHash(payload)) {
       throw conflict(
@@ -225,8 +232,10 @@ export class GonService {
     status: number,
   ): void {
     if (!key) return;
-    this.store.idempotencyRecords.set(this.idempotencyScope(actor, operation, key), {
+    this.repositories.idempotencyRecords.set(this.idempotencyScope(actor, operation, key), {
       key,
+      actorUserId: actor.userId,
+      operation,
       requestFingerprint: stableHash(payload),
       resourceType,
       resourceId,
@@ -236,7 +245,7 @@ export class GonService {
   }
 
   private requireUser(actor: Actor): UserRecord {
-    const user = this.store.users.get(actor.userId);
+    const user = this.repositories.users.get(actor.userId);
     if (!user || user.status === "deleted") throw unauthorized("Phiên đăng nhập không còn hợp lệ.");
     return user;
   }
@@ -259,15 +268,15 @@ export class GonService {
   }
 
   private latestAttestation(userId: string) {
-    return [...this.store.attestations.values()]
+    return [...this.repositories.attestations.values()]
       .filter((item) => item.userId === userId)
       .sort((a, b) => b.attestedAt.localeCompare(a.attestedAt))[0];
   }
 
   private consentRecord(userId: string, purpose: string): ConsentRecord {
-    const existing = this.store.consents.get(`${userId}:${purpose}`);
+    const existing = this.repositories.consents.get(`${userId}:${purpose}`);
     if (existing) return existing;
-    const user = this.store.users.get(userId);
+    const user = this.repositories.users.get(userId);
     return {
       userId,
       purpose,
@@ -287,7 +296,7 @@ export class GonService {
       changedAt: this.now(),
       source,
     };
-    this.store.consents.set(`${userId}:${purpose}`, record);
+    this.repositories.consents.set(`${userId}:${purpose}`, record);
     return record;
   }
 
@@ -301,18 +310,18 @@ export class GonService {
   }
 
   private progressDto(userId: string): JsonRecord {
-    const lifetimeXp = [...this.store.xpLedger.values()]
+    const lifetimeXp = [...this.repositories.xpLedger.values()]
       .filter((entry) => entry.userId === userId)
       .reduce((sum, entry) => sum + entry.delta, 0);
     const progress = progressFromXp(lifetimeXp);
-    const mastery = [...this.store.mastery.values()]
+    const mastery = [...this.repositories.mastery.values()]
       .filter((item) => item.userId === userId)
       .sort((a, b) => a.conceptId.localeCompare(b.conceptId))
       .map((item) => this.masteryDto(item));
-    const latestProof = [...this.store.proofs.values()]
+    const latestProof = [...this.repositories.proofs.values()]
       .filter((proof) => proof.ownerUserId === userId && !proof.deletedAt && proof.status !== "deleted")
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-    const nextSteps = [...this.store.journeys.values()]
+    const nextSteps = [...this.repositories.journeys.values()]
       .filter((journey) => journey.ownerUserId === userId && journey.status === "active" && !journey.deletedAt)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .slice(0, 3)
@@ -351,14 +360,14 @@ export class GonService {
     const subject = input.providerSubject.trim();
     if (!subject) throw validationError("Provider subject không được để trống.");
     const key = `${input.provider}:${subject}`;
-    const existingLink = this.store.identityLinks.get(key);
+    const existingLink = this.repositories.identityLinks.get(key);
     if (existingLink) {
-      const user = this.store.users.get(existingLink.userId);
+      const user = this.repositories.users.get(existingLink.userId);
       if (!user) throw unauthorized("Identity link không còn hợp lệ.");
       if (input.authUserId !== undefined && input.authUserId !== null && input.authUserId !== "") {
         user.authUserId = String(input.authUserId);
       }
-      const profile = this.store.profiles.get(user.id);
+      const profile = this.repositories.profiles.get(user.id);
       if (profile && input.displayName && (profile.displayName === "Người học GON" || profile.displayName === "GON Learner")) {
         profile.displayName = truncateText(input.displayName, 120);
       }
@@ -378,15 +387,15 @@ export class GonService {
         ? undefined
         : String(input.authUserId),
     };
-    this.store.users.set(user.id, user);
-    this.store.identityLinks.set(key, {
+    this.repositories.users.set(user.id, user);
+    this.repositories.identityLinks.set(key, {
       userId: user.id,
       provider: input.provider,
       providerSubject: subject,
       emailAtLink: input.email ?? null,
       linkedAt: now,
     });
-    this.store.profiles.set(user.id, {
+    this.repositories.profiles.set(user.id, {
       userId: user.id,
       displayName: truncateText(input.displayName?.trim() || "Người học GON", 120),
       selfDeclaredHeadline: null,
@@ -415,13 +424,21 @@ export class GonService {
 
   findUserIdByAuthUserId(authUserId: string | number): string | undefined {
     const normalized = String(authUserId);
-    return [...this.store.users.values()].find((user) => user.authUserId === normalized)?.id;
+    return [...this.repositories.users.values()].find((user) => user.authUserId === normalized)?.id;
+  }
+
+  findUserById(userId: string): UserRecord | undefined {
+    return this.repositories.users.get(userId);
+  }
+
+  seedInvite(code: string, expiresAt?: string): InviteRecord {
+    return this.repositories.seedInvite(code, expiresAt);
   }
 
   createDevSession(userId: string): { token: string; expiresAt: string } {
     const token = createOpaqueToken(32);
     const expiresAt = new Date(this.clock().getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    this.store.devSessions.set(sha256Hex(token), {
+    this.repositories.devSessions.set(sha256Hex(token), {
       tokenHash: sha256Hex(token),
       userId,
       createdAt: this.now(),
@@ -433,24 +450,24 @@ export class GonService {
   resolveDevSession(token: string | null | undefined): Actor | null {
     if (!token) return null;
     const tokenHash = sha256Hex(token);
-    const session = this.store.devSessions.get(tokenHash);
+    const session = this.repositories.devSessions.get(tokenHash);
     if (!session) return null;
     if (Date.parse(session.expiresAt) <= this.clock().getTime()) {
-      this.store.devSessions.delete(tokenHash);
+      this.repositories.devSessions.delete(tokenHash);
       return null;
     }
-    const user = this.store.users.get(session.userId);
+    const user = this.repositories.users.get(session.userId);
     if (!user || user.status === "deleted") return null;
     return { userId: user.id, roles: user.roles, authProvider: "dev" };
   }
 
   revokeDevSession(token: string | null | undefined): void {
-    if (token) this.store.devSessions.delete(sha256Hex(token));
+    if (token) this.repositories.devSessions.delete(sha256Hex(token));
   }
 
   getBootstrap(actor: Actor): JsonRecord {
     const user = this.requireUser(actor);
-    const profile = this.store.profiles.get(user.id);
+    const profile = this.repositories.profiles.get(user.id);
     if (!profile) throw unauthorized("Hồ sơ người dùng không tồn tại.");
     const attestation = this.latestAttestation(user.id);
     const personalization = this.consentRecord(user.id, "personalization_footprint");
@@ -517,7 +534,7 @@ export class GonService {
     const payloadForIdempotency = { termsVersion, privacyVersion, personalization };
     const replay = this.findIdempotentReplay(actor, "createAgeAttestation", options.idempotencyKey, payloadForIdempotency);
     if (replay) {
-      const existing = this.store.attestations.get(replay.resourceId);
+      const existing = this.repositories.attestations.get(replay.resourceId);
       if (existing) return { data: this.attestationDto(existing), status: 201, replay: true };
     }
 
@@ -527,13 +544,13 @@ export class GonService {
       return { data: this.attestationDto(existing), status: 201, replay: true };
     }
 
-    let invite: ReturnType<MemoryGonStore["invitesByHash"]["get"]>;
+    let invite: InviteRecord | undefined;
     if (this.requireInvite && !existing) {
       const code = optionalString(body, "inviteCode", { maxLength: 256 }) ?? options.inviteCode?.trim();
       if (!code) {
         throw forbidden("INVITE_REQUIRED", "Cần mã mời Private Alpha", "Hãy dùng invite link hoặc nhập mã mời hợp lệ.", "redeem_invite");
       }
-      invite = this.store.invitesByHash.get(sha256Hex(code));
+      invite = this.repositories.invitesByHash.get(sha256Hex(code));
       const expired = invite ? Date.parse(invite.expiresAt) <= this.clock().getTime() : true;
       const redeemedByOther = Boolean(invite?.redeemedByUserId && invite.redeemedByUserId !== user.id);
       if (!invite || invite.status === "revoked" || expired || redeemedByOther) {
@@ -554,7 +571,7 @@ export class GonService {
       privacyVersion,
       attestedAt: this.now(),
     };
-    this.store.attestations.set(attestation.id, attestation);
+    this.repositories.attestations.set(attestation.id, attestation);
     if (invite && !invite.redeemedByUserId) {
       invite.status = "redeemed";
       invite.redeemedByUserId = user.id;
@@ -608,34 +625,34 @@ export class GonService {
   }
 
   private requireOwnedProject(actor: Actor, projectId: string): ProjectRecord {
-    const project = this.store.projects.get(projectId);
+    const project = this.repositories.projects.get(projectId);
     if (!project || project.ownerUserId !== actor.userId || project.deletedAt) throw notFound();
     return project;
   }
 
   private projectArtifacts(projectId: string): ArtifactRecord[] {
-    return [...this.store.artifacts.values()]
+    return [...this.repositories.artifacts.values()]
       .filter((artifact) => artifact.projectId === projectId && !artifact.deletedAt)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
   private latestSearch(projectId: string): SearchAttemptRecord | undefined {
-    return [...this.store.searchAttempts.values()]
+    return [...this.repositories.searchAttempts.values()]
       .filter((item) => item.projectId === projectId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   }
 
   private latestBrewJob(projectId: string): (JobRecord & { brew: { projectId: string; searchAttemptId: string; resultModuleVersionId: string | null } }) | undefined {
-    const brew = [...this.store.brewJobs.values()]
+    const brew = [...this.repositories.brewJobs.values()]
       .filter((item) => item.projectId === projectId)
-      .map((item) => ({ brew: item, job: this.store.jobs.get(item.jobId) }))
+      .map((item) => ({ brew: item, job: this.repositories.jobs.get(item.jobId) }))
       .filter((item): item is { brew: NonNullable<typeof item.brew>; job: JobRecord } => Boolean(item.job))
       .sort((a, b) => b.job.createdAt.localeCompare(a.job.createdAt))[0];
     return brew ? { ...brew.job, brew: brew.brew } : undefined;
   }
 
   private latestCandidateSet(projectId: string): CandidateSetRecord | undefined {
-    return [...this.store.candidateSets.values()]
+    return [...this.repositories.candidateSets.values()]
       .filter((item) => item.projectId === projectId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   }
@@ -650,10 +667,10 @@ export class GonService {
     const latestSearch = this.latestSearch(project.id);
     const latestBrew = this.latestBrewJob(project.id);
     const candidateSet = this.latestCandidateSet(project.id);
-    const activeJourney = [...this.store.journeys.values()].find(
+    const activeJourney = [...this.repositories.journeys.values()].find(
       (journey) => journey.projectId === project.id && journey.ownerUserId === project.ownerUserId && journey.status === "active" && !journey.deletedAt,
     );
-    const completedJourney = [...this.store.journeys.values()].find(
+    const completedJourney = [...this.repositories.journeys.values()].find(
       (journey) => journey.projectId === project.id && journey.ownerUserId === project.ownerUserId && journey.status === "completed" && !journey.deletedAt,
     );
 
@@ -714,13 +731,13 @@ export class GonService {
   }
 
   private artifactChunks(artifactId: string): ChunkRecord[] {
-    return [...this.store.chunks.values()]
+    return [...this.repositories.chunks.values()]
       .filter((chunk) => chunk.artifactId === artifactId && !chunk.deletedAt)
       .sort((a, b) => a.ordinal - b.ordinal);
   }
 
   private removeArtifactChunks(artifactId: string): void {
-    for (const chunk of this.artifactChunks(artifactId)) this.store.chunks.delete(chunk.id);
+    for (const chunk of this.artifactChunks(artifactId)) this.repositories.chunks.delete(chunk.id);
   }
 
   private createJob(input: {
@@ -755,7 +772,7 @@ export class GonService {
       cancelledAt: null,
       payload: input.payload ?? {},
     };
-    this.store.jobs.set(job.id, job);
+    this.repositories.jobs.set(job.id, job);
     return job;
   }
 
@@ -795,8 +812,8 @@ export class GonService {
   }
 
   private brewJobDto(jobId: string): JsonRecord {
-    const job = this.store.jobs.get(jobId);
-    const brew = this.store.brewJobs.get(jobId);
+    const job = this.repositories.jobs.get(jobId);
+    const brew = this.repositories.brewJobs.get(jobId);
     if (!job || !brew) throw notFound();
     return {
       ...this.jobDto(job),
@@ -804,8 +821,8 @@ export class GonService {
       searchAttemptId: brew.searchAttemptId,
       resultModuleVersionId: brew.resultModuleVersionId,
       quota: {
-        usedToday: [...this.store.brewJobs.values()].filter((item) => {
-          const related = this.store.jobs.get(item.jobId);
+        usedToday: [...this.repositories.brewJobs.values()].filter((item) => {
+          const related = this.repositories.jobs.get(item.jobId);
           return related?.ownerUserId === job.ownerUserId && related.createdAt.slice(0, 10) === this.now().slice(0, 10);
         }).length,
         dailyLimit: this.quotas.brewPerDay,
@@ -814,7 +831,7 @@ export class GonService {
   }
 
   private countArtifactsProcessedSince(userId: string, sinceIso: string): number {
-    return [...this.store.artifacts.values()].filter(
+    return [...this.repositories.artifacts.values()].filter(
       (artifact) => artifact.ownerUserId === userId && artifact.createdAt >= sinceIso,
     ).length;
   }
@@ -865,7 +882,7 @@ export class GonService {
           weight: 1,
           deletedAt: null,
         };
-        this.store.chunks.set(chunk.id, chunk);
+        this.repositories.chunks.set(chunk.id, chunk);
       }
       artifact.extractionStatus = "ready";
       artifact.failureCode = null;
@@ -924,7 +941,7 @@ export class GonService {
         weight: 0.25,
         deletedAt: null,
       };
-      this.store.chunks.set(chunk.id, chunk);
+      this.repositories.chunks.set(chunk.id, chunk);
       artifact.coverage = { hasMetadata: true, hasText: false, hasTranscript: false, chunkCount: 1 };
       this.succeedJob(job, "metadata_only");
       this.emit(actor, "artifact.extraction.completed", "source_artifact", artifact.id, {
@@ -955,7 +972,7 @@ export class GonService {
 
     const replay = this.findIdempotentReplay(actor, "createProject", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.projects.get(replay.resourceId);
+      const existing = this.repositories.projects.get(replay.resourceId);
       if (existing) return { data: this.projectDto(existing), status: 201, replay: true };
     }
 
@@ -1006,8 +1023,8 @@ export class GonService {
       version: 1,
     };
 
-    this.store.projects.set(project.id, project);
-    this.store.artifacts.set(artifact.id, artifact);
+    this.repositories.projects.set(project.id, project);
+    this.repositories.artifacts.set(artifact.id, artifact);
     await this.processTextArtifact(actor, artifact, prompt);
     project.updatedAt = this.now();
     this.emit(actor, "project.created", "learning_project", project.id, { learningMode, depth, timeBudgetMinutes });
@@ -1018,7 +1035,7 @@ export class GonService {
   listProjects(actor: Actor, query: { limit?: number; cursor?: string; search?: string; status?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
     this.requireActiveUser(actor);
     const search = query.search ? normalizeForSearch(query.search) : "";
-    const all = [...this.store.projects.values()]
+    const all = [...this.repositories.projects.values()]
       .filter((project) => project.ownerUserId === actor.userId && !project.deletedAt)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .filter((project) => {
@@ -1068,9 +1085,9 @@ export class GonService {
     const latestSearch = this.latestSearch(project.id);
     const latestBrew = this.latestBrewJob(project.id);
     const candidateSet = this.latestCandidateSet(project.id);
-    const hasJourney = [...this.store.journeys.values()].some((journey) => journey.projectId === project.id && !journey.deletedAt);
-    const hasProof = [...this.store.proofs.values()].some((proof) => {
-      const journey = proof.journeyId ? this.store.journeys.get(proof.journeyId) : undefined;
+    const hasJourney = [...this.repositories.journeys.values()].some((journey) => journey.projectId === project.id && !journey.deletedAt);
+    const hasProof = [...this.repositories.proofs.values()].some((proof) => {
+      const journey = proof.journeyId ? this.repositories.journeys.get(proof.journeyId) : undefined;
       return journey?.projectId === project.id && !proof.deletedAt;
     });
 
@@ -1116,7 +1133,7 @@ export class GonService {
 
     const replay = this.findIdempotentReplay(actor, "addProjectArtifact", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.artifacts.get(replay.resourceId);
+      const existing = this.repositories.artifacts.get(replay.resourceId);
       if (existing) return { data: this.artifactDto(existing), status: 200, replay: true };
     }
 
@@ -1149,7 +1166,7 @@ export class GonService {
         deletedAt: null,
         version: 1,
       };
-      this.store.artifacts.set(artifact.id, artifact);
+      this.repositories.artifacts.set(artifact.id, artifact);
       await this.processTextArtifact(actor, artifact, text);
       project.updatedAt = this.now();
       this.emit(actor, "artifact.created", "source_artifact", artifact.id, { projectId: project.id, kind });
@@ -1196,7 +1213,7 @@ export class GonService {
       deletedAt: null,
       version: 1,
     };
-    this.store.artifacts.set(artifact.id, artifact);
+    this.repositories.artifacts.set(artifact.id, artifact);
     await this.processUrlArtifact(actor, artifact, parsed);
     project.updatedAt = this.now();
     this.emit(actor, "artifact.created", "source_artifact", artifact.id, { projectId: project.id, kind });
@@ -1211,7 +1228,7 @@ export class GonService {
   }
 
   private requireOwnedArtifact(actor: Actor, artifactId: string): ArtifactRecord {
-    const artifact = this.store.artifacts.get(artifactId);
+    const artifact = this.repositories.artifacts.get(artifactId);
     if (!artifact || artifact.ownerUserId !== actor.userId || artifact.deletedAt) throw notFound();
     return artifact;
   }
@@ -1227,9 +1244,9 @@ export class GonService {
     artifact.deletedAt = this.now();
     artifact.version += 1;
     this.removeArtifactChunks(artifact.id);
-    if (artifact.storageObjectKey) this.store.objects.delete(artifact.storageObjectKey);
+    if (artifact.storageObjectKey) this.repositories.objects.delete(artifact.storageObjectKey);
     artifact.sourceText = null;
-    const project = this.store.projects.get(artifact.projectId);
+    const project = this.repositories.projects.get(artifact.projectId);
     if (project) project.updatedAt = this.now();
     this.emit(actor, "artifact.deleted", "source_artifact", artifact.id, { projectId: artifact.projectId });
     this.Audit(actor, "artifact.deleted", "source_artifact", artifact.id);
@@ -1246,7 +1263,7 @@ export class GonService {
     } else if (artifact.originUri) {
       await this.processUrlArtifact(actor, artifact, new URL(artifact.originUri));
     } else if (artifact.storageObjectKey) {
-      const object = this.store.objects.get(artifact.storageObjectKey);
+      const object = this.repositories.objects.get(artifact.storageObjectKey);
       if (!object) throw notFound("Object của artifact không còn tồn tại.");
       await this.processUploadedObject(actor, artifact, object.bytes);
     }
@@ -1280,7 +1297,7 @@ export class GonService {
     const payload = { projectId, kind, fileName, declaredMimeType, byteSize, sha256, rightsBasis };
     const replay = this.findIdempotentReplay(actor, "initiateArtifactUpload", options.idempotencyKey, payload);
     if (replay) {
-      const session = this.store.uploadSessions.get(replay.resourceId);
+      const session = this.repositories.uploadSessions.get(replay.resourceId);
       if (session) {
         throw conflict(
           "UPLOAD_SESSION_ALREADY_CREATED",
@@ -1327,8 +1344,8 @@ export class GonService {
 
     const token = createOpaqueToken(32);
     const expiresAt = new Date(this.clock().getTime() + 15 * 60 * 1000).toISOString();
-    this.store.artifacts.set(artifact.id, artifact);
-    this.store.uploadSessions.set(artifact.id, {
+    this.repositories.artifacts.set(artifact.id, artifact);
+    this.repositories.uploadSessions.set(artifact.id, {
       artifactId: artifact.id,
       projectId: project.id,
       ownerUserId: actor.userId,
@@ -1362,8 +1379,8 @@ export class GonService {
   }
 
   private requireLocalUploadSession(artifactId: string, token: string | null) {
-    const session = this.store.uploadSessions.get(artifactId);
-    const artifact = this.store.artifacts.get(artifactId);
+    const session = this.repositories.uploadSessions.get(artifactId);
+    const artifact = this.repositories.artifacts.get(artifactId);
     if (!session || !artifact || artifact.deletedAt) throw notFound("Upload session không tồn tại.");
     if (!token || !timingSafeStringEqual(sha256Hex(token), session.tokenHash)) {
       throw unauthorized("Token upload không hợp lệ.");
@@ -1391,7 +1408,7 @@ export class GonService {
     if (buffer.length > session.declaredByteSize) {
       throw validationError("File thực tế lớn hơn kích thước đã khai báo cho upload session.");
     }
-    this.store.objects.set(session.objectKey, {
+    this.repositories.objects.set(session.objectKey, {
       key: session.objectKey,
       bytes: buffer,
       contentType: contentType ?? session.declaredMimeType,
@@ -1465,7 +1482,7 @@ export class GonService {
     const project = this.requireOwnedProject(actor, projectId);
     const artifact = this.requireOwnedArtifact(actor, artifactId);
     if (artifact.projectId !== project.id) throw notFound();
-    const session = this.store.uploadSessions.get(artifactId);
+    const session = this.repositories.uploadSessions.get(artifactId);
     if (!session) throw notFound("Upload session không tồn tại.");
     const body = bodyValue ? ensureRecord(bodyValue) : {};
     const payload = { projectId, artifactId, sha256: body.sha256, byteSize: body.byteSize };
@@ -1490,7 +1507,7 @@ export class GonService {
       return { data: this.artifactDto(artifact), status: 202 };
     }
 
-    const object = this.store.objects.get(session.objectKey);
+    const object = this.repositories.objects.get(session.objectKey);
     if (!object) throw notFound("Object upload không tồn tại.");
     session.completedAt = this.now();
     artifact.byteSize = session.actualByteSize;
@@ -1528,7 +1545,7 @@ export class GonService {
   }
 
   private visibleModuleVersions(actor: Actor): ModuleVersionRecord[] {
-    return [...this.store.moduleVersions.values()].filter((version) => {
+    return [...this.repositories.moduleVersions.values()].filter((version) => {
       if (["hidden", "retired"].includes(version.publicationStatus)) return false;
       return version.createdByUserId === actor.userId || version.publicationStatus === "internal_reviewed" || version.visibility === "internal_reviewed";
     });
@@ -1541,7 +1558,7 @@ export class GonService {
   }
 
   private moduleChunks(moduleVersionId: string): ChunkRecord[] {
-    return [...this.store.chunks.values()].filter((chunk) => chunk.moduleVersionId === moduleVersionId && !chunk.deletedAt);
+    return [...this.repositories.chunks.values()].filter((chunk) => chunk.moduleVersionId === moduleVersionId && !chunk.deletedAt);
   }
 
   private topicIsBlocked(text: string): boolean {
@@ -1561,12 +1578,12 @@ export class GonService {
     const payload = { projectId, artifactIds: requestedArtifactIds };
     const replay = this.findIdempotentReplay(actor, "createSearchAttempt", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.searchAttempts.get(replay.resourceId);
+      const existing = this.repositories.searchAttempts.get(replay.resourceId);
       if (existing) return { data: this.searchAttemptDto(existing), status: 200, replay: true };
     }
 
     const oneHourAgo = new Date(this.clock().getTime() - 60 * 60 * 1000).toISOString();
-    const recentSearches = [...this.store.searchAttempts.values()].filter(
+    const recentSearches = [...this.repositories.searchAttempts.values()].filter(
       (attempt) => attempt.ownerUserId === actor.userId && attempt.createdAt >= oneHourAgo,
     ).length;
     if (recentSearches >= this.quotas.searchPerHour) {
@@ -1607,7 +1624,7 @@ export class GonService {
       createdAt: this.now(),
       completedAt: null,
     };
-    this.store.searchAttempts.set(attempt.id, attempt);
+    this.repositories.searchAttempts.set(attempt.id, attempt);
     project.currentSearchAttemptId = attempt.id;
 
     const job = this.createJob({
@@ -1636,7 +1653,7 @@ export class GonService {
     try {
       const project = this.requireOwnedProject(actor, attempt.projectId);
       const artifacts = attempt.artifactIds
-        .map((artifactId) => this.store.artifacts.get(artifactId))
+        .map((artifactId) => this.repositories.artifacts.get(artifactId))
         .filter((artifact): artifact is ArtifactRecord => Boolean(artifact && !artifact.deletedAt));
       const blockedArtifacts = artifacts.filter((artifact) => artifact.safetyStatus === "blocked" || artifact.extractionStatus === "blocked");
       const usableArtifacts = artifacts.filter(
@@ -1673,37 +1690,89 @@ export class GonService {
 
       const queryEmbedding = await this.embeddingProvider.embed(queryText);
       const queryTokens = tokenSet(queryText);
-      const scored = this.visibleModuleVersions(actor).map((version) => {
-        const chunks = this.moduleChunks(version.id);
-        const vector = chunks.length === 0
-          ? 0
-          : Math.max(...chunks.map((chunk) => Math.max(0, cosineSimilarity(queryEmbedding.vector, chunk.embedding)) * chunk.weight));
-        const moduleText = `${version.title} ${version.summary} ${version.graph.module.concepts.map((concept) => `${concept.name} ${concept.description}`).join(" ")}`;
-        const lexical = jaccardSimilarity(queryText, moduleText);
-        const coreConcepts = version.graph.module.concepts.filter((concept) => concept.role === "core");
-        const matchedConcepts: string[] = [];
-        const missingConcepts: string[] = [];
-        for (const concept of coreConcepts) {
-          const conceptTokens = tokenSet(`${concept.name} ${concept.id.replace(/_/g, " ")}`);
-          const overlap = [...conceptTokens].filter((token) => queryTokens.has(token)).length;
-          const matched = overlap >= Math.min(2, Math.max(1, conceptTokens.size));
-          (matched ? matchedConcepts : missingConcepts).push(concept.name);
+      interface ScoredModuleVersion {
+        version: ModuleVersionRecord;
+        matchedConcepts: string[];
+        missingConcepts: string[];
+        scores: SearchResultRecord["internalScores"];
+      }
+      let scored: ScoredModuleVersion[];
+
+      if (this.repositories.hybridSearch) {
+        // PostgreSQL is authoritative for candidate generation and scoring.
+        // Visible module graphs in this Unit of Work are used only to turn
+        // query text into bounded concept IDs and to map returned IDs back to
+        // learner-facing names; authorization happens in SQL before LIMIT.
+        const conceptNameById = new Map<string, string>();
+        const queryConceptIds: string[] = [];
+        const conceptIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+        for (const version of this.visibleModuleVersions(actor)) {
+          for (const concept of version.graph.module.concepts) {
+            if (!conceptNameById.has(concept.id)) conceptNameById.set(concept.id, concept.name);
+            if (concept.role !== "core" || !conceptIdPattern.test(concept.id)) continue;
+            const conceptTokens = tokenSet(`${concept.name} ${concept.id.replace(/_/g, " ")}`);
+            const overlap = [...conceptTokens].filter((token) => queryTokens.has(token)).length;
+            const matched = overlap >= Math.min(2, Math.max(1, conceptTokens.size));
+            if (matched && !queryConceptIds.includes(concept.id)) queryConceptIds.push(concept.id);
+          }
         }
-        const conceptCoverage = coreConcepts.length === 0 ? 0 : matchedConcepts.length / coreConcepts.length;
-        const rareQueryTokens = [...queryTokens].filter((token) => token.length >= 7);
-        const moduleTokens = tokenSet(moduleText);
-        const specificity = rareQueryTokens.length === 0
-          ? lexical
-          : rareQueryTokens.filter((token) => moduleTokens.has(token)).length / rareQueryTokens.length;
-        const quality = version.groundingStatus === "citation_checked" ? 1 : version.groundingStatus === "partially_cited" ? 0.7 : 0.35;
-        const hybrid = 0.5 * vector + 0.15 * lexical + 0.25 * conceptCoverage + 0.05 * specificity + 0.05 * quality;
-        return {
-          version,
-          matchedConcepts,
-          missingConcepts,
-          scores: { vector, lexical, conceptCoverage, specificity, quality, hybrid },
-        };
-      }).sort((a, b) => b.scores.hybrid - a.scores.hybrid);
+
+        const output = await this.repositories.hybridSearch.search({
+          actorUserId: actor.userId,
+          queryText,
+          queryEmbedding: queryEmbedding.vector,
+          conceptIds: queryConceptIds.slice(0, 50),
+          candidatePoolSize: 100,
+          limit: 20,
+          minimumHybridScore: 0,
+        });
+        scored = output.results.flatMap((result): ScoredModuleVersion[] => {
+          const version = this.repositories.moduleVersions.get(result.moduleVersionId);
+          if (!version) return [];
+          return [{
+            version,
+            matchedConcepts: result.matchedConcepts.map(
+              (conceptId) => conceptNameById.get(conceptId) ?? conceptId,
+            ),
+            missingConcepts: result.missingConcepts.map(
+              (conceptId) => conceptNameById.get(conceptId) ?? conceptId,
+            ),
+            scores: result.internalScores,
+          }];
+        });
+      } else {
+        scored = this.visibleModuleVersions(actor).map((version) => {
+          const chunks = this.moduleChunks(version.id);
+          const vector = chunks.length === 0
+            ? 0
+            : Math.max(...chunks.map((chunk) => Math.max(0, cosineSimilarity(queryEmbedding.vector, chunk.embedding)) * chunk.weight));
+          const moduleText = `${version.title} ${version.summary} ${version.graph.module.concepts.map((concept) => `${concept.name} ${concept.description}`).join(" ")}`;
+          const lexical = jaccardSimilarity(queryText, moduleText);
+          const coreConcepts = version.graph.module.concepts.filter((concept) => concept.role === "core");
+          const matchedConcepts: string[] = [];
+          const missingConcepts: string[] = [];
+          for (const concept of coreConcepts) {
+            const conceptTokens = tokenSet(`${concept.name} ${concept.id.replace(/_/g, " ")}`);
+            const overlap = [...conceptTokens].filter((token) => queryTokens.has(token)).length;
+            const matched = overlap >= Math.min(2, Math.max(1, conceptTokens.size));
+            (matched ? matchedConcepts : missingConcepts).push(concept.name);
+          }
+          const conceptCoverage = coreConcepts.length === 0 ? 0 : matchedConcepts.length / coreConcepts.length;
+          const rareQueryTokens = [...queryTokens].filter((token) => token.length >= 7);
+          const moduleTokens = tokenSet(moduleText);
+          const specificity = rareQueryTokens.length === 0
+            ? lexical
+            : rareQueryTokens.filter((token) => moduleTokens.has(token)).length / rareQueryTokens.length;
+          const quality = version.groundingStatus === "citation_checked" ? 1 : version.groundingStatus === "partially_cited" ? 0.7 : 0.35;
+          const hybrid = 0.5 * vector + 0.15 * lexical + 0.25 * conceptCoverage + 0.05 * specificity + 0.05 * quality;
+          return {
+            version,
+            matchedConcepts,
+            missingConcepts,
+            scores: { vector, lexical, conceptCoverage, specificity, quality, hybrid },
+          };
+        }).sort((a, b) => b.scores.hybrid - a.scores.hybrid);
+      }
 
       const best = scored[0];
       if (!best) {
@@ -1763,7 +1832,7 @@ export class GonService {
   getSearchAttempt(actor: Actor, projectId: string, attemptId: string): JsonRecord {
     this.requireActiveUser(actor);
     const project = this.requireOwnedProject(actor, projectId);
-    const attempt = this.store.searchAttempts.get(attemptId);
+    const attempt = this.repositories.searchAttempts.get(attemptId);
     if (!attempt || attempt.projectId !== project.id || attempt.ownerUserId !== actor.userId) throw notFound();
     return this.searchAttemptDto(attempt);
   }
@@ -1842,7 +1911,7 @@ export class GonService {
     results: SearchResultRecord[],
     sourceModuleVersionId: string | null = null,
   ): Promise<CandidateSetRecord> {
-    const existing = [...this.store.candidateSets.values()].find(
+    const existing = [...this.repositories.candidateSets.values()].find(
       (item) => item.projectId === project.id && item.searchAttemptId === searchAttempt.id && item.sourceModuleVersionId === sourceModuleVersionId && ["ready", "ready_with_shortfall"].includes(item.status),
     );
     if (existing) return existing;
@@ -1869,11 +1938,11 @@ export class GonService {
       shortfallReasonCodes: [],
       createdAt: this.now(),
     };
-    this.store.candidateSets.set(set.id, set);
+    this.repositories.candidateSets.set(set.id, set);
 
     const relevanceByModule = new Map(results.map((result) => [result.moduleVersionId, result.internalScores.hybrid]));
     const versions = results
-      .map((result) => this.store.moduleVersions.get(result.moduleVersionId))
+      .map((result) => this.repositories.moduleVersions.get(result.moduleVersionId))
       .filter((version): version is ModuleVersionRecord => Boolean(version))
       .slice(0, 2);
 
@@ -1903,11 +1972,11 @@ export class GonService {
           },
           createdAt: this.now(),
         };
-        this.store.candidates.set(candidate.id, candidate);
+        this.repositories.candidates.set(candidate.id, candidate);
       }
     }
 
-    set.actualCount = [...this.store.candidates.values()].filter((candidate) => candidate.candidateSetId === set.id).length;
+    set.actualCount = [...this.repositories.candidates.values()].filter((candidate) => candidate.candidateSetId === set.id).length;
     if (set.actualCount < set.targetCount) {
       set.status = "ready_with_shortfall";
       set.shortfallReasonCodes = ["formats_not_supported_by_graph", "duplicates_removed"];
@@ -1942,13 +2011,13 @@ export class GonService {
     candidateSet: CandidateSetRecord,
     learningMode: LearningMode,
   ): RankingSnapshotRecord {
-    const candidates = [...this.store.candidates.values()].filter(
+    const candidates = [...this.repositories.candidates.values()].filter(
       (candidate) => candidate.candidateSetId === candidateSet.id && candidate.status === "eligible",
     );
     const personalizationApplied = this.consentRecord(actor.userId, "personalization_footprint").status === "granted";
-    const priorJourneyFormats = [...this.store.journeys.values()]
+    const priorJourneyFormats = [...this.repositories.journeys.values()]
       .filter((journey) => journey.ownerUserId === actor.userId)
-      .map((journey) => this.store.candidates.get(journey.sourceCandidateId)?.format)
+      .map((journey) => this.repositories.candidates.get(journey.sourceCandidateId)?.format)
       .filter((format): format is string => Boolean(format));
     const formatCounts = new Map<string, number>();
     for (const format of priorJourneyFormats) formatCounts.set(format, (formatCounts.get(format) ?? 0) + 1);
@@ -2031,7 +2100,7 @@ export class GonService {
       createdAt: this.now(),
       staleAt: new Date(this.clock().getTime() + 60 * 60 * 1000).toISOString(),
     };
-    this.store.rankingSnapshots.set(snapshot.id, snapshot);
+    this.repositories.rankingSnapshots.set(snapshot.id, snapshot);
     this.emit(actor, "ranking.snapshot.created", "ranking_snapshot", snapshot.id, {
       projectId: project.id,
       candidateSetId: candidateSet.id,
@@ -2094,10 +2163,10 @@ export class GonService {
       throw conflict("CANDIDATE_SET_NOT_READY", "Chưa có Output Candidate", "Hãy chạy Search hoặc Brew để tạo CandidateSet trước.");
     }
     const requestedMode = mode && LEARNING_MODES.includes(mode as LearningMode) ? (mode as LearningMode) : project.learningMode;
-    const snapshot = [...this.store.rankingSnapshots.values()]
+    const snapshot = [...this.repositories.rankingSnapshots.values()]
       .filter((item) => item.candidateSetId === candidateSet.id && item.userId === actor.userId && item.learningMode === requestedMode)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
-    const candidates = [...this.store.candidates.values()].filter((candidate) => candidate.candidateSetId === candidateSet.id);
+    const candidates = [...this.repositories.candidates.values()].filter((candidate) => candidate.candidateSetId === candidateSet.id);
     const orderedCandidates = snapshot
       ? snapshot.orderedCandidateIds.map((candidateId) => candidates.find((candidate) => candidate.id === candidateId)).filter((candidate): candidate is CandidateRecord => Boolean(candidate))
       : candidates.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
@@ -2117,7 +2186,7 @@ export class GonService {
     const body = ensureRecord(bodyValue);
     const candidateSetId = requiredString(body, "candidateSetId", { maxLength: 128 });
     const learningMode = requiredEnum(body, "learningMode", LEARNING_MODES);
-    const candidateSet = this.store.candidateSets.get(candidateSetId);
+    const candidateSet = this.repositories.candidateSets.get(candidateSetId);
     if (!candidateSet || candidateSet.projectId !== project.id) throw notFound();
     const snapshot = this.createRankingSnapshotRecord(actor, project, candidateSet, learningMode);
     return { data: this.rankingSnapshotDto(snapshot), status: 201 };
@@ -2170,7 +2239,7 @@ export class GonService {
         weight: 1,
         deletedAt: null,
       };
-      this.store.chunks.set(chunk.id, chunk);
+      this.repositories.chunks.set(chunk.id, chunk);
     }
     void actor;
   }
@@ -2191,14 +2260,14 @@ export class GonService {
     if (!this.featureFlags.brew_enabled) {
       throw serviceUnavailable("BREW_DISABLED", "Brew đang tạm dừng", "Kill switch Brew đang bật. Search và module đã có vẫn có thể dùng nếu an toàn.");
     }
-    const searchAttempt = this.store.searchAttempts.get(searchAttemptId);
+    const searchAttempt = this.repositories.searchAttempts.get(searchAttemptId);
     if (!searchAttempt || searchAttempt.projectId !== project.id || searchAttempt.ownerUserId !== actor.userId) throw notFound();
     if (searchAttempt.status !== "completed" || !searchAttempt.verdict || !["missing", "related", "found"].includes(searchAttempt.verdict)) {
       throw conflict("INVALID_STATE_TRANSITION", "Search chưa sẵn sàng để Brew", "Chỉ Brew từ Search đã hoàn tất với verdict missing/related hoặc biến thể từ found.");
     }
 
     const artifacts = searchAttempt.artifactIds
-      .map((artifactId) => this.store.artifacts.get(artifactId))
+      .map((artifactId) => this.repositories.artifacts.get(artifactId))
       .filter((artifact): artifact is ArtifactRecord => Boolean(artifact && !artifact.deletedAt));
     const fingerprint = stableHash({
       projectId: project.id,
@@ -2218,10 +2287,10 @@ export class GonService {
     const payload = { projectId, searchAttemptId, confirmed: true };
     const replay = this.findIdempotentReplay(actor, "createBrewJob", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.jobs.get(replay.resourceId);
+      const existing = this.repositories.jobs.get(replay.resourceId);
       if (existing) return { data: this.brewJobDto(existing.id), status: 200, replay: true };
     }
-    const existingByFingerprint = [...this.store.jobs.values()].find(
+    const existingByFingerprint = [...this.repositories.jobs.values()].find(
       (job) => job.ownerUserId === actor.userId && job.jobType === "brew_module" && job.inputFingerprint === fingerprint && ["queued", "running", "succeeded"].includes(job.status),
     );
     if (existingByFingerprint) {
@@ -2230,7 +2299,7 @@ export class GonService {
 
     const startOfDay = new Date(this.clock());
     startOfDay.setUTCHours(0, 0, 0, 0);
-    const brewToday = [...this.store.jobs.values()].filter(
+    const brewToday = [...this.repositories.jobs.values()].filter(
       (job) => job.ownerUserId === actor.userId && job.jobType === "brew_module" && job.createdAt >= startOfDay.toISOString(),
     ).length;
     if (brewToday >= this.quotas.brewPerDay) {
@@ -2248,7 +2317,7 @@ export class GonService {
       payload: { projectId: project.id, searchAttemptId, stepsCompleted: [] },
     });
     const brew = { jobId: job.id, projectId: project.id, searchAttemptId, resultModuleVersionId: null as string | null };
-    this.store.brewJobs.set(job.id, brew);
+    this.repositories.brewJobs.set(job.id, brew);
     project.currentBrewJobId = job.id;
     this.emit(actor, "brew.job.queued", "brew_job", job.id, { projectId: project.id, searchAttemptId });
 
@@ -2258,7 +2327,7 @@ export class GonService {
   }
 
   private async processBrewJob(actor: Actor, job: JobRecord): Promise<void> {
-    const brew = this.store.brewJobs.get(job.id);
+    const brew = this.repositories.brewJobs.get(job.id);
     if (!brew) return;
     const steps = job.payload.stepsCompleted as string[];
     const completeStep = (step: string) => {
@@ -2269,13 +2338,13 @@ export class GonService {
     try {
       this.startJob(job, "validate_request");
       const project = this.requireOwnedProject(actor, brew.projectId);
-      const searchAttempt = this.store.searchAttempts.get(brew.searchAttemptId);
+      const searchAttempt = this.repositories.searchAttempts.get(brew.searchAttemptId);
       if (!searchAttempt) throw new Error("SEARCH_ATTEMPT_NOT_FOUND");
       completeStep("validate_request");
 
       job.currentStep = "topic_and_safety_check";
       const artifacts = searchAttempt.artifactIds
-        .map((artifactId) => this.store.artifacts.get(artifactId))
+        .map((artifactId) => this.repositories.artifacts.get(artifactId))
         .filter((artifact): artifact is ArtifactRecord => Boolean(artifact && !artifact.deletedAt && artifact.safetyStatus === "allowed"));
       const evidenceText = [project.title, project.goal, ...artifacts.flatMap((artifact) => this.artifactChunks(artifact.id).map((chunk) => chunk.text))].join("\n");
       if (this.topicIsBlocked(evidenceText)) {
@@ -2374,8 +2443,8 @@ export class GonService {
         createdByUserId: actor.userId,
         createdAt: this.now(),
       };
-      this.store.modules.set(moduleRecord.id, moduleRecord);
-      this.store.moduleVersions.set(version.id, version);
+      this.repositories.modules.set(moduleRecord.id, moduleRecord);
+      this.repositories.moduleVersions.set(version.id, version);
       await this.indexModuleVersion(actor, version);
       brew.resultModuleVersionId = version.id;
       completeStep("persist_draft");
@@ -2415,20 +2484,20 @@ export class GonService {
 
   getBrewJob(actor: Actor, jobId: string): JsonRecord {
     this.requireActiveUser(actor);
-    const job = this.store.jobs.get(jobId);
+    const job = this.repositories.jobs.get(jobId);
     if (!job || job.ownerUserId !== actor.userId || job.jobType !== "brew_module") throw notFound();
     return this.brewJobDto(jobId);
   }
 
   getJob(actor: Actor, jobId: string): JsonRecord {
     this.requireActiveUser(actor);
-    const job = this.store.jobs.get(jobId);
+    const job = this.repositories.jobs.get(jobId);
     if (!job || job.ownerUserId !== actor.userId) throw notFound();
     return job.jobType === "brew_module" ? this.brewJobDto(jobId) : this.jobDto(job);
   }
 
   private requireOwnedJourney(actor: Actor, journeyId: string): JourneyRecord {
-    const journey = this.store.journeys.get(journeyId);
+    const journey = this.repositories.journeys.get(journeyId);
     if (!journey || journey.ownerUserId !== actor.userId || journey.deletedAt || journey.status === "deleted") throw notFound();
     return journey;
   }
@@ -2452,7 +2521,7 @@ export class GonService {
   }
 
   private appendCommit(journey: JourneyRecord, actor: Actor, type: string, summary: string, payloadRef: JsonRecord = {}): void {
-    const sequence = [...this.store.branchCommits.values()].filter((commit) => commit.journeyId === journey.id).length + 1;
+    const sequence = [...this.repositories.branchCommits.values()].filter((commit) => commit.journeyId === journey.id).length + 1;
     const commit = {
       id: createId("commit"),
       journeyId: journey.id,
@@ -2464,7 +2533,7 @@ export class GonService {
       summary,
       createdAt: this.now(),
     };
-    this.store.branchCommits.set(commit.id, commit);
+    this.repositories.branchCommits.set(commit.id, commit);
     journey.headCommitId = commit.id;
     journey.updatedAt = commit.createdAt;
   }
@@ -2481,11 +2550,11 @@ export class GonService {
 
     const replay = this.findIdempotentReplay(actor, "createJourney", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.journeys.get(replay.resourceId);
+      const existing = this.repositories.journeys.get(replay.resourceId);
       if (existing) return { data: this.journeyDto(existing), status: 200, replay: true };
     }
 
-    const candidate = this.store.candidates.get(candidateId);
+    const candidate = this.repositories.candidates.get(candidateId);
     if (!candidate || candidate.status !== "eligible") throw notFound();
     const project = this.requireOwnedProject(actor, candidate.projectId);
     if (candidate.projectId !== project.id) throw notFound();
@@ -2495,7 +2564,7 @@ export class GonService {
     const version = this.requireVisibleModuleVersion(actor, candidate.moduleVersionId);
 
     if (ifExists === "return_existing") {
-      const existing = [...this.store.journeys.values()].find(
+      const existing = [...this.repositories.journeys.values()].find(
         (journey) => journey.ownerUserId === actor.userId && journey.upstreamModuleVersionId === version.id && journey.status === "active" && !journey.deletedAt,
       );
       if (existing) return { data: this.journeyDto(existing), status: 200, replay: true };
@@ -2524,7 +2593,7 @@ export class GonService {
       updatedAt: now,
       deletedAt: null,
     };
-    this.store.journeys.set(journey.id, journey);
+    this.repositories.journeys.set(journey.id, journey);
     this.appendCommit(journey, actor, "fork_created", `Fork từ ${version.title}`, {
       upstreamModuleVersionId: version.id,
       sourceCandidateId: candidate.id,
@@ -2544,7 +2613,7 @@ export class GonService {
 
   listJourneys(actor: Actor, query: { limit?: number; cursor?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
     this.requireActiveUser(actor);
-    const journeys = [...this.store.journeys.values()]
+    const journeys = [...this.repositories.journeys.values()]
       .filter((journey) => journey.ownerUserId === actor.userId && !journey.deletedAt && journey.status !== "deleted")
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     return this.paginate(journeys, query.limit ?? 20, query.cursor, (journey) => this.journeyDto(journey));
@@ -2558,7 +2627,7 @@ export class GonService {
   listJourneyCommits(actor: Actor, journeyId: string, query: { limit?: number; cursor?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
     this.requireActiveUser(actor);
     const journey = this.requireOwnedJourney(actor, journeyId);
-    const commits = [...this.store.branchCommits.values()]
+    const commits = [...this.repositories.branchCommits.values()]
       .filter((commit) => commit.journeyId === journey.id)
       .sort((a, b) => a.sequence - b.sequence);
     return this.paginate(commits, query.limit ?? 20, query.cursor, (commit) => ({
@@ -2573,7 +2642,7 @@ export class GonService {
 
   private passedAttemptNodeIds(journeyId: string): Set<string> {
     return new Set(
-      [...this.store.attempts.values()]
+      [...this.repositories.attempts.values()]
         .filter((attempt) => attempt.journeyId === journeyId && attempt.status === "passed")
         .map((attempt) => attempt.nodeId),
     );
@@ -2623,7 +2692,7 @@ export class GonService {
     this.requireActiveUser(actor);
     const journey = this.requireOwnedJourney(actor, journeyId);
     const version = this.requireVisibleModuleVersion(actor, journey.upstreamModuleVersionId);
-    const attempts = [...this.store.attempts.values()]
+    const attempts = [...this.repositories.attempts.values()]
       .filter((attempt) => attempt.journeyId === journey.id)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const passed = this.passedAttemptNodeIds(journey.id);
@@ -2647,7 +2716,7 @@ export class GonService {
     });
 
     const mastery = version.graph.module.concepts.map((concept) => {
-      const record = this.store.mastery.get(`${actor.userId}:${concept.id}`);
+      const record = this.repositories.mastery.get(`${actor.userId}:${concept.id}`);
       return record ? this.masteryDto(record) : { conceptId: concept.id, level: "exposed", evidenceAttemptId: null, achievedAt: null, reviewDueAt: null };
     });
 
@@ -2670,7 +2739,7 @@ export class GonService {
     const payload = { journeyId, nodeId };
     const replay = this.findIdempotentReplay(actor, "createAttempt", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.attempts.get(replay.resourceId);
+      const existing = this.repositories.attempts.get(replay.resourceId);
       if (existing) return { data: this.attemptDto(existing), status: 201, replay: true };
     }
 
@@ -2685,7 +2754,7 @@ export class GonService {
     }
     const rubric = version.graph.rubrics.find((item) => item.id === node.assessment?.rubricId);
     if (!rubric) throw unprocessable("RUBRIC_NOT_FOUND", "Module thiếu rubric", "ModuleVersion không hợp lệ cho assessment.");
-    const attemptNumber = [...this.store.attempts.values()].filter((attempt) => attempt.journeyId === journey.id && attempt.nodeId === nodeId).length + 1;
+    const attemptNumber = [...this.repositories.attempts.values()].filter((attempt) => attempt.journeyId === journey.id && attempt.nodeId === nodeId).length + 1;
     const now = this.now();
     const attempt: AttemptRecord = {
       id: createId("att"),
@@ -2708,14 +2777,14 @@ export class GonService {
       updatedAt: now,
       submittedAt: null,
     };
-    this.store.attempts.set(attempt.id, attempt);
+    this.repositories.attempts.set(attempt.id, attempt);
     this.saveIdempotentResult(actor, "createAttempt", options.idempotencyKey, payload, "learning_attempt", attempt.id, 201);
     return { data: this.attemptDto(attempt), status: 201 };
   }
 
   private requireOwnedAttempt(actor: Actor, journeyId: string, attemptId: string): { journey: JourneyRecord; attempt: AttemptRecord } {
     const journey = this.requireOwnedJourney(actor, journeyId);
-    const attempt = this.store.attempts.get(attemptId);
+    const attempt = this.repositories.attempts.get(attemptId);
     if (!attempt || attempt.journeyId !== journey.id || attempt.ownerUserId !== actor.userId) throw notFound();
     return { journey, attempt };
   }
@@ -2759,14 +2828,14 @@ export class GonService {
 
   private upsertMastery(userId: string, conceptId: string, level: MasteryLevel, evidenceAttemptId: string | null): void {
     const key = `${userId}:${conceptId}`;
-    const existing = this.store.mastery.get(key);
+    const existing = this.repositories.mastery.get(key);
     if (existing && MASTERY_ORDER[existing.level] > MASTERY_ORDER[level]) {
       existing.lastEvidenceAt = this.now();
       existing.version += 1;
       return;
     }
     const achievedAt = existing?.level === level ? existing.achievedAt : this.now();
-    this.store.mastery.set(key, {
+    this.repositories.mastery.set(key, {
       userId,
       conceptId,
       level,
@@ -2779,7 +2848,7 @@ export class GonService {
   }
 
   private lifetimeXp(userId: string): number {
-    return [...this.store.xpLedger.values()]
+    return [...this.repositories.xpLedger.values()]
       .filter((entry) => entry.userId === userId)
       .reduce((sum, entry) => sum + entry.delta, 0);
   }
@@ -2795,7 +2864,7 @@ export class GonService {
       rubricVersion: attempt.rubricVersion,
       ruleId,
     }).slice(0, 40)}`;
-    const existing = [...this.store.xpLedger.values()].find(
+    const existing = [...this.repositories.xpLedger.values()].find(
       (entry) => entry.userId === actor.userId && entry.sourceEventId === sourceEventId && entry.status === "posted",
     );
     if (existing) return 0;
@@ -2807,7 +2876,7 @@ export class GonService {
     const entry = {
       id: createId("xp"),
       userId: actor.userId,
-      sequence: this.store.nextXpSequence(actor.userId),
+      sequence: this.repositories.nextXpSequence(actor.userId),
       delta,
       sourceEventId,
       sourceType: "learning_attempt",
@@ -2820,7 +2889,7 @@ export class GonService {
       lifetimeXpAfter,
       createdAt: this.now(),
     };
-    this.store.xpLedger.set(entry.id, entry);
+    this.repositories.xpLedger.set(entry.id, entry);
     this.emit(actor, "xp.entry.posted", "xp_ledger_entry", entry.id, {
       attemptId: attempt.id,
       journeyId: journey.id,
@@ -2832,7 +2901,7 @@ export class GonService {
   }
 
   private createSystemProof(actor: Actor, journey: JourneyRecord, attempt: AttemptRecord, version: ModuleVersionRecord): ProofRecord {
-    const existing = [...this.store.proofs.values()].find(
+    const existing = [...this.repositories.proofs.values()].find(
       (proof) => proof.ownerUserId === actor.userId && proof.attemptId === attempt.id && proof.verificationLevel === "system_recorded" && !proof.deletedAt,
     );
     if (existing) return existing;
@@ -2863,7 +2932,7 @@ export class GonService {
       updatedAt: now,
       deletedAt: null,
     };
-    this.store.proofs.set(proof.id, proof);
+    this.repositories.proofs.set(proof.id, proof);
     this.emit(actor, "proof.created", "proof", proof.id, {
       journeyId: journey.id,
       attemptId: attempt.id,
@@ -2997,7 +3066,7 @@ export class GonService {
 
   listMyXpLedger(actor: Actor, query: { limit?: number; cursor?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
     this.requireActiveUser(actor);
-    const entries = [...this.store.xpLedger.values()]
+    const entries = [...this.repositories.xpLedger.values()]
       .filter((entry) => entry.userId === actor.userId)
       .sort((a, b) => b.sequence - a.sequence);
     return this.paginate(entries, query.limit ?? 20, query.cursor, (entry) => ({
@@ -3038,7 +3107,7 @@ export class GonService {
 
   listProofs(actor: Actor, query: { limit?: number; cursor?: string; verificationLevel?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
     this.requireActiveUser(actor);
-    const proofs = [...this.store.proofs.values()]
+    const proofs = [...this.repositories.proofs.values()]
       .filter((proof) => proof.ownerUserId === actor.userId && !proof.deletedAt && proof.status !== "deleted")
       .filter((proof) => !query.verificationLevel || proof.verificationLevel === query.verificationLevel)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -3059,7 +3128,7 @@ export class GonService {
 
     const replay = this.findIdempotentReplay(actor, "createExternalProof", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.proofs.get(replay.resourceId);
+      const existing = this.repositories.proofs.get(replay.resourceId);
       if (existing) return { data: this.proofDto(existing), status: 201, replay: true };
     }
     if (journeyId) this.requireOwnedJourney(actor, journeyId);
@@ -3097,7 +3166,7 @@ export class GonService {
       updatedAt: now,
       deletedAt: null,
     };
-    this.store.proofs.set(proof.id, proof);
+    this.repositories.proofs.set(proof.id, proof);
     this.emit(actor, "proof.created", "proof", proof.id, {
       proofType,
       verificationLevel,
@@ -3109,7 +3178,7 @@ export class GonService {
 
   getProof(actor: Actor, proofId: string): JsonRecord {
     this.requireActiveUser(actor);
-    const proof = this.store.proofs.get(proofId);
+    const proof = this.repositories.proofs.get(proofId);
     if (!proof || proof.ownerUserId !== actor.userId || proof.deletedAt || proof.status === "deleted") throw notFound();
     return this.proofDto(proof);
   }
@@ -3132,13 +3201,13 @@ export class GonService {
 
     const replay = this.findIdempotentReplay(actor, "createReport", options.idempotencyKey, payload);
     if (replay) {
-      const existing = this.store.reports.get(replay.resourceId);
+      const existing = this.repositories.reports.get(replay.resourceId);
       if (existing) return { data: this.reportDto(existing), status: 201, replay: true };
     }
 
     if (targetType === "module_version") this.requireVisibleModuleVersion(actor, targetId);
     if (targetType === "output_candidate") {
-      const candidate = this.store.candidates.get(targetId);
+      const candidate = this.repositories.candidates.get(targetId);
       if (!candidate) throw notFound();
       this.requireOwnedProject(actor, candidate.projectId);
     }
@@ -3156,7 +3225,7 @@ export class GonService {
       status: "received" as const,
       createdAt: this.now(),
     };
-    this.store.reports.set(report.id, report);
+    this.repositories.reports.set(report.id, report);
     const riskText = normalizeForSearch(`${reasonCode} ${detail ?? ""}`);
     const riskLevel = /(child|self harm|suicide|weapon|violence|malware|tre em|tu tu|vu khi|bao luc)/.test(riskText)
       ? "high"
@@ -3171,7 +3240,7 @@ export class GonService {
       assigneeUserId: null,
       createdAt: report.createdAt,
     };
-    this.store.reviewCases.set(reviewCase.id, reviewCase);
+    this.repositories.reviewCases.set(reviewCase.id, reviewCase);
     this.emit(actor, "report.created", "report", report.id, { targetType, targetId, reasonCode });
     this.Audit(actor, "report.created", "report", report.id, reasonCode);
     this.saveIdempotentResult(actor, "createReport", options.idempotencyKey, payload, "report", report.id, 201);
@@ -3190,9 +3259,364 @@ export class GonService {
 
   getReport(actor: Actor, reportId: string): JsonRecord {
     this.requireActiveUser(actor);
-    const report = this.store.reports.get(reportId);
+    const report = this.repositories.reports.get(reportId);
     const isOperator = actor.roles.includes("reviewer") || actor.roles.includes("admin");
     if (!report || (report.reporterUserId !== actor.userId && !isOperator)) throw notFound();
     return this.reportDto(report);
+  }
+}
+
+/**
+ * Transactional application-service facade.
+ *
+ * Every public use case runs in exactly one Unit of Work. The domain core is
+ * instantiated with that Unit of Work's repositories; nested facade calls in
+ * an explicitly composed operation join the same transaction through
+ * AsyncLocalStorage instead of opening a second transaction.
+ */
+export class GonService {
+  readonly store: GonStore;
+
+  private readonly embeddingProvider: EmbeddingProvider;
+  private readonly requireInvite?: boolean;
+  private readonly featureFlags?: Record<string, boolean>;
+  private readonly now?: () => Date;
+  private readonly quotas?: GonServiceOptions["quotas"];
+  private readonly coreContext = new AsyncLocalStorage<GonServiceCore>();
+
+  constructor(options: GonServiceOptions = {}) {
+    this.store = options.store ?? new MemoryGonStore();
+    this.embeddingProvider = options.embeddingProvider ?? createEmbeddingProvider();
+    this.requireInvite = options.requireInvite;
+    this.featureFlags = options.featureFlags;
+    this.now = options.now;
+    this.quotas = options.quotas;
+  }
+
+  private async run<T>(work: (core: GonServiceCore) => T | Promise<T>): Promise<T> {
+    const existing = this.coreContext.getStore();
+    if (existing) return work(existing);
+
+    return this.store.runInTransaction(async (repositories) => {
+      const core = new GonServiceCore({
+        repositories,
+        embeddingProvider: this.embeddingProvider,
+        requireInvite: this.requireInvite,
+        featureFlags: this.featureFlags,
+        now: this.now,
+        quotas: this.quotas,
+      });
+      return this.coreContext.run(core, async () => work(core));
+    });
+  }
+
+  async runInTransaction<T>(work: (service: this) => Promise<T>): Promise<T> {
+    return this.run(() => work(this));
+  }
+
+  async ensureIdentityUser(input: {
+    provider: "google" | "dev";
+    providerSubject: string;
+    email?: string | null;
+    displayName?: string | null;
+    authUserId?: string | number;
+  }): Promise<UserRecord> {
+    return this.run((core) => core.ensureIdentityUser(input));
+  }
+
+  async ensureGoogleUser(input: {
+    providerSubject: string;
+    email?: string | null;
+    displayName?: string | null;
+    authUserId?: string | number;
+  }): Promise<UserRecord> {
+    return this.run((core) => core.ensureGoogleUser(input));
+  }
+
+  async ensureDevUser(displayName: string): Promise<UserRecord> {
+    return this.run((core) => core.ensureDevUser(displayName));
+  }
+
+  async findUserIdByAuthUserId(authUserId: string | number): Promise<string | undefined> {
+    return this.run((core) => core.findUserIdByAuthUserId(authUserId));
+  }
+
+  async findUserById(userId: string): Promise<UserRecord | undefined> {
+    return this.run((core) => core.findUserById(userId));
+  }
+
+  async seedInvite(code: string, expiresAt?: string): Promise<InviteRecord> {
+    return this.run((core) => core.seedInvite(code, expiresAt));
+  }
+
+  async createDevSession(userId: string): Promise<{ token: string; expiresAt: string }> {
+    return this.run((core) => core.createDevSession(userId));
+  }
+
+  async resolveDevSession(token: string | null | undefined): Promise<Actor | null> {
+    return this.run((core) => core.resolveDevSession(token));
+  }
+
+  async revokeDevSession(token: string | null | undefined): Promise<void> {
+    return this.run((core) => core.revokeDevSession(token));
+  }
+
+  async getBootstrap(actor: Actor): Promise<JsonRecord> {
+    return this.run((core) => core.getBootstrap(actor));
+  }
+
+  async createAgeAttestation(
+    actor: Actor,
+    bodyValue: unknown,
+    options: { inviteCode?: string; idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createAgeAttestation(actor, bodyValue, options));
+  }
+
+  async listConsents(actor: Actor): Promise<JsonRecord[]> {
+    return this.run((core) => core.listConsents(actor));
+  }
+
+  async setConsent(actor: Actor, purpose: string, bodyValue: unknown): Promise<JsonRecord> {
+    return this.run((core) => core.setConsent(actor, purpose, bodyValue));
+  }
+
+  async createProject(
+    actor: Actor,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createProject(actor, bodyValue, options));
+  }
+
+  async listProjects(
+    actor: Actor,
+    query: { limit?: number; cursor?: string; search?: string; status?: string } = {},
+  ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
+    return this.run((core) => core.listProjects(actor, query));
+  }
+
+  async getProject(actor: Actor, projectId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getProject(actor, projectId));
+  }
+
+  async getProjectWorkspace(actor: Actor, projectId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getProjectWorkspace(actor, projectId));
+  }
+
+  async addProjectArtifact(
+    actor: Actor,
+    projectId: string,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.addProjectArtifact(actor, projectId, bodyValue, options));
+  }
+
+  async listProjectArtifacts(actor: Actor, projectId: string): Promise<JsonRecord[]> {
+    return this.run((core) => core.listProjectArtifacts(actor, projectId));
+  }
+
+  async getArtifact(actor: Actor, artifactId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getArtifact(actor, artifactId));
+  }
+
+  async deleteArtifact(actor: Actor, artifactId: string): Promise<void> {
+    return this.run((core) => core.deleteArtifact(actor, artifactId));
+  }
+
+  async retryArtifactProcessing(
+    actor: Actor,
+    artifactId: string,
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.retryArtifactProcessing(actor, artifactId));
+  }
+
+  async initiateArtifactUpload(
+    actor: Actor,
+    projectId: string,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string; baseUrl?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.initiateArtifactUpload(actor, projectId, bodyValue, options));
+  }
+
+  async authorizeLocalUpload(
+    artifactId: string,
+    token: string | null,
+  ): Promise<{ artifactId: string; maxByteSize: number }> {
+    return this.run((core) => core.authorizeLocalUpload(artifactId, token));
+  }
+
+  async acceptLocalUpload(
+    artifactId: string,
+    token: string | null,
+    bytes: Uint8Array,
+    contentType: string | null,
+  ): Promise<JsonRecord> {
+    return this.run((core) => core.acceptLocalUpload(artifactId, token, bytes, contentType));
+  }
+
+  async completeArtifactUpload(
+    actor: Actor,
+    projectId: string,
+    artifactId: string,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) =>
+      core.completeArtifactUpload(actor, projectId, artifactId, bodyValue, options),
+    );
+  }
+
+  async createSearchAttempt(
+    actor: Actor,
+    projectId: string,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createSearchAttempt(actor, projectId, bodyValue, options));
+  }
+
+  async getSearchAttempt(actor: Actor, projectId: string, attemptId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getSearchAttempt(actor, projectId, attemptId));
+  }
+
+  async getOutputExplorer(actor: Actor, projectId: string, mode?: string): Promise<JsonRecord> {
+    return this.run((core) => core.getOutputExplorer(actor, projectId, mode));
+  }
+
+  async createRankingSnapshot(
+    actor: Actor,
+    projectId: string,
+    bodyValue: unknown,
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createRankingSnapshot(actor, projectId, bodyValue));
+  }
+
+  async getModuleVersion(actor: Actor, moduleVersionId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getModuleVersion(actor, moduleVersionId));
+  }
+
+  async createBrewJob(
+    actor: Actor,
+    projectId: string,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createBrewJob(actor, projectId, bodyValue, options));
+  }
+
+  async getBrewJob(actor: Actor, jobId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getBrewJob(actor, jobId));
+  }
+
+  async getJob(actor: Actor, jobId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getJob(actor, jobId));
+  }
+
+  async createJourney(
+    actor: Actor,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createJourney(actor, bodyValue, options));
+  }
+
+  async listJourneys(
+    actor: Actor,
+    query: { limit?: number; cursor?: string } = {},
+  ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
+    return this.run((core) => core.listJourneys(actor, query));
+  }
+
+  async getJourney(actor: Actor, journeyId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getJourney(actor, journeyId));
+  }
+
+  async listJourneyCommits(
+    actor: Actor,
+    journeyId: string,
+    query: { limit?: number; cursor?: string } = {},
+  ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
+    return this.run((core) => core.listJourneyCommits(actor, journeyId, query));
+  }
+
+  async getJourneyPlayer(actor: Actor, journeyId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getJourneyPlayer(actor, journeyId));
+  }
+
+  async createAttempt(
+    actor: Actor,
+    journeyId: string,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createAttempt(actor, journeyId, bodyValue, options));
+  }
+
+  async updateAttempt(
+    actor: Actor,
+    journeyId: string,
+    attemptId: string,
+    bodyValue: unknown,
+    options: { ifMatchVersion?: number } = {},
+  ): Promise<JsonRecord> {
+    return this.run((core) => core.updateAttempt(actor, journeyId, attemptId, bodyValue, options));
+  }
+
+  async getAttempt(actor: Actor, journeyId: string, attemptId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getAttempt(actor, journeyId, attemptId));
+  }
+
+  async submitAttempt(
+    actor: Actor,
+    journeyId: string,
+    attemptId: string,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.submitAttempt(actor, journeyId, attemptId, options));
+  }
+
+  async getMyProgress(actor: Actor): Promise<JsonRecord> {
+    return this.run((core) => core.getMyProgress(actor));
+  }
+
+  async listMyXpLedger(
+    actor: Actor,
+    query: { limit?: number; cursor?: string } = {},
+  ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
+    return this.run((core) => core.listMyXpLedger(actor, query));
+  }
+
+  async listProofs(
+    actor: Actor,
+    query: { limit?: number; cursor?: string; verificationLevel?: string } = {},
+  ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
+    return this.run((core) => core.listProofs(actor, query));
+  }
+
+  async createExternalProof(
+    actor: Actor,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createExternalProof(actor, bodyValue, options));
+  }
+
+  async getProof(actor: Actor, proofId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getProof(actor, proofId));
+  }
+
+  async createReport(
+    actor: Actor,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createReport(actor, bodyValue, options));
+  }
+
+  async getReport(actor: Actor, reportId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getReport(actor, reportId));
   }
 }

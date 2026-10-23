@@ -1,5 +1,11 @@
 import { assertRuntimeStoreAllowed, readConfig } from "./config";
+import { getPostgresPool } from "./db";
 import { MemoryGonStore } from "./memory-store";
+import {
+  createPgPoolTransactionRunner,
+  PostgresGonStore,
+  type PgPoolLike,
+} from "./postgres-store";
 import { GonService } from "./service";
 
 interface GonGlobal {
@@ -12,15 +18,24 @@ export function getGonService(): GonService {
   if (gonGlobal.__gonService) return gonGlobal.__gonService;
 
   const config = readConfig();
-  if (config.storeKind !== "memory") {
-    throw new Error(
-      "GON_STORE=postgres is reserved for the PostgreSQL repository increment. The VS1 first increment only wires the explicit local/test memory adapter; refusing to silently fall back.",
-    );
-  }
   assertRuntimeStoreAllowed(config);
 
-  const store = new MemoryGonStore();
-  if (config.devInviteCode) store.seedInvite(config.devInviteCode);
+  let store: MemoryGonStore | PostgresGonStore;
+  if (config.storeKind === "memory") {
+    store = new MemoryGonStore();
+    if (config.devInviteCode) store.seedInvite(config.devInviteCode);
+  } else if (config.storeKind === "postgres") {
+    const pool = getPostgresPool();
+    if (!pool) {
+      throw new Error("GON_STORE=postgres requires DATABASE_URL.");
+    }
+    store = new PostgresGonStore(
+      createPgPoolTransactionRunner(pool as unknown as PgPoolLike),
+      { seedInviteCode: config.devInviteCode },
+    );
+  } else {
+    throw new Error(`Unsupported GON_STORE: ${config.storeKind}`);
+  }
 
   const service = new GonService({
     store,

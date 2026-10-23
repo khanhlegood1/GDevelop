@@ -40,13 +40,7 @@ export async function getReadiness(
   let storeOk = false;
   let storeErrorCode: string | undefined;
 
-  if (config.storeKind === "postgres") {
-    // The PostgreSQL schema and hybrid-search repository are executable, but
-    // the full domain repository set is not wired into GonService yet. A
-    // successful database ping must not turn that partial state into a false
-    // production-ready signal.
-    storeErrorCode = "POSTGRES_DOMAIN_REPOSITORY_NOT_WIRED";
-  } else if (config.storeKind !== "memory") {
+  if (config.storeKind !== "memory" && config.storeKind !== "postgres") {
     storeErrorCode = "STORE_NOT_CONFIGURED";
   } else {
     try {

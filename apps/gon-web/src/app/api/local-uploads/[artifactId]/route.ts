@@ -14,9 +14,9 @@ export async function PUT(request: Request, context: RouteContext) {
     const { artifactId } = await context.params;
     const service = getGonService();
     const uploadToken = request.headers.get("x-gon-upload-token");
-    const { maxByteSize } = service.authorizeLocalUpload(artifactId, uploadToken);
+    const { maxByteSize } = await service.authorizeLocalUpload(artifactId, uploadToken);
     const bytes = await readBoundedBody(request, maxByteSize);
-    const result = service.acceptLocalUpload(
+    const result = await service.acceptLocalUpload(
       artifactId,
       uploadToken,
       bytes,

@@ -21,13 +21,13 @@ function createService(options: { brewEnabled?: boolean } = {}) {
 
 let activationSequence = 0;
 
-function activate(service: GonService, name: string, personalization: "granted" | "denied" = "denied") {
-  const user = service.ensureDevUser(name);
+async function activate(service: GonService, name: string, personalization: "granted" | "denied" = "denied") {
+  const user = await service.ensureDevUser(name);
   const actor: Actor = { userId: user.id, roles: user.roles, authProvider: "test", requestId: "req_test" };
   activationSequence += 1;
   const inviteCode = `GON-ALPHA-TEST-${activationSequence}`;
-  service.store.seedInvite(inviteCode);
-  service.createAgeAttestation(actor, {
+  await service.seedInvite(inviteCode);
+  await service.createAgeAttestation(actor, {
     isAtLeast18: true,
     termsVersion: TERMS_VERSION,
     privacyVersion: PRIVACY_VERSION,
@@ -38,12 +38,12 @@ function activate(service: GonService, name: string, personalization: "granted" 
 }
 
 describe("identity boundary", () => {
-  it("does not create an orphan attestation when the invite is invalid", () => {
+  it("does not create an orphan attestation when the invite is invalid", async () => {
     const { service, store } = createService();
-    const user = service.ensureDevUser("Người dùng chưa có invite");
+    const user = await service.ensureDevUser("Người dùng chưa có invite");
     const actor: Actor = { userId: user.id, roles: user.roles, authProvider: "test" };
 
-    expect(() =>
+    await expect(
       service.createAgeAttestation(actor, {
         isAtLeast18: true,
         termsVersion: TERMS_VERSION,
@@ -51,7 +51,7 @@ describe("identity boundary", () => {
         personalizationFootprint: "denied",
         inviteCode: "SAI-MA",
       }),
-    ).toThrowError(expect.objectContaining({ code: "INVITE_INVALID_OR_EXPIRED" }));
+    ).rejects.toThrowError(expect.objectContaining({ code: "INVITE_INVALID_OR_EXPIRED" }));
     expect(store.users.get(user.id)?.status).toBe("onboarding");
     expect([...store.attestations.values()].filter((item) => item.userId === user.id)).toHaveLength(0);
   });
@@ -60,7 +60,7 @@ describe("identity boundary", () => {
 describe("VS1 Curiosity to Proof", () => {
   it("runs intake -> missing search -> Brew -> Fork -> learning -> XP -> System Proof without duplicate XP", async () => {
     const { service, store } = createService();
-    const { actor } = activate(service, "Người học Alpha", "granted");
+    const { actor } = await activate(service, "Người học Alpha", "granted");
 
     const projectResult = await service.createProject(
       actor,
@@ -132,50 +132,50 @@ describe("VS1 Curiosity to Proof", () => {
 
     const moduleVersion = store.moduleVersions.get(moduleVersionId);
     expect(moduleVersion).toMatchObject({ publicationStatus: "draft_private", visibility: "private" });
-    const publicModule = service.getModuleVersion(actor, moduleVersionId);
+    const publicModule = await service.getModuleVersion(actor, moduleVersionId);
     expect(JSON.stringify(publicModule.playerGraph)).not.toContain("sampleAnswer");
     expect(JSON.stringify(publicModule.playerGraph)).not.toContain("conceptTermGroups");
 
-    const explorer = service.getOutputExplorer(actor, projectId);
+    const explorer = await service.getOutputExplorer(actor, projectId);
     expect(explorer.candidateSet).toMatchObject({ targetCount: 10 });
     expect((explorer.candidates as unknown[]).length).toBeGreaterThanOrEqual(5);
     expect(explorer.rankingSnapshot).toMatchObject({ personalizationApplied: true });
     const candidate = (explorer.candidates as Array<Record<string, unknown>>).find((item) => item.format === "web_lesson") ??
       (explorer.candidates as Array<Record<string, unknown>>)[0];
 
-    const journeyResult = service.createJourney(
+    const journeyResult = await service.createJourney(
       actor,
       { candidateId: String(candidate.id), ifExists: "return_existing" },
       { idempotencyKey: "journey-001" },
     );
     expect(journeyResult.status).toBe(201);
     const journeyId = String(journeyResult.data.id);
-    const existingJourney = service.createJourney(actor, { candidateId: String(candidate.id), ifExists: "return_existing" });
+    const existingJourney = await service.createJourney(actor, { candidateId: String(candidate.id), ifExists: "return_existing" });
     expect(existingJourney.status).toBe(200);
     expect(existingJourney.data.id).toBe(journeyId);
 
-    expect(() => service.createAttempt(actor, journeyId, { nodeId: "boss_artifact" })).toThrowError(
+    await expect(service.createAttempt(actor, journeyId, { nodeId: "boss_artifact" })).rejects.toThrowError(
       expect.objectContaining({ code: "NODE_LOCKED" }),
     );
 
-    const retrieval = service.createAttempt(actor, journeyId, { nodeId: "retrieval_core" }, { idempotencyKey: "attempt-retrieval-1" }).data;
-    service.updateAttempt(actor, journeyId, String(retrieval.id), {
+    const retrieval = (await service.createAttempt(actor, journeyId, { nodeId: "retrieval_core" }, { idempotencyKey: "attempt-retrieval-1" })).data;
+    await service.updateAttempt(actor, journeyId, String(retrieval.id), {
       answerText:
         "Âm nhạc viral không chỉ nằm ở giai điệu. Bằng chứng trong nguồn cho thấy cần xét cộng đồng chia sẻ đầu tiên và thời điểm văn hóa, đồng thời giới hạn là một video chưa đủ để kết luận công thức chung nếu chưa kiểm chứng ở bối cảnh khác.",
     }, { ifMatchVersion: 1 });
     const retrievalSubmitted = await service.submitAttempt(actor, journeyId, String(retrieval.id), { idempotencyKey: "submit-retrieval-1" });
     expect(retrievalSubmitted.data).toMatchObject({ status: "passed", xpAwarded: 10 });
 
-    const transfer = service.createAttempt(actor, journeyId, { nodeId: "transfer_new_context" }).data;
-    service.updateAttempt(actor, journeyId, String(transfer.id), {
+    const transfer = (await service.createAttempt(actor, journeyId, { nodeId: "transfer_new_context" })).data;
+    await service.updateAttempt(actor, journeyId, String(transfer.id), {
       answerText:
         "Bối cảnh mới: Tôi áp dụng cho một lớp kỹ năng mềm trong cộng đồng sinh viên y. Cách áp dụng: mở bằng một tình huống 30 giây về an toàn hiến máu, nối hook với giá trị học thật về quy trình kiểm tra điều kiện và mời người học remix thành câu hỏi. Cách đo kết quả: đo tỉ lệ trả lời đúng câu hỏi truy hồi và số người hoàn thành Boss Proof thay vì chỉ đếm lượt xem.",
     });
     const transferSubmitted = await service.submitAttempt(actor, journeyId, String(transfer.id));
     expect(transferSubmitted.data).toMatchObject({ status: "passed", xpAwarded: 15 });
 
-    const boss = service.createAttempt(actor, journeyId, { nodeId: "boss_artifact" }).data;
-    service.updateAttempt(actor, journeyId, String(boss.id), {
+    const boss = (await service.createAttempt(actor, journeyId, { nodeId: "boss_artifact" })).data;
+    await service.updateAttempt(actor, journeyId, String(boss.id), {
       answerText:
         "Mục tiêu học: Người mới sáng tạo nội dung hiểu vì sao sao chép bề mặt không tạo lại điều kiện lan truyền. Giá trị cốt lõi: hook chỉ giúp dừng lại; mạng lưới đầu tiên, thời điểm và khả năng remix mới quyết định nội dung đi xa. Nội dung artifact: một infographic bốn ô gồm Hook, Cộng đồng đầu tiên, Thời điểm, Remix và một câu hỏi kiểm tra ở ô cuối. Cách người khác sử dụng/kiểm tra: người học đọc từng ô, trả lời câu hỏi, sau đó tự áp dụng cho một ngách và đối chiếu nguồn đã khai báo.",
       sourceDisclosure: {
@@ -190,26 +190,26 @@ describe("VS1 Curiosity to Proof", () => {
     const bossSubmitted = await service.submitAttempt(actor, journeyId, String(boss.id));
     expect(bossSubmitted.data).toMatchObject({ status: "passed", xpAwarded: 35 });
 
-    const progress = service.getMyProgress(actor);
+    const progress = await service.getMyProgress(actor);
     expect(progress).toMatchObject({ lifetimeXp: 60, numericLevel: 0, era: "Zero", xpInLevel: 60, xpToNextLevel: 40 });
     expect(progress.latestProof).toMatchObject({ verificationLevel: "system_recorded", visibility: "private" });
-    expect(service.getJourney(actor, journeyId)).toMatchObject({ status: "completed", currentNodeId: null });
-    expect(service.listJourneyCommits(actor, journeyId).data.length).toBeGreaterThanOrEqual(5);
+    expect(await service.getJourney(actor, journeyId)).toMatchObject({ status: "completed", currentNodeId: null });
+    expect((await service.listJourneyCommits(actor, journeyId) ).data.length).toBeGreaterThanOrEqual(5);
 
-    const duplicateRetrieval = service.createAttempt(actor, journeyId, { nodeId: "retrieval_core" }).data;
-    service.updateAttempt(actor, journeyId, String(duplicateRetrieval.id), {
+    const duplicateRetrieval = (await service.createAttempt(actor, journeyId, { nodeId: "retrieval_core" })).data;
+    await service.updateAttempt(actor, journeyId, String(duplicateRetrieval.id), {
       answerText:
         "Âm nhạc viral cần được nhìn như một hệ thống gồm nội dung và mạng lưới phân phối. Nguồn là bằng chứng khởi điểm chứ không phải kết luận cuối cùng; giới hạn là mức độ phù hợp vẫn cần kiểm chứng thêm bằng dữ liệu từ bối cảnh khác.",
     });
     const duplicateSubmitted = await service.submitAttempt(actor, journeyId, String(duplicateRetrieval.id));
     expect(duplicateSubmitted.data).toMatchObject({ status: "passed", xpAwarded: 0 });
-    expect(service.getMyProgress(actor).lifetimeXp).toBe(60);
+    expect((await service.getMyProgress(actor) ).lifetimeXp).toBe(60);
   });
 
   it("keeps a private AI draft out of another learner's search until it is internal_reviewed", async () => {
     const { service, store } = createService();
-    const owner = activate(service, "Chủ module").actor;
-    const other = activate(service, "Người học khác").actor;
+    const owner = (await activate(service, "Chủ module")).actor;
+    const other = (await activate(service, "Người học khác")).actor;
 
     const makeProject = async (actor: Actor, suffix: string) => {
       const project = await service.createProject(actor, {
@@ -250,7 +250,7 @@ describe("VS1 Curiosity to Proof", () => {
 
   it("sends near-verbatim work to human review without XP and does not accuse the learner of cheating", async () => {
     const { service, store } = createService();
-    const { actor } = activate(service, "Người học copy");
+    const { actor } = await activate(service, "Người học copy");
     const project = await service.createProject(actor, {
       title: "Kiểm chứng thông tin",
       prompt: "Học cách kiểm chứng thông tin bằng nguồn, bằng chứng, bối cảnh và giới hạn trước khi chia sẻ một kết luận.",
@@ -261,26 +261,26 @@ describe("VS1 Curiosity to Proof", () => {
     const search = await service.createSearchAttempt(actor, projectId, {});
     const brew = await service.createBrewJob(actor, projectId, { searchAttemptId: String(search.data.id), confirmed: true });
     const moduleVersionId = String(brew.data.resultModuleVersionId);
-    const explorer = service.getOutputExplorer(actor, projectId);
+    const explorer = await service.getOutputExplorer(actor, projectId);
     const candidate = (explorer.candidates as Array<Record<string, unknown>>)[0];
-    const journey = service.createJourney(actor, { candidateId: String(candidate.id) }).data;
+    const journey = (await service.createJourney(actor, { candidateId: String(candidate.id) })).data;
     const journeyId = String(journey.id);
 
     const graph = store.moduleVersions.get(moduleVersionId)?.graph;
     const sample = graph?.nodes.find((node) => node.id === "retrieval_core")?.content.sampleAnswer;
     expect(typeof sample).toBe("string");
 
-    const attempt = service.createAttempt(actor, journeyId, { nodeId: "retrieval_core" }).data;
-    service.updateAttempt(actor, journeyId, String(attempt.id), { answerText: String(sample) });
+    const attempt = (await service.createAttempt(actor, journeyId, { nodeId: "retrieval_core" })).data;
+    await service.updateAttempt(actor, journeyId, String(attempt.id), { answerText: String(sample) });
     const submitted = await service.submitAttempt(actor, journeyId, String(attempt.id));
     expect(submitted.data).toMatchObject({ status: "pending_human_review", xpAwarded: 0 });
     expect(submitted.data.assessment).toMatchObject({ integritySignals: ["high_similarity_to_source_or_sample"] });
-    expect(service.getMyProgress(actor).lifetimeXp).toBe(0);
+    expect((await service.getMyProgress(actor) ).lifetimeXp).toBe(0);
   });
 
   it("handles text and image uploads with hash, magic-byte and mismatch checks", async () => {
     const { service } = createService();
-    const { actor } = activate(service, "Người tải file");
+    const { actor } = await activate(service, "Người tải file");
     const project = await service.createProject(actor, {
       title: "Tài liệu học",
       prompt: "Tôi muốn học từ tài liệu của mình và biến nó thành một lộ trình có kiểm tra hiểu biết.",
@@ -291,16 +291,16 @@ describe("VS1 Curiosity to Proof", () => {
 
     const textBytes = Buffer.from("Bằng chứng là dữ kiện có thể đối chiếu với nguồn. Người học cần tách dữ kiện, diễn giải và kết luận.");
     const textHash = createHash("sha256").update(textBytes).digest("hex");
-    const upload = service.initiateArtifactUpload(actor, projectId, {
+    const upload = (await service.initiateArtifactUpload(actor, projectId, {
       kind: "file",
       fileName: "notes.txt",
       declaredMimeType: "text/plain",
       byteSize: textBytes.length,
       sha256: textHash,
       rightsBasis: "created_by_user",
-    }, { baseUrl: "http://localhost:3000" }).data;
+    }, { baseUrl: "http://localhost:3000" })).data;
     const headers = upload.headers as Record<string, string>;
-    service.acceptLocalUpload(String(upload.artifactId), headers["X-GON-Upload-Token"], textBytes, "text/plain");
+    await service.acceptLocalUpload(String(upload.artifactId), headers["X-GON-Upload-Token"], textBytes, "text/plain");
     const completed = await service.completeArtifactUpload(actor, projectId, String(upload.artifactId), {
       sha256: textHash,
       byteSize: textBytes.length,
@@ -312,47 +312,47 @@ describe("VS1 Curiosity to Proof", () => {
       Buffer.from("fake-image-payload"),
     ]);
     const pngHash = createHash("sha256").update(pngBytes).digest("hex");
-    const imageUpload = service.initiateArtifactUpload(actor, projectId, {
+    const imageUpload = (await service.initiateArtifactUpload(actor, projectId, {
       kind: "image",
       fileName: "certificate.png",
       declaredMimeType: "image/png",
       byteSize: pngBytes.length,
       sha256: pngHash,
       rightsBasis: "created_by_user",
-    }, { baseUrl: "http://localhost:3000" }).data;
+    }, { baseUrl: "http://localhost:3000" })).data;
     const imageHeaders = imageUpload.headers as Record<string, string>;
-    service.acceptLocalUpload(String(imageUpload.artifactId), imageHeaders["X-GON-Upload-Token"], pngBytes, "image/png");
+    await service.acceptLocalUpload(String(imageUpload.artifactId), imageHeaders["X-GON-Upload-Token"], pngBytes, "image/png");
     const imageCompleted = await service.completeArtifactUpload(actor, projectId, String(imageUpload.artifactId), {});
     expect(imageCompleted.data).toMatchObject({ kind: "image", extractionStatus: "metadata_only", safetyStatus: "allowed" });
 
     const mismatchHash = createHash("sha256").update(pngBytes).digest("hex");
-    const mismatchUpload = service.initiateArtifactUpload(actor, projectId, {
+    const mismatchUpload = (await service.initiateArtifactUpload(actor, projectId, {
       kind: "file",
       fileName: "not-a-pdf.pdf",
       declaredMimeType: "application/pdf",
       byteSize: pngBytes.length,
       sha256: mismatchHash,
       rightsBasis: "created_by_user",
-    }, { baseUrl: "http://localhost:3000" }).data;
+    }, { baseUrl: "http://localhost:3000" })).data;
     const mismatchHeaders = mismatchUpload.headers as Record<string, string>;
-    service.acceptLocalUpload(String(mismatchUpload.artifactId), mismatchHeaders["X-GON-Upload-Token"], pngBytes, "application/pdf");
+    await service.acceptLocalUpload(String(mismatchUpload.artifactId), mismatchHeaders["X-GON-Upload-Token"], pngBytes, "application/pdf");
     const mismatchCompleted = await service.completeArtifactUpload(actor, projectId, String(mismatchUpload.artifactId), {});
     expect(mismatchCompleted.data).toMatchObject({ extractionStatus: "blocked", safetyStatus: "blocked" });
   });
 
   it("creates truthful external proofs and minimum moderation reports", async () => {
     const { service } = createService();
-    const owner = activate(service, "Chủ Proof Vault").actor;
-    const other = activate(service, "Người ngoài Proof Vault").actor;
+    const owner = (await activate(service, "Chủ Proof Vault")).actor;
+    const other = (await activate(service, "Người ngoài Proof Vault")).actor;
 
-    const proof = service.createExternalProof(owner, {
+    const proof = (await service.createExternalProof(owner, {
       proofType: "certificate_link",
       title: "Chứng chỉ khóa học bên ngoài",
       externalUri: "https://example.org/certificates/123",
       issuerDisplayName: "Example Issuer",
-    }).data;
+    })).data;
     expect(proof).toMatchObject({ verificationLevel: "source_linked", visibility: "private" });
-    expect(() => service.getProof(other, String(proof.id))).toThrowError(expect.objectContaining({ status: 404 }));
+    await expect(service.getProof(other, String(proof.id))).rejects.toThrowError(expect.objectContaining({ status: 404 }));
 
     const project = await service.createProject(owner, {
       title: "Chủ đề cần báo cáo",
@@ -365,19 +365,19 @@ describe("VS1 Curiosity to Proof", () => {
       searchAttemptId: String(search.data.id),
       confirmed: true,
     });
-    const report = service.createReport(owner, {
+    const report = (await service.createReport(owner, {
       targetType: "module_version",
       targetId: String(brew.data.resultModuleVersionId),
       reasonCode: "source_quality",
       detail: "Cần kiểm tra lại mức citation của module.",
-    }).data;
+    })).data;
     expect(report).toMatchObject({ status: "received", targetType: "module_version" });
-    expect(() => service.getReport(other, String(report.id))).toThrowError(expect.objectContaining({ status: 404 }));
+    await expect(service.getReport(other, String(report.id))).rejects.toThrowError(expect.objectContaining({ status: 404 }));
   });
 
   it("removes deleted artifact chunks from the local search index immediately", async () => {
     const { service, store } = createService();
-    const { actor } = activate(service, "Người xóa artifact");
+    const { actor } = await activate(service, "Người xóa artifact");
     const project = await service.createProject(actor, {
       title: "Xóa nguồn",
       prompt: "Một chủ đề đủ dài để kiểm tra việc loại bỏ chunk khỏi chỉ mục sau khi artifact bị xóa mềm.",
@@ -391,14 +391,14 @@ describe("VS1 Curiosity to Proof", () => {
     });
     const artifactId = String(added.data.id);
     expect([...store.chunks.values()].some((chunk) => chunk.artifactId === artifactId)).toBe(true);
-    service.deleteArtifact(actor, artifactId);
+    await service.deleteArtifact(actor, artifactId);
     expect([...store.chunks.values()].some((chunk) => chunk.artifactId === artifactId)).toBe(false);
-    expect(() => service.getArtifact(actor, artifactId)).toThrowError(expect.objectContaining({ status: 404 }));
+    await expect(service.getArtifact(actor, artifactId)).rejects.toThrowError(expect.objectContaining({ status: 404 }));
   });
 
   it("honours the Brew kill switch", async () => {
     const { service } = createService({ brewEnabled: false });
-    const { actor } = activate(service, "Người gặp kill switch");
+    const { actor } = await activate(service, "Người gặp kill switch");
     const project = await service.createProject(actor, {
       title: "Kill switch",
       prompt: "Một chủ đề đủ cụ thể để Search trả missing và sau đó Brew bị kill switch chặn đúng cách.",

@@ -9,7 +9,7 @@
     "start": "next start --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run tests/production",
-    "test:postgres": "vitest run tests/integration/postgres-hybrid-search.test.ts",
+    "test:postgres": "vitest run tests/integration",
     "test:watch": "vitest tests/production",
     "test:legacy": "node --test tests/app.test.js ux-prototype/tests/prototype.test.js",
     "db:check": "node scripts/check-migrations.mjs",
