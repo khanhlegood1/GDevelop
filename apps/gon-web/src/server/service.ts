@@ -11,6 +11,7 @@ import {
   validateUploadDeclaration,
 } from "./artifacts";
 import { assessAttemptDeterministically } from "./assessment";
+import { defaultContentSafetyScanner, type ContentSafetyScanner } from "./content-safety";
 import { PRIVACY_VERSION, TERMS_VERSION } from "./config";
 import {
   cosineSimilarity,
@@ -61,6 +62,7 @@ import {
 } from "./module-graph";
 import { progressFromXp, XP_RULE_VALUES } from "./progression";
 import { jaccardSimilarity, normalizeForSearch, slugifyAscii, tokenize, tokenSet, truncateText } from "./text";
+import type { SafeUrlFetcher } from "./url-fetcher";
 import {
   LEARNING_MODES,
   type Actor,
@@ -126,6 +128,13 @@ export interface GonServiceOptions {
    */
   brewAiProvider?: BrewAiProvider;
   featureFlags?: Record<string, boolean>;
+  /** Content-safety scanner (P05-R1.8). Defaults to the local deterministic scanner. */
+  contentSafetyScanner?: ContentSafetyScanner;
+  /**
+   * SSRF-safe URL fetcher (P05-R1.8). Absent = URL artifacts stay
+   * metadata-only (VS1 default; no third-party fetches).
+   */
+  urlFetcher?: SafeUrlFetcher;
   now?: () => Date;
   quotas?: Partial<{
     searchPerHour: number;
@@ -210,6 +219,8 @@ class GonServiceCore {
   private readonly brewExecutionMode: BrewExecutionMode;
   private readonly brewAiProvider: BrewAiProvider;
   private readonly featureFlags: Record<string, boolean>;
+  private readonly contentSafetyScanner: ContentSafetyScanner;
+  private readonly urlFetcher: SafeUrlFetcher | null;
   private readonly clock: () => Date;
   private readonly quotas: Required<NonNullable<GonServiceOptions["quotas"]>>;
 
@@ -224,6 +235,8 @@ class GonServiceCore {
       throw new Error(`Unsupported Brew execution mode: ${String(this.brewExecutionMode)}`);
     }
     this.brewAiProvider = options.brewAiProvider ?? new LocalDeterministicBrewAiProvider();
+    this.contentSafetyScanner = options.contentSafetyScanner ?? defaultContentSafetyScanner;
+    this.urlFetcher = options.urlFetcher ?? null;
     this.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...(options.featureFlags ?? {}) };
     this.clock = options.now ?? (() => new Date());
     this.quotas = {
@@ -1415,7 +1428,26 @@ class GonServiceCore {
     }
   }
 
+  /** Shared fail-closed block path for content-safety rejections (P05-R1.8). */
+  private blockArtifact(actor: Actor, artifact: ArtifactRecord, failureCode: string): void {
+    artifact.safetyStatus = "blocked";
+    artifact.extractionStatus = "blocked";
+    artifact.failureCode = failureCode;
+    artifact.coverage = { hasMetadata: true, hasText: false, hasTranscript: false, chunkCount: 0 };
+    this.emit(actor, "artifact.blocked", "source_artifact", artifact.id, { failureCode });
+  }
+
   private async processTextArtifact(actor: Actor, artifact: ArtifactRecord, text: string): Promise<void> {
+    const safety = this.contentSafetyScanner.scan({
+      kind: artifact.kind,
+      bytes: null,
+      sourceText: text,
+      originUri: artifact.originUri,
+    });
+    if (safety.status === "blocked") {
+      this.blockArtifact(actor, artifact, safety.reasonCodes[0] ?? "ARTIFACT_CONTENT_BLOCKED");
+      return;
+    }
     const job = this.createJob({
       actor,
       jobType: "artifact_extract",
@@ -1477,6 +1509,50 @@ class GonServiceCore {
   }
 
   private async processUrlArtifact(actor: Actor, artifact: ArtifactRecord, parsedUrl: URL): Promise<void> {
+    const safety = this.contentSafetyScanner.scan({
+      kind: artifact.kind,
+      bytes: null,
+      sourceText: `${artifact.displayName} ${parsedUrl.toString()}`,
+      originUri: artifact.originUri,
+    });
+    if (safety.status === "blocked") {
+      this.blockArtifact(actor, artifact, safety.reasonCodes[0] ?? "ARTIFACT_CONTENT_BLOCKED");
+      return;
+    }
+
+    // Optional SSRF-safe content fetch (P05-R1.8). When no fetcher is wired
+    // (VS1 default) the artifact stays metadata-only. Blocked/restricted
+    // responses fail closed; transport errors fall back to metadata so the
+    // link artifact remains usable as evidence.
+    if (this.urlFetcher) {
+      try {
+        const fetched = await this.urlFetcher.fetchContent(parsedUrl.toString());
+        const text = fetched.bytes.toString("utf-8").slice(0, MAX_TEXT_ARTIFACT_CHARS);
+        const contentSafety = this.contentSafetyScanner.scan({
+          kind: artifact.kind,
+          bytes: fetched.bytes.subarray(0, 4096),
+          sourceText: text.slice(0, 64 * 1024),
+          originUri: artifact.originUri,
+        });
+        if (contentSafety.status === "blocked") {
+          this.blockArtifact(actor, artifact, contentSafety.reasonCodes[0] ?? "ARTIFACT_CONTENT_BLOCKED");
+          return;
+        }
+        await this.processTextArtifact(actor, artifact, text);
+        return;
+      } catch (error) {
+        const code =
+          typeof error === "object" && error !== null && "code" in error
+            ? String((error as { code: unknown }).code)
+            : "";
+        if (["ARTIFACT_URL_BLOCKED", "URL_ACCESS_RESTRICTED", "URL_CONTENT_TYPE_BLOCKED"].includes(code)) {
+          this.blockArtifact(actor, artifact, code);
+          return;
+        }
+        // Transport/size/rate failures: keep the metadata-only path below.
+      }
+    }
+
     const job = this.createJob({
       actor,
       jobType: "artifact_extract",
@@ -2031,6 +2107,16 @@ class GonServiceCore {
   }
 
   private async processUploadedObject(actor: Actor, artifact: ArtifactRecord, bytes: Buffer): Promise<void> {
+    const safety = this.contentSafetyScanner.scan({
+      kind: artifact.kind,
+      bytes,
+      sourceText: null,
+      originUri: artifact.originUri,
+    });
+    if (safety.status === "blocked") {
+      this.blockArtifact(actor, artifact, safety.reasonCodes[0] ?? "ARTIFACT_CONTENT_BLOCKED");
+      return;
+    }
     const detected = detectFile(bytes, artifact.declaredMimeType ?? "");
     artifact.detectedMimeType = detected.mimeType;
 
@@ -2044,11 +2130,11 @@ class GonServiceCore {
       (!expectedPdf && detected.category === "pdf");
 
     if (detected.category === "unknown" || mismatch) {
-      artifact.safetyStatus = "blocked";
-      artifact.extractionStatus = "blocked";
-      artifact.failureCode = detected.category === "unknown" ? "ARTIFACT_TYPE_UNSUPPORTED" : "ARTIFACT_MIME_MISMATCH";
-      artifact.coverage = { hasMetadata: true, hasText: false, hasTranscript: false, chunkCount: 0 };
-      this.emit(actor, "artifact.blocked", "source_artifact", artifact.id, { failureCode: artifact.failureCode });
+      this.blockArtifact(
+        actor,
+        artifact,
+        detected.category === "unknown" ? "ARTIFACT_TYPE_UNSUPPORTED" : "ARTIFACT_MIME_MISMATCH",
+      );
       return;
     }
 
@@ -4286,6 +4372,8 @@ export class GonService {
   private readonly brewExecutionMode?: BrewExecutionMode;
   private readonly brewAiProvider?: BrewAiProvider;
   private readonly featureFlags?: Record<string, boolean>;
+  private readonly contentSafetyScanner?: ContentSafetyScanner;
+  private readonly urlFetcher?: SafeUrlFetcher;
   private readonly now?: () => Date;
   private readonly quotas?: GonServiceOptions["quotas"];
   private readonly coreContext = new AsyncLocalStorage<GonServiceCore>();
@@ -4301,6 +4389,8 @@ export class GonService {
     }
     this.brewAiProvider = options.brewAiProvider;
     this.featureFlags = options.featureFlags;
+    this.contentSafetyScanner = options.contentSafetyScanner;
+    this.urlFetcher = options.urlFetcher;
     this.now = options.now;
     this.quotas = options.quotas;
   }
@@ -4318,6 +4408,8 @@ export class GonService {
         brewExecutionMode: this.brewExecutionMode,
         brewAiProvider: this.brewAiProvider,
         featureFlags: this.featureFlags,
+        contentSafetyScanner: this.contentSafetyScanner,
+        urlFetcher: this.urlFetcher,
         now: this.now,
         quotas: this.quotas,
       });
