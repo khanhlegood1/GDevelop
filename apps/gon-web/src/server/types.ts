@@ -589,6 +589,31 @@ export interface AuditRecord {
   createdAt: string;
 }
 
+/**
+ * Safe AI execution metadata. This record intentionally has no prompt,
+ * evidence text, model response body or chain-of-thought field.
+ */
+export interface AiRunRecord {
+  /** Local correlation ID; PostgreSQL uses its bigint identity internally. */
+  id: string;
+  jobId: string | null;
+  operation: "topic_check" | "generate_module" | "assess_attempt" | "plan_candidates";
+  provider: string;
+  modelId: string;
+  agentPipelineVersion: string;
+  promptTemplateVersions: string[];
+  inputSchemaVersion: string;
+  outputSchemaVersion: string;
+  evidenceBundleHash: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUnits: number;
+  latencyMs: number | null;
+  finishReason: string | null;
+  errorCode: string | null;
+  createdAt: string;
+}
+
 export interface IdempotencyRecord {
   key: string;
   /** Persisted scope columns; optional only for records created before R1.2. */

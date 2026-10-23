@@ -1,6 +1,7 @@
 import { sha256Hex } from "./hash";
 import { createId } from "./ids";
 import type {
+  AiRunRecord,
   ArtifactRecord,
   AttemptRecord,
   AttestationRecord,
@@ -177,6 +178,7 @@ export interface GonRepositories {
 
   readonly outboxEvents: AppendOnlyCollection<OutboxEventRecord>;
   readonly auditLogs: AppendOnlyCollection<AuditRecord>;
+  readonly aiRuns: AppendOnlyCollection<AiRunRecord>;
   readonly idempotencyRecords: RepositoryCollection<string, IdempotencyRecord>;
 
   /** Present only when the active Unit of Work can execute SQL Search. */
@@ -277,6 +279,7 @@ export class InMemoryGonRepositories implements GonRepositories {
 
   readonly outboxEvents = new ArrayAppendOnlyCollection<OutboxEventRecord>();
   readonly auditLogs = new ArrayAppendOnlyCollection<AuditRecord>();
+  readonly aiRuns = new ArrayAppendOnlyCollection<AiRunRecord>();
   readonly idempotencyRecords = new MapRepositoryCollection<string, IdempotencyRecord>();
 
   hybridSearch?: HybridSearchPort;
@@ -344,6 +347,7 @@ export class InMemoryGonRepositories implements GonRepositories {
 
     for (const event of this.outboxEvents.values()) clone.outboxEvents.append(cloneRecord(event));
     for (const entry of this.auditLogs.values()) clone.auditLogs.append(cloneRecord(entry));
+    for (const run of this.aiRuns.values()) clone.aiRuns.append(cloneRecord(run));
     clone.xpSequenceByUser = new Map(this.xpSequenceByUser);
     return clone;
   }
@@ -360,6 +364,8 @@ export class InMemoryGonRepositories implements GonRepositories {
     for (const event of source.outboxEvents.values()) this.outboxEvents.append(event);
     this.auditLogs.clear();
     for (const entry of source.auditLogs.values()) this.auditLogs.append(entry);
+    this.aiRuns.clear();
+    for (const run of source.aiRuns.values()) this.aiRuns.append(run);
     this.xpSequenceByUser = new Map(source.xpSequenceByUser);
     this.hybridSearch = source.hybridSearch;
   }
