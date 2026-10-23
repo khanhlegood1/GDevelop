@@ -146,7 +146,7 @@ Mức độ dưới đây tính theo tác động nếu đưa bề mặt tương
 | Targeted source search | Dangerous sinks/log/secrets | Không có `eval`, `Function`, `dangerouslySetInnerHTML`, `innerHTML`, child-process trong production source | Manual/lexical evidence, không thay CodeQL/Semgrep CI |
 | `detect-secrets` + regex patterns | GON web/ADK tracked scope | 3 candidates: 2 placeholder trong docs, 1 URL có `user:pass@` trong test chặn credential | Không phát hiện secret thật; GitHub scanning vẫn cần bật |
 
-GitHub API trong sandbox cho thấy Dependabot alerts đang disabled; code-scanning alerts không truy cập được bằng integration hiện tại. Repo cũng chưa có workflow riêng cho `apps/gon-web`/`apps/gon-adk`. Đây là một phần của B-P05-09.
+GitHub API trong sandbox cho thấy Dependabot alerts đang disabled; code-scanning alerts không truy cập được bằng integration hiện tại. R1.1 đã thêm workflow riêng cho `apps/gon-web`/`apps/gon-adk`, nhưng chưa có bằng chứng GitHub Actions run hoặc branch-protection required checks. Đây vẫn là một phần của B-P05-09.
 
 ### HTTP probes
 

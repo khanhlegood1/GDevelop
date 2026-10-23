@@ -56,8 +56,8 @@ Script chạy trong một transaction rồi rollback. Nó kiểm tra:
 
 ## Những gì còn cần để wired PostgreSQL
 
-1. Tách `GonService` khỏi `MemoryGonStore` thành repository interface theo aggregate.
-2. Implement PostgreSQL repositories với transaction cho attestation, upload completion, search result, Brew persist, vote về sau, attempt pass → mastery/XP/commit/proof/outbox.
-3. Chạy migration + S-P03-01 trên PostgreSQL/pgvector thật và lưu kết quả vào P04 evidence.
-4. Chạy toàn bộ production service tests một lần với memory adapter và một lần với PostgreSQL adapter.
-5. P05 mới chốt database role/RLS, backup/restore, retention, region/tier và alert.
+1. Tách `GonService` khỏi `MemoryGonStore` thành repository interface theo aggregate và Unit of Work.
+2. Implement PostgreSQL write repositories với transaction cho attestation, upload completion, search result, Brew persist, vote về sau, attempt pass → mastery/XP/commit/proof/outbox.
+3. Nối `PostgresHybridSearchRepository` vào cùng transaction/read model sau khi project/artifact/module data đã được persist thật.
+4. Chạy toàn bộ production service tests một lần với memory adapter và một lần với PostgreSQL adapter; sau đó lặp lại migration/S-P03-01 trên managed PostgreSQL staging với corpus đại diện.
+5. Chốt database role/RLS, backup/restore, retention, region/tier và alert trước Go-Live.

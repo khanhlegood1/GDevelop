@@ -151,7 +151,7 @@ Các số trên chỉ chứng minh đường local không có độ trễ bất 
 - ADK tests: **11/11**;
 - TypeScript typecheck: passed;
 - P03 validator: 56 paths, 69 operations, 5 JSON schemas, examples/fixtures checked;
-- migration static check: 6 files passed; dry-run S-P03-01 không tạo bằng chứng PostgreSQL.
+- migration static check: 6 files passed; `db:migrate` và S-P03-01 fixture đã chạy qua PGlite socket trong R1.1, còn managed PostgreSQL/corpus đại diện vẫn chưa chạy.
 
 ## 5. Kết luận theo từng target
 

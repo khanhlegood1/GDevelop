@@ -61,6 +61,7 @@ Theo [NFR-REL-02](NFR-SPECIFICATION-AND-RESULTS.md#33-availability-reliability-v
 - Lỗi API dùng Problem Details với `code`, `requestId`, `retryable` và không trả stack.
 - Web log một JSON line cho unhandled API error chỉ gồm level/event/requestId/errorName; comment trong code cấm log body/token/learner content tại boundary này.
 - Domain service tạo outbox events và một số Audit records trong memory; SearchAttempt lưu latency nội bộ.
+- Web có `/healthz` liveness tối thiểu và `/readyz` chỉ trả trạng thái tổng hợp; readiness nội bộ kiểm tra runtime store và PostgreSQL ping có timeout.
 - ADK có `/healthz` báo provider/schema/auth readiness dạng boolean và khẳng định không có DB/publish access.
 
 ### 3.2 Thiếu
@@ -135,7 +136,7 @@ Trace một request qua web → DB/storage → queue → ADK → provider bằng
 
 | Trụ cột | Điểm mạnh | Gap chính | Ưu tiên |
 |---|---|---|---|
-| Operational excellence | Gate/ADR/traceability rõ; Problem Details/requestId; kill switch Brew dạng env | Chưa CI/CD, dashboards/alerts/runbooks/game days | **P0** |
+| Operational excellence | Gate/ADR/traceability rõ; Problem Details/requestId; kill switch Brew dạng env; workflow CI và health/readiness đã có | Chưa khóa required checks/CD, dashboards/alerts/runbooks/game days | **P0** |
 | Security | Server-side actor/owner, CSRF, bounded bodies, private drafts, ADK không DB/publish | Auth/DB thật, edge limits, file/fetcher sandbox, IAM/secrets, staging DAST | **P0** |
 | Reliability | Idempotency/state machines ở local; migration checksum/advisory lock | Memory store, synchronous jobs, không backup/restore/queue recovery | **P0** |
 | Performance efficiency | Bundle vừa phải; local latency thấp; schema có HNSW/FTS/trigram design | Runtime quét memory, embedding tuần tự, chưa load/index evidence | **P0/P1** |
