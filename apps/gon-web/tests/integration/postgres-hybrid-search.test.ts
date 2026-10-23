@@ -115,7 +115,7 @@ beforeAll(async () => {
   const files = (await readdir(migrationsDir))
     .filter((file) => /^\d{4}_[a-z0-9_]+\.sql$/i.test(file))
     .sort((a, b) => a.localeCompare(b));
-  expect(files).toHaveLength(6);
+  expect(files).toHaveLength(7);
   for (const file of files) {
     await db.exec(await readFile(path.join(migrationsDir, file), "utf8"));
   }
@@ -160,7 +160,7 @@ afterAll(async () => {
 });
 
 describe("PostgreSQL migrations and hybrid Search (PGlite execution)", () => {
-  it("applies all six migrations with pgvector/pg_trgm available", async () => {
+  it("applies all seven migrations with pgvector/pg_trgm available", async () => {
     const extensions = await db.query<{ extname: string }>(
       `select extname from pg_extension
         where extname in ('vector', 'pg_trgm', 'pgcrypto', 'unaccent')

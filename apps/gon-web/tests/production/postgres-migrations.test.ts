@@ -14,8 +14,8 @@ const sql = migrationFiles
 
 describe("PostgreSQL migration contract (static, not executed)", () => {
   it("uses ordered unique SQL-first migration files", () => {
-    expect(migrationFiles).toHaveLength(6);
-    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(6);
+    expect(migrationFiles).toHaveLength(7);
+    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(7);
     for (const file of migrationFiles) {
       expect(file).toMatch(/^\d{4}_[a-z0-9_]+\.sql$/i);
     }
@@ -46,6 +46,8 @@ describe("PostgreSQL migration contract (static, not executed)", () => {
     expect(sql).toContain("formula_version = 'gon-level-v1'");
     expect(sql).toContain("graph_schema_version = 'gon.module-graph/1.0'");
     expect(sql).toContain("outbox_events_publish_queue_idx");
+    expect(sql).toContain("async_jobs_running_lease_idx");
+    expect(sql).toContain("outbox_events_publishing_lease_idx");
   });
 
   it("marks historical records append-only and module graphs immutable", () => {

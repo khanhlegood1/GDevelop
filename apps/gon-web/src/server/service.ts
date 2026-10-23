@@ -82,10 +82,19 @@ export interface CommandResult<T> {
   replay?: boolean;
 }
 
+export type BrewExecutionMode = "inline" | "queued";
+
+export interface ProcessQueuedBrewJobOptions {
+  workerId?: string;
+  leaseMs?: number;
+  alreadyClaimed?: boolean;
+}
+
 export interface GonServiceOptions {
   store?: GonStore;
   embeddingProvider?: EmbeddingProvider;
   requireInvite?: boolean;
+  brewExecutionMode?: BrewExecutionMode;
   featureFlags?: Record<string, boolean>;
   now?: () => Date;
   quotas?: Partial<{
@@ -142,6 +151,7 @@ class GonServiceCore {
   private readonly repositories: GonRepositories;
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite: boolean;
+  private readonly brewExecutionMode: BrewExecutionMode;
   private readonly featureFlags: Record<string, boolean>;
   private readonly clock: () => Date;
   private readonly quotas: Required<NonNullable<GonServiceOptions["quotas"]>>;
@@ -150,6 +160,10 @@ class GonServiceCore {
     this.repositories = options.repositories;
     this.embeddingProvider = options.embeddingProvider ?? createEmbeddingProvider();
     this.requireInvite = options.requireInvite ?? true;
+    this.brewExecutionMode = options.brewExecutionMode ?? "inline";
+    if (!["inline", "queued"].includes(this.brewExecutionMode)) {
+      throw new Error(`Unsupported Brew execution mode: ${String(this.brewExecutionMode)}`);
+    }
     this.featureFlags = { ...DEFAULT_FEATURE_FLAGS, ...(options.featureFlags ?? {}) };
     this.clock = options.now ?? (() => new Date());
     this.quotas = {
@@ -187,6 +201,10 @@ class GonServiceCore {
       causationId,
       data,
       publishState: "pending",
+      availableAt: this.now(),
+      publishedAt: null,
+      publishAttemptCount: 0,
+      lastErrorCode: null,
     });
   }
 
@@ -760,12 +778,15 @@ class GonServiceCore {
       currentStep: null,
       idempotencyKey: input.idempotencyKey ?? createOpaqueToken(18),
       inputFingerprint: input.inputFingerprint ?? stableHash(input.payload ?? {}),
-      attemptCount: 1,
+      attemptCount: 0,
       maxAttempts: 3,
       estimatedCostUnits: input.estimatedCostUnits ?? 0,
       actualCostUnits: 0,
       failureCode: null,
       retryable: false,
+      availableAt: this.now(),
+      leaseOwner: null,
+      leaseExpiresAt: null,
       createdAt: this.now(),
       startedAt: null,
       completedAt: null,
@@ -776,10 +797,20 @@ class GonServiceCore {
     return job;
   }
 
+  private retryDelayMs(job: JobRecord): number {
+    const exponent = Math.max(0, Math.min(5, job.attemptCount - 1));
+    return Math.min(15 * 60_000, 30_000 * 2 ** exponent);
+  }
+
   private startJob(job: JobRecord, step: string): void {
+    if (job.status !== "running") {
+      job.attemptCount += 1;
+      job.startedAt = this.now();
+    }
     job.status = "running";
     job.currentStep = step;
-    job.startedAt = job.startedAt ?? this.now();
+    job.completedAt = null;
+    job.cancelledAt = null;
   }
 
   private succeedJob(job: JobRecord, step: string | null = null): void {
@@ -788,14 +819,22 @@ class GonServiceCore {
     job.completedAt = this.now();
     job.failureCode = null;
     job.retryable = false;
+    job.leaseOwner = null;
+    job.leaseExpiresAt = null;
   }
 
   private failJob(job: JobRecord, failureCode: string, retryable: boolean, step: string | null = null): void {
-    job.status = retryable ? "failed_retryable" : "failed_terminal";
+    const canRetry = retryable && job.attemptCount < job.maxAttempts;
+    job.status = canRetry ? "failed_retryable" : "failed_terminal";
     job.currentStep = step;
-    job.completedAt = this.now();
+    job.completedAt = canRetry ? null : this.now();
+    job.availableAt = canRetry
+      ? new Date(this.clock().getTime() + this.retryDelayMs(job)).toISOString()
+      : this.now();
     job.failureCode = failureCode;
-    job.retryable = retryable;
+    job.retryable = canRetry;
+    job.leaseOwner = null;
+    job.leaseExpiresAt = null;
   }
 
   private jobDto(job: JobRecord): JsonRecord {
@@ -804,7 +843,11 @@ class GonServiceCore {
       jobType: job.jobType,
       status: job.status,
       currentStep: job.currentStep,
+      attemptCount: job.attemptCount,
+      maxAttempts: job.maxAttempts,
+      availableAt: job.availableAt,
       createdAt: job.createdAt,
+      startedAt: job.startedAt,
       completedAt: job.completedAt,
       failureCode: job.failureCode,
       retryable: job.retryable,
@@ -1561,6 +1604,10 @@ class GonServiceCore {
     return [...this.repositories.chunks.values()].filter((chunk) => chunk.moduleVersionId === moduleVersionId && !chunk.deletedAt);
   }
 
+  private removeModuleChunks(moduleVersionId: string): void {
+    for (const chunk of this.moduleChunks(moduleVersionId)) this.repositories.chunks.delete(chunk.id);
+  }
+
   private topicIsBlocked(text: string): boolean {
     return BLOCKED_TOPIC_PATTERNS.some((pattern) => pattern.test(text));
   }
@@ -2206,6 +2253,7 @@ class GonServiceCore {
   }
 
   private async indexModuleVersion(actor: Actor, version: ModuleVersionRecord): Promise<void> {
+    this.removeModuleChunks(version.id);
     const chunksText = [
       `${version.title}\n${version.summary}\n${version.graph.module.concepts.map((concept) => `${concept.name}: ${concept.description}`).join("\n")}`,
       ...version.graph.nodes.map((node) => {
@@ -2321,7 +2369,9 @@ class GonServiceCore {
     project.currentBrewJobId = job.id;
     this.emit(actor, "brew.job.queued", "brew_job", job.id, { projectId: project.id, searchAttemptId });
 
-    await this.processBrewJob(actor, job);
+    if (this.brewExecutionMode === "inline") {
+      await this.processBrewJob(actor, job);
+    }
     this.saveIdempotentResult(actor, "createBrewJob", options.idempotencyKey, payload, "brew_job", job.id, 202);
     return { data: this.brewJobDto(job.id), status: 202 };
   }
@@ -2341,6 +2391,52 @@ class GonServiceCore {
       const searchAttempt = this.repositories.searchAttempts.get(brew.searchAttemptId);
       if (!searchAttempt) throw new Error("SEARCH_ATTEMPT_NOT_FOUND");
       completeStep("validate_request");
+
+      if (brew.resultModuleVersionId) {
+        const version = this.repositories.moduleVersions.get(brew.resultModuleVersionId);
+        if (!version) throw new Error("BREW_RESULT_MODULE_VERSION_NOT_FOUND");
+        const validation = validateModuleGraph(version.graph, {
+          evidenceSourceIds: version.graph.sources.map((source) => source.id),
+        });
+        if (!validation.valid) {
+          this.failJob(job, "MODULE_GRAPH_INVALID", false, "verify_citations");
+          this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+          return;
+        }
+
+        job.currentStep = "persist_draft";
+        if (!steps.includes("persist_draft")) {
+          await this.indexModuleVersion(actor, version);
+          completeStep("persist_draft");
+          this.emit(actor, "module.version.created", "module_version", version.id, {
+            moduleId: version.moduleId,
+            publicationStatus: version.publicationStatus,
+            groundingStatus: version.groundingStatus,
+          }, job.id);
+        }
+
+        job.currentStep = "build_candidate_set";
+        await this.buildCandidateSet(actor, project, searchAttempt, [{
+          moduleVersionId: version.id,
+          rank: 1,
+          title: version.title,
+          sourceStatus: version.groundingStatus,
+          reasonCodes: ["same_source_topic"],
+          matchedConcepts: version.graph.module.concepts
+            .filter((concept) => concept.role === "core")
+            .map((concept) => concept.name),
+          missingConcepts: [],
+          internalScores: { vector: 1, lexical: 1, conceptCoverage: 1, specificity: 1, quality: 0.7, hybrid: 0.92 },
+        }], version.id);
+        completeStep("build_candidate_set");
+        job.actualCostUnits = 0;
+        this.succeedJob(job, "succeeded");
+        this.emit(actor, "brew.job.succeeded", "brew_job", job.id, {
+          projectId: project.id,
+          resultModuleVersionId: version.id,
+        }, job.id);
+        return;
+      }
 
       job.currentStep = "topic_and_safety_check";
       const artifacts = searchAttempt.artifactIds
@@ -2373,6 +2469,9 @@ class GonServiceCore {
         job.currentStep = "build_evidence_bundle";
         job.failureCode = "EVIDENCE_REQUIRED";
         job.retryable = false;
+        job.completedAt = this.now();
+        job.leaseOwner = null;
+        job.leaseExpiresAt = null;
         this.emit(actor, "brew.job.needs_input", "brew_job", job.id, { projectId: project.id }, job.id);
         return;
       }
@@ -2445,8 +2544,11 @@ class GonServiceCore {
       };
       this.repositories.modules.set(moduleRecord.id, moduleRecord);
       this.repositories.moduleVersions.set(version.id, version);
-      await this.indexModuleVersion(actor, version);
+      // Checkpoint the result before any fallible indexing work. A retry can
+      // then resume from this exact ModuleVersion instead of generating a
+      // duplicate module.
       brew.resultModuleVersionId = version.id;
+      await this.indexModuleVersion(actor, version);
       completeStep("persist_draft");
       this.emit(actor, "module.version.created", "module_version", version.id, {
         moduleId: version.moduleId,
@@ -2494,6 +2596,78 @@ class GonServiceCore {
     const job = this.repositories.jobs.get(jobId);
     if (!job || job.ownerUserId !== actor.userId) throw notFound();
     return job.jobType === "brew_module" ? this.brewJobDto(jobId) : this.jobDto(job);
+  }
+
+  async processQueuedBrewJob(
+    jobId: string,
+    options: ProcessQueuedBrewJobOptions = {},
+  ): Promise<JsonRecord> {
+    const workerId = options.workerId ?? "gon-brew-worker";
+    if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(workerId)) {
+      throw new Error("workerId must be a bounded ASCII identifier");
+    }
+    const leaseMs = options.leaseMs ?? 5 * 60_000;
+    if (!Number.isSafeInteger(leaseMs) || leaseMs < 5_000 || leaseMs > 15 * 60_000) {
+      throw new Error("leaseMs must be an integer between 5000 and 900000");
+    }
+
+    const job = this.repositories.jobs.get(jobId);
+    if (!job || job.jobType !== "brew_module" || !this.repositories.brewJobs.get(jobId)) throw notFound();
+    if (["succeeded", "failed_terminal", "cancelled", "needs_input"].includes(job.status)) {
+      return this.brewJobDto(jobId);
+    }
+
+    const owner = this.repositories.users.get(job.ownerUserId);
+    if (!owner || owner.status === "deleted") throw notFound();
+
+    const nowMs = this.clock().getTime();
+    const leaseExpired = !job.leaseExpiresAt || Date.parse(job.leaseExpiresAt) <= nowMs;
+    if (job.status === "running" && !leaseExpired) {
+      if (!options.alreadyClaimed || job.leaseOwner !== workerId) {
+        return this.brewJobDto(jobId);
+      }
+    } else {
+      if (job.status !== "running" && Date.parse(job.availableAt) > nowMs && !options.alreadyClaimed) {
+        return this.brewJobDto(jobId);
+      }
+      if (job.attemptCount >= job.maxAttempts) {
+        this.failJob(job, "JOB_LEASE_EXPIRED", false, job.currentStep);
+        return this.brewJobDto(jobId);
+      }
+      job.status = "running";
+      job.attemptCount += 1;
+      job.startedAt = this.now();
+      job.completedAt = null;
+      job.cancelledAt = null;
+      job.leaseOwner = workerId;
+      job.leaseExpiresAt = new Date(nowMs + leaseMs).toISOString();
+    }
+
+    const actor: Actor = {
+      userId: owner.id,
+      roles: owner.roles,
+      authProvider: "service",
+      requestId: createId("req"),
+    };
+    await this.processBrewJob(actor, job);
+    return this.brewJobDto(jobId);
+  }
+
+  async processNextQueuedBrewJob(
+    options: ProcessQueuedBrewJobOptions = {},
+  ): Promise<JsonRecord | null> {
+    const nowMs = this.clock().getTime();
+    const candidate = [...this.repositories.jobs.values()]
+      .filter((job) => {
+        if (job.jobType !== "brew_module") return false;
+        if (["queued", "failed_retryable"].includes(job.status)) {
+          return Date.parse(job.availableAt) <= nowMs;
+        }
+        return job.status === "running" && (!job.leaseExpiresAt || Date.parse(job.leaseExpiresAt) <= nowMs);
+      })
+      .sort((a, b) => a.availableAt.localeCompare(b.availableAt) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))[0];
+    if (!candidate) return null;
+    return this.processQueuedBrewJob(candidate.id, options);
   }
 
   private requireOwnedJourney(actor: Actor, journeyId: string): JourneyRecord {
@@ -3279,6 +3453,7 @@ export class GonService {
 
   private readonly embeddingProvider: EmbeddingProvider;
   private readonly requireInvite?: boolean;
+  private readonly brewExecutionMode?: BrewExecutionMode;
   private readonly featureFlags?: Record<string, boolean>;
   private readonly now?: () => Date;
   private readonly quotas?: GonServiceOptions["quotas"];
@@ -3288,6 +3463,10 @@ export class GonService {
     this.store = options.store ?? new MemoryGonStore();
     this.embeddingProvider = options.embeddingProvider ?? createEmbeddingProvider();
     this.requireInvite = options.requireInvite;
+    this.brewExecutionMode = options.brewExecutionMode;
+    if (this.brewExecutionMode !== undefined && !["inline", "queued"].includes(this.brewExecutionMode)) {
+      throw new Error(`Unsupported Brew execution mode: ${String(this.brewExecutionMode)}`);
+    }
     this.featureFlags = options.featureFlags;
     this.now = options.now;
     this.quotas = options.quotas;
@@ -3302,6 +3481,7 @@ export class GonService {
         repositories,
         embeddingProvider: this.embeddingProvider,
         requireInvite: this.requireInvite,
+        brewExecutionMode: this.brewExecutionMode,
         featureFlags: this.featureFlags,
         now: this.now,
         quotas: this.quotas,
@@ -3513,6 +3693,19 @@ export class GonService {
 
   async getJob(actor: Actor, jobId: string): Promise<JsonRecord> {
     return this.run((core) => core.getJob(actor, jobId));
+  }
+
+  async processQueuedBrewJob(
+    jobId: string,
+    options: ProcessQueuedBrewJobOptions = {},
+  ): Promise<JsonRecord> {
+    return this.run((core) => core.processQueuedBrewJob(jobId, options));
+  }
+
+  async processNextQueuedBrewJob(
+    options: ProcessQueuedBrewJobOptions = {},
+  ): Promise<JsonRecord | null> {
+    return this.run((core) => core.processNextQueuedBrewJob(options));
   }
 
   async createJourney(

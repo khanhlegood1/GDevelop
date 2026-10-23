@@ -13,6 +13,8 @@ import {
   PostgresGonStore,
   type PostgresTransactionRunner,
 } from "@/server/postgres-store";
+import { runNextPostgresBrewJob } from "@/server/job-worker";
+import { PostgresJobQueue } from "@/server/postgres-job-queue";
 import { GonService } from "@/server/service";
 import type { Actor } from "@/server/types";
 
@@ -64,7 +66,7 @@ beforeAll(async () => {
   const files = (await readdir(migrationsDir))
     .filter((file) => /^\d{4}_[a-z0-9_]+\.sql$/i.test(file))
     .sort((a, b) => a.localeCompare(b));
-  expect(files).toHaveLength(6);
+  expect(files).toHaveLength(7);
   for (const file of files) {
     await db.exec(await readFile(path.join(migrationsDir, file), "utf8"));
   }
@@ -415,4 +417,89 @@ describe("PostgreSQL domain repositories and Unit of Work (PGlite execution)", (
       db.query("update module_versions set title = title || ' changed' where true"),
     ).rejects.toThrow(/immutable/);
   }, 180_000);
+
+  it("claims a queued Brew job in SQL and processes it through the domain worker", async () => {
+    const { actor } = await activate("Người học durable Brew");
+    const queuedService = new GonService({
+      store,
+      embeddingProvider: new LocalHashEmbeddingProvider(),
+      requireInvite: true,
+      brewExecutionMode: "queued",
+      featureFlags: { brew_enabled: true },
+    });
+
+    const project = await queuedService.createProject(actor, {
+      title: "Thủy triều và đồng bằng",
+      prompt:
+        "Vì sao thủy triều, phù sa, xâm nhập mặn và lịch canh tác ở đồng bằng phải được hiểu như một hệ thống có bằng chứng và giới hạn theo mùa?",
+      goal: "Tạo module ngắn về hệ thống thủy triều và canh tác",
+      learningMode: "deep_mastery",
+      depth: "standard",
+      timeBudgetMinutes: 30,
+      locale: "vi-VN",
+    }, { idempotencyKey: "pg-queued-project" });
+    const projectId = String(project.data.id);
+
+    const search = await queuedService.createSearchAttempt(
+      actor,
+      projectId,
+      {},
+      { idempotencyKey: "pg-queued-search" },
+    );
+    expect(search.data.status).toBe("completed");
+    expect(["missing", "related", "found"]).toContain(search.data.verdict);
+
+    const modulesBefore = await count("module_versions");
+    const queued = await queuedService.createBrewJob(
+      actor,
+      projectId,
+      { searchAttemptId: String(search.data.id), confirmed: true },
+      { idempotencyKey: "pg-queued-brew" },
+    );
+    expect(queued.data).toMatchObject({
+      status: "queued",
+      attemptCount: 0,
+      resultModuleVersionId: null,
+    });
+    expect(await count("module_versions")).toBe(modulesBefore);
+    expect(
+      await count("async_jobs", "id = $1 and status = 'queued' and lease_owner is null", [String(queued.data.id)]),
+    ).toBe(1);
+
+    const queue = new PostgresJobQueue({
+      query: async (text, params = []) => db.query(text, params as never[]),
+    });
+    const result = await runNextPostgresBrewJob({
+      queue,
+      service: queuedService,
+      workerId: "pglite-worker-a",
+      leaseMs: 60_000,
+    });
+    expect(result.claimed).toBe(true);
+    if (!result.claimed) throw new Error("Expected queued Brew job to be claimed");
+    expect(result.job).toMatchObject({
+      id: queued.data.id,
+      status: "succeeded",
+      attemptCount: 1,
+    });
+    expect(String(result.job.resultModuleVersionId).startsWith("modv_")).toBe(true);
+    expect(await count("module_versions")).toBe(modulesBefore + 1);
+    expect(
+      await count(
+        "async_jobs",
+        "id = $1 and status = 'succeeded' and attempt_count = 1 and lease_owner is null and lease_expires_at is null",
+        [String(queued.data.id)],
+      ),
+    ).toBe(1);
+
+    const replay = await queuedService.processQueuedBrewJob(String(queued.data.id), {
+      workerId: "pglite-worker-b",
+    });
+    expect(replay).toMatchObject({
+      id: queued.data.id,
+      status: "succeeded",
+      resultModuleVersionId: result.job.resultModuleVersionId,
+    });
+    expect(await count("module_versions")).toBe(modulesBefore + 1);
+  }, 240_000);
 });

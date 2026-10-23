@@ -4,8 +4,8 @@ Thư mục này chứa SQL-first migrations cho canonical datastore đã đượ
 
 ## Trạng thái trung thực hiện tại
 
-- **Đã có:** sáu migration cho Auth.js, GON identity/consent, project/artifact, chunk + `vector(768)`, job/search/module/candidate/ranking, journey/attempt/XP/proof/moderation, outbox/audit/quota/AI run.
-- **Đã thực thi local:** R1.1/R1.2 đã áp dụng migrations trên PGlite (PostgreSQL 18.6 WASM + pgvector), chạy hybrid Search và toàn bộ domain VS1 qua normalized repositories. Xem [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md).
+- **Đã có:** bảy migration cho Auth.js, GON identity/consent, project/artifact, chunk + `vector(768)`, job/search/module/candidate/ranking, journey/attempt/XP/proof/moderation, outbox/audit/quota/AI run và lease indexes cho durable jobs/outbox.
+- **Đã thực thi local:** R1.1/R1.2/R1.3 đã áp dụng migrations trên PGlite (PostgreSQL 18.6 WASM + pgvector), chạy hybrid Search, toàn bộ domain VS1 qua normalized repositories và durable job/outbox/Brew worker flow. Xem [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) và [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md).
 - **Đã wired:** `GON_STORE=postgres` dùng PostgreSQL Unit-of-Work khi có `DATABASE_URL` và schema đã migrate. Web runtime không tự chạy migration; thiếu cấu hình/schema thì fail-closed thay vì âm thầm fallback.
 - **Chưa được chứng minh:** managed PostgreSQL/Cloud SQL latency, IAM/TLS/network, RLS/database roles, backup/PITR/restore, load và corpus Search đại diện. PGlite không phải production evidence.
 
@@ -59,6 +59,7 @@ Script chạy trong một transaction rồi rollback. Nó kiểm tra:
 - `module_versions.graph` bất biến bằng trigger; thay đổi nội dung phải tạo ModuleVersion mới. Chỉ trạng thái publication/visibility mới được chuyển theo moderation policy.
 - Branch commits, assessment results, XP ledger, proof verification events, moderation actions và audit logs là append-only ở tầng trigger.
 - XP không có cột level tối đa. Projection lưu Lifetime XP; level tính bằng `floor(LifetimeXP/100)` theo `gon-level-v1`.
+- Durable job completion phải qua lease owner còn hạn; outbox completion phải khớp publish attempt của claim hiện tại. PostgreSQL rows là nguồn sự thật, queue delivery bên ngoài không được tự biến thành domain state.
 - Raw binary không lưu trong PostgreSQL; `storage_object_key` trỏ tới private object storage trong triển khai Cloud.
 
 ## Những gì còn cần trước staging/production
@@ -66,5 +67,5 @@ Script chạy trong một transaction rồi rollback. Nó kiểm tra:
 1. Lặp lại migrations, domain tests và S-P03-01 trên managed PostgreSQL staging với TLS/IAM, network policy và corpus đại diện; ghi EXPLAIN/latency thật.
 2. Chuyển các đường nóng từ identity-map load-all của R1.2 sang targeted repository queries/pagination khi corpus tăng, có load test chứng minh.
 3. Chốt database roles/RLS, retention/deletion jobs, backup/PITR/restore drill, region/tier, metrics và alert.
-4. Nối private object storage cho raw bytes và durable queue/outbox worker; PostgreSQL metadata một mình chưa làm artifact/job trở nên durable end-to-end.
+4. Nối private object storage cho raw bytes, triển khai worker process/scheduler và outbox sink/consumers; queue primitives trên PostgreSQL một mình chưa làm artifact/job/event trở nên durable end-to-end ở production.
 5. Chạy Google/Auth.js database-session/revoke E2E và kiểm tra migration rehearsal/rollback app theo expand-contract trên bản sao staging.

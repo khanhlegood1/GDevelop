@@ -2,7 +2,7 @@
 
 Đây là Next.js/TypeScript modular monolith cho GON Private Alpha. Nó không thay thế các prototype tĩnh ở `../index.html` và `../ux-prototype/`; prototype được giữ làm bằng chứng P02/lịch sử, còn thư mục này là nơi triển khai contract P03.
 
-> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; bằng chứng PostgreSQL hiện là PGlite. Đây vẫn chưa phải production deployment vì object storage, durable queue/outbox worker, Gemini/ADK thật, Google staging E2E và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md) và [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md).
+> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; durable job/outbox primitives và queued Brew đã được kiểm chứng trên PGlite. Đây vẫn chưa phải production deployment vì worker process/sink, object storage, Gemini/ADK thật, Google staging E2E và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md), [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) và [R1.3 evidence](../docs/06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md).
 
 ## Cấu trúc
 
@@ -21,6 +21,9 @@
 | `server/repositories.ts` | Boundary `GonRepositories`/`GonStore`, identity-map collections theo aggregate và capability Search tùy chọn |
 | `server/memory-store.ts` | Local/test Unit-of-Work adapter: clone identity map, rollback khi lỗi, swap khi commit; không phải persistence production |
 | `server/postgres-store.ts` | PostgreSQL Unit-of-Work adapter: load normalized aggregates, diff/flush theo FK order, serializable transaction và retry có giới hạn |
+| `server/postgres-job-queue.ts` | Durable job claim/heartbeat/complete/fail/reconciler/stats bằng PostgreSQL lease và fencing |
+| `server/postgres-outbox.ts` | Transactional outbox claim/publish/fail/stats; completion được fence bằng publish attempt và yêu cầu sink thật |
+| `server/job-worker.ts` | Chạy một Brew job từ SQL queue vào domain Unit of Work; chưa phải worker process chạy liên tục |
 | `server/artifacts.ts` | Giới hạn intake, URL safety, magic-byte/MIME checks và chunking |
 | `server/module-graph.ts` | AJV + semantic validation cho `gon.module-graph/1.0`, local graph, player projection không lộ đáp án |
 | `server/assessment.ts` | Deterministic rubric, disclosure và human-review safeguards |
@@ -72,6 +75,7 @@ npm run db:check
 | `GON_DEV_AUTH=1` | Chỉ có hiệu lực ngoài production. |
 | `GON_DEV_INVITE_CODE` | Seed một invite cho local dev; không dùng secret/code thật trong repo. |
 | `GON_BREW_ENABLED` | Kill switch Brew phía domain service. |
+| `GON_BREW_EXECUTION_MODE=inline|queued` | Mặc định `inline`. `queued` chỉ persist durable Brew job và cần worker gọi `runNextPostgresBrewJob`/domain worker method; không bật ở môi trường chưa có worker vận hành. |
 | `GON_EMBEDDING_PROVIDER=local|gemini` | Mặc định local deterministic. `gemini` yêu cầu `GEMINI_API_KEY` hoặc `GOOGLE_API_KEY`, nhưng chưa được kiểm chứng bằng call thật. |
 | `GON_TREND_ENABLED`, `GON_GAME_EVENTS_ENABLED` | Mặc định tắt cho VS1. |
 
@@ -89,4 +93,4 @@ npm run db:check
 
 ## Phần chưa implement trong dispatcher
 
-OpenAPI P03 rộng hơn increment VS1 hiện tại. Chưa có hoặc chưa hoàn chỉnh: profile/data-request endpoints, artifact/Brew retry-cancel đầy đủ, Arena, game session/events, admin/moderation workflow, trend/creator analytics, durable jobs/outbox publisher, external fetch/extraction/OCR/transcript và các slice VS2–VS5. Endpoint chưa hỗ trợ phải trả Problem Details thay vì giả vờ thành công.
+OpenAPI P03 rộng hơn increment VS1 hiện tại. Chưa có hoặc chưa hoàn chỉnh: profile/data-request endpoints, artifact/Brew retry-cancel đầy đủ, Arena, game session/events, admin/moderation workflow, trend/creator analytics, worker process/outbox sink production, external fetch/extraction/OCR/transcript và các slice VS2–VS5. Durable job/outbox primitives và queued Brew đã có ở R1.3, nhưng chưa phải deployment worker hoàn chỉnh. Endpoint chưa hỗ trợ phải trả Problem Details thay vì giả vờ thành công.

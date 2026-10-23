@@ -32,6 +32,7 @@
 5. [Reliability, Observability, DR và Well-Architected gaps](06-nfr/RELIABILITY-OBSERVABILITY-AND-WELL-ARCHITECTED.md)
 6. [P05-R1.1 — PostgreSQL Foundation, Hybrid Search Repository và CI Gates](06-nfr/P05-R1-POSTGRES-FOUNDATION.md) — remediation partial, gate vẫn chưa đạt
 7. [P05-R1.2 — Domain Repository Boundaries & Unit of Work](06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) — VS1 đã chạy qua PostgreSQL normalized repositories trên PGlite; managed staging/storage/queue vẫn mở
+8. [P05-R1.3 — Durable Jobs & Transactional Outbox](06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md) — PostgreSQL lease/retry/reconciler, outbox publisher primitives và queued Brew đã có bằng chứng PGlite; worker deployment/sink/Auth/storage staging vẫn mở
 
 ## Tài liệu P04 đã được phê duyệt
 

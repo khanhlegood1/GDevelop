@@ -563,6 +563,9 @@ async function loadRepositories(
       actualCostUnits: asNumber(row.actual_cost_units),
       failureCode: asNullableText(row.failure_code),
       retryable: asBoolean(row.retryable),
+      availableAt: asIso(row.available_at, asIso(row.created_at)),
+      leaseOwner: asNullableText(row.lease_owner),
+      leaseExpiresAt: asNullableIso(row.lease_expires_at),
       createdAt: asIso(row.created_at),
       startedAt: asNullableIso(row.started_at),
       completedAt: asNullableIso(row.completed_at),
@@ -1063,6 +1066,10 @@ async function loadRepositories(
       causationId: asNullableText(row.causation_id),
       data: asJsonRecord(row.data),
       publishState: asEnum(row.publish_state, "pending"),
+      availableAt: asIso(row.available_at, asIso(row.occurred_at)),
+      publishedAt: asNullableIso(row.published_at),
+      publishAttemptCount: asNumber(row.publish_attempt_count),
+      lastErrorCode: asNullableText(row.last_error_code),
     });
   }
 
@@ -1521,6 +1528,9 @@ async function saveJob(
     record.startedAt,
     record.completedAt,
     record.cancelledAt,
+    record.availableAt,
+    record.leaseOwner,
+    record.leaseExpiresAt,
   ];
   if (mode === "insert") {
     await executor.query(
@@ -1528,9 +1538,10 @@ async function saveJob(
          (id, job_type, owner_user_id, aggregate_type, aggregate_id, status,
           current_step, idempotency_key, input_fingerprint, attempt_count,
           max_attempts, estimated_cost_units, actual_cost_units, failure_code,
-          retryable, payload, created_at, started_at, completed_at, cancelled_at)
+          retryable, payload, created_at, started_at, completed_at, cancelled_at,
+          available_at, lease_owner, lease_expires_at)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-         $14, $15, $16::jsonb, $17, $18, $19, $20)`,
+         $14, $15, $16::jsonb, $17, $18, $19, $20, $21, $22, $23)`,
       params,
     );
   } else {
@@ -1542,7 +1553,8 @@ async function saveJob(
          estimated_cost_units = $12, actual_cost_units = $13,
          failure_code = $14, retryable = $15, payload = $16::jsonb,
          created_at = $17, started_at = $18, completed_at = $19,
-         cancelled_at = $20 where id = $1`,
+         cancelled_at = $20, available_at = $21, lease_owner = $22,
+         lease_expires_at = $23 where id = $1`,
       params,
     );
   }
@@ -2428,15 +2440,20 @@ async function saveOutboxEvent(
     record.causationId,
     jsonParam(record.data),
     record.publishState,
-    record.publishState === "published" ? record.occurredAt : null,
+    record.publishedAt,
+    record.availableAt,
+    record.publishAttemptCount,
+    record.lastErrorCode,
   ];
   if (mode === "insert") {
     await executor.query(
       `insert into outbox_events
          (event_id, event_type, event_version, occurred_at, aggregate_type,
           aggregate_id, actor_type, actor_id, correlation_id, causation_id,
-          data, publish_state, available_at, published_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $4, $13)`,
+          data, publish_state, published_at, available_at,
+          publish_attempt_count, last_error_code)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12,
+         $13, $14, $15, $16)`,
       params,
     );
   } else {
@@ -2445,7 +2462,8 @@ async function saveOutboxEvent(
          occurred_at = $4, aggregate_type = $5, aggregate_id = $6,
          actor_type = $7, actor_id = $8, correlation_id = $9,
          causation_id = $10, data = $11::jsonb, publish_state = $12,
-         available_at = $4, published_at = $13 where event_id = $1`,
+         published_at = $13, available_at = $14,
+         publish_attempt_count = $15, last_error_code = $16 where event_id = $1`,
       params,
     );
   }

@@ -7,13 +7,14 @@ import { MemoryGonStore } from "@/server/memory-store";
 import { GonService } from "@/server/service";
 import type { Actor } from "@/server/types";
 
-function createService(options: { brewEnabled?: boolean } = {}) {
+function createService(options: { brewEnabled?: boolean; brewExecutionMode?: "inline" | "queued" } = {}) {
   const store = new MemoryGonStore();
   store.seedInvite("GON-ALPHA-TEST");
   const service = new GonService({
     store,
     embeddingProvider: new LocalHashEmbeddingProvider(),
     requireInvite: true,
+    brewExecutionMode: options.brewExecutionMode,
     featureFlags: { brew_enabled: options.brewEnabled ?? true },
   });
   return { store, service };
@@ -54,6 +55,77 @@ describe("identity boundary", () => {
     ).rejects.toThrowError(expect.objectContaining({ code: "INVITE_INVALID_OR_EXPIRED" }));
     expect(store.users.get(user.id)?.status).toBe("onboarding");
     expect([...store.attestations.values()].filter((item) => item.userId === user.id)).toHaveLength(0);
+  });
+});
+
+describe("queued Brew execution", () => {
+  it("persists a queued Brew job and lets a worker complete it exactly once", async () => {
+    const { service, store } = createService({ brewExecutionMode: "queued" });
+    const { actor } = await activate(service, "Người học queued Brew");
+
+    const project = (await service.createProject(actor, {
+      title: "Học qua hàng đợi",
+      prompt:
+        "Vì sao một hệ thống học tập cần hàng đợi bền vững, lease có thời hạn và retry không tạo trùng kết quả khi worker bị dừng giữa chừng?",
+      goal: "Hiểu durable jobs qua một module ngắn",
+      learningMode: "deep_mastery",
+      depth: "standard",
+      timeBudgetMinutes: 30,
+      locale: "vi-VN",
+    }, { idempotencyKey: "queued-project-001" })).data;
+    const projectId = String(project.id);
+
+    const search = (await service.createSearchAttempt(
+      actor,
+      projectId,
+      {},
+      { idempotencyKey: "queued-search-001" },
+    )).data;
+    expect(search).toMatchObject({ status: "completed", verdict: "missing" });
+
+    const queued = await service.createBrewJob(
+      actor,
+      projectId,
+      { searchAttemptId: String(search.id), confirmed: true },
+      { idempotencyKey: "queued-brew-001" },
+    );
+    expect(queued.status).toBe(202);
+    expect(queued.data).toMatchObject({
+      status: "queued",
+      attemptCount: 0,
+      resultModuleVersionId: null,
+    });
+    expect(store.moduleVersions.size).toBe(0);
+
+    const processed = await service.processNextQueuedBrewJob({ workerId: "worker-test-a" });
+    expect(processed).toMatchObject({
+      id: queued.data.id,
+      status: "succeeded",
+      attemptCount: 1,
+    });
+    expect(String(processed?.resultModuleVersionId).startsWith("modv_")).toBe(true);
+    expect(store.moduleVersions.size).toBe(1);
+
+    const replayProcess = await service.processQueuedBrewJob(String(queued.data.id), {
+      workerId: "worker-test-b",
+    });
+    expect(replayProcess).toMatchObject({
+      id: queued.data.id,
+      status: "succeeded",
+      resultModuleVersionId: processed?.resultModuleVersionId,
+    });
+    expect(store.moduleVersions.size).toBe(1);
+    await expect(service.processNextQueuedBrewJob()).resolves.toBeNull();
+
+    const replayCreate = await service.createBrewJob(
+      actor,
+      projectId,
+      { searchAttemptId: String(search.id), confirmed: true },
+      { idempotencyKey: "queued-brew-001" },
+    );
+    expect(replayCreate).toMatchObject({ status: 200, replay: true });
+    expect(replayCreate.data.id).toBe(queued.data.id);
+    expect(store.moduleVersions.size).toBe(1);
   });
 });
 
