@@ -11,14 +11,14 @@ export async function getOptionalActor(request: Request, requestId: string): Pro
 
   if (config.devAuthEnabled) {
     const cookies = parseCookies(request.headers.get("cookie"));
-    const devActor = service.resolveDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
+    const devActor = await service.resolveDevSession(cookies[DEV_SESSION_COOKIE_NAME]);
     if (devActor) return { ...devActor, requestId };
   }
 
   const session = await auth();
   const gonUserId = session?.user?.gonUserId;
   if (!gonUserId) return null;
-  const user = service.store.users.get(gonUserId);
+  const user = await service.findUserById(gonUserId);
   if (!user || user.status === "deleted") return null;
   return {
     userId: user.id,

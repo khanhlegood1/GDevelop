@@ -93,7 +93,7 @@ Learning Player trước đây dùng `role="tablist"`/`role="tab"` nhưng chưa 
 | Khía cạnh | Bằng chứng | Giới hạn |
 |---|---|---|
 | Embedding contract | Local provider trả đúng 768D, normalized, deterministic và không tự nhãn Gemini; Gemini adapter yêu cầu đúng 768 values và timeout 20 giây | Local hash dựa token/bigram, không chứng minh semantic quality; Gemini chưa gọi thật |
-| Search safeguards | Memory runtime và PostgreSQL repository đều authorization-filter trước scoring/candidate limit; verdict `found/related/missing/needs_clarification/blocked_by_policy`; DTO không lộ internal scores | PostgreSQL repository chưa wired vào VS1; ngưỡng hybrid/vector/coverage chưa hiệu chuẩn bằng corpus có nhãn |
+| Search safeguards | Memory runtime và PostgreSQL repository đều authorization-filter trước scoring/candidate limit; verdict `found/related/missing/needs_clarification/blocked_by_policy`; DTO không lộ internal scores | PostgreSQL repository đã wired vào VS1 ở R1.2 và chạy trên PGlite; managed PostgreSQL, corpus có nhãn và hiệu chuẩn ngưỡng vẫn chưa chạy |
 | Module graph | AJV/JSON Schema + semantic validation; graph phải có concept/retrieval/transfer/boss, rubric links và citation trong evidence bundle | Citation tồn tại không đồng nghĩa citation thực sự hỗ trợ từng factual claim |
 | Prompt-injection boundary | ADK instruction coi artifact/evidence/answer là untrusted; agents không tools/transfer/DB/publish | Chưa có adversarial evaluation trên Gemini; instruction không phải security boundary duy nhất |
 | Moderation sơ bộ | Web/ADK local có blocklist hẹp cho yêu cầu chế tạo bom/vũ khí/malware/tự hại và một số cụm hack/đánh cắp | Dễ bypass bằng paraphrase/ngôn ngữ khác; chưa có policy classifier/human moderation workflow hoàn chỉnh |

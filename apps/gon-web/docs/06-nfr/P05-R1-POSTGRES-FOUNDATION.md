@@ -4,6 +4,8 @@
 > **Baseline:** merge PR #14 tại `cad7d9fc810b68d1969bc5615f5a41fea88d64d0`<br>
 > **Trạng thái sau lát cắt:** **P05 vẫn IN REVIEW — NOT YET PASS**<br>
 > **Mục tiêu:** chuyển PostgreSQL từ trạng thái “schema tĩnh/NOT RUN” sang bằng chứng thực thi được, đồng thời tạo nền repository/readiness/CI cho các lát cắt P05-R1 tiếp theo. Lát cắt này **không** tuyên bố domain runtime đã dùng PostgreSQL.
+>
+> **Cập nhật ngày 23/10/2026:** domain repositories/Unit of Work và runtime PostgreSQL đã được triển khai ở [P05-R1.2](P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md). Các câu “chưa wired” bên dưới mô tả trạng thái tại thời điểm đóng R1.1.
 
 ## 1. Đã triển khai
 
@@ -89,6 +91,6 @@ Fixture `spike-hybrid-search.mjs` trước đây insert `module_versions` thiế
 
 ## 4. Lát cắt tiếp theo được khuyến nghị
 
-**P05-R1.2 — Domain repository boundaries:** tách `GonService` khỏi Map trực tiếp theo aggregate, implement PostgreSQL repositories và Unit of Work cho identity/onboarding → project/artifact/chunk → Search/Brew → journey/attempt/XP/proof, sau đó chạy cùng bộ service tests trên memory và PostgreSQL. Chỉ khi toàn bộ đường VS1 chạy trên PostgreSQL mới được phép bật `GON_STORE=postgres` cho staging.
+**P05-R1.2 — Domain repository boundaries:** đã triển khai ở lát cắt tiếp theo; xem [evidence R1.2](P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md). `GON_STORE=postgres` nay có thể dùng cho môi trường kiểm thử đã chạy migrations, nhưng chưa phải bằng chứng managed-staging/production readiness.
 
 Sau R1.2 mới tới durable outbox/queue, object storage, Auth E2E và staging verification. P06 vẫn chưa bắt đầu.

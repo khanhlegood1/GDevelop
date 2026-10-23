@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { readConfig } from "@/server/config";
-import { createPostgresPoolConfig } from "@/server/db";
+import {
+  createPostgresPoolConfig,
+  POSTGRES_REQUIRED_TABLES,
+  POSTGRES_SCHEMA_READINESS_SQL,
+} from "@/server/db";
 import { getLiveness, getReadiness } from "@/server/health";
 import {
   formatPostgresTextArray,
@@ -50,6 +54,17 @@ describe("PostgreSQL pool configuration", () => {
         DATABASE_SSL_MODE: "sometimes",
       })),
     ).toThrow(/DATABASE_SSL_MODE/);
+  });
+});
+
+describe("PostgreSQL schema readiness contract", () => {
+  it("requires Auth and domain tables rather than accepting an empty database", () => {
+    expect(POSTGRES_REQUIRED_TABLES).toContain("sessions");
+    expect(POSTGRES_REQUIRED_TABLES).toContain("gon_users");
+    expect(POSTGRES_REQUIRED_TABLES).toContain("xp_projections");
+    expect(POSTGRES_REQUIRED_TABLES).toContain("idempotency_records");
+    expect(POSTGRES_SCHEMA_READINESS_SQL).toContain("to_regclass(required.table_name)");
+    expect(new Set(POSTGRES_REQUIRED_TABLES).size).toBe(POSTGRES_REQUIRED_TABLES.length);
   });
 });
 
@@ -115,7 +130,22 @@ describe("health and readiness semantics", () => {
     expect(report).toMatchObject({ status: "ready", checks: { store: { ok: true } } });
   });
 
-  it("does not call PostgreSQL ready until domain repositories are wired", async () => {
+  it("calls PostgreSQL ready only when the wired runtime and database both pass", async () => {
+    const report = await getReadiness({
+      config: readConfig({
+        NODE_ENV: "production",
+        GON_STORE: "postgres",
+        DATABASE_URL: "postgresql://db.example/gon",
+      } as NodeJS.ProcessEnv),
+      ensureRuntime: () => undefined,
+      checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
+    });
+    expect(report.status).toBe("ready");
+    expect(report.checks.store).toMatchObject({ kind: "postgres", ok: true });
+    expect(report.checks.database).toMatchObject({ configured: true, required: true, ok: true });
+  });
+
+  it("keeps PostgreSQL not-ready when runtime construction fails", async () => {
     const report = await getReadiness({
       config: readConfig({
         NODE_ENV: "production",
@@ -123,13 +153,12 @@ describe("health and readiness semantics", () => {
         DATABASE_URL: "postgresql://db.example/gon",
       } as NodeJS.ProcessEnv),
       ensureRuntime: () => {
-        throw new Error("must not be called for the unwired store");
+        throw new Error("DATABASE_URL missing in this injected runtime");
       },
       checkDatabase: async () => ({ configured: true, ok: true, latencyMs: 3 }),
     });
     expect(report.status).toBe("not_ready");
-    expect(report.checks.store.errorCode).toBe("POSTGRES_DOMAIN_REPOSITORY_NOT_WIRED");
-    expect(report.checks.database).toMatchObject({ configured: true, required: true, ok: true });
+    expect(report.checks.store.errorCode).toBe("RUNTIME_STORE_NOT_ALLOWED");
   });
 
   it("requires a database in production even for an isolated memory override", async () => {

@@ -2,7 +2,7 @@
 
 Đây là Next.js/TypeScript modular monolith cho GON Private Alpha. Nó không thay thế các prototype tĩnh ở `../index.html` và `../ux-prototype/`; prototype được giữ làm bằng chứng P02/lịch sử, còn thư mục này là nơi triển khai contract P03.
 
-> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source vẫn chạy end-to-end bằng memory store và deterministic adapters; đây chưa phải production deployment vì PostgreSQL repository, durable queue, Gemini/ADK thật, Google credentials thật và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md).
+> **Trạng thái:** P04 đã được PO duyệt ngày 22/10/2026 cho baseline local/test VS1 tại PR #13/head `76eac20`/merge `ef594de`. P05 đang **IN REVIEW — NOT YET PASS**. Source chạy end-to-end bằng memory UoW cho local/test và PostgreSQL normalized repositories cho `GON_STORE=postgres` sau khi migrations đã áp dụng; bằng chứng PostgreSQL hiện là PGlite. Đây vẫn chưa phải production deployment vì object storage, durable queue/outbox worker, Gemini/ADK thật, Google staging E2E và P06 chưa hoàn tất. Xem [gói P05](../docs/06-nfr/README.md) và [R1.2 evidence](../docs/06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md).
 
 ## Cấu trúc
 
@@ -17,18 +17,20 @@
 | `app/api/dev/session/route.ts` | Dev session chỉ khi không phải production và `GON_DEV_AUTH=1` |
 | `app/api/local-uploads/[artifactId]/route.ts` | Authorize upload token trước, sau đó mới đọc bytes theo stream trong giới hạn đã khai báo cho local signed-upload simulation |
 | `server/routes.ts` | Dispatcher cho tập VS1 endpoints hiện đã implement |
-| `server/service.ts` | Domain service đồng bộ cho increment đầu: identity, project/artifact, search, Brew local, candidates/ranking, journey/attempt, mastery/XP/proof/report |
-| `server/memory-store.ts` | Local/test store; không phải persistence production |
+| `server/service.ts` | `GonServiceCore` chứa domain rules trên repositories và async `GonService` facade mở một Unit of Work cho mỗi use case |
+| `server/repositories.ts` | Boundary `GonRepositories`/`GonStore`, identity-map collections theo aggregate và capability Search tùy chọn |
+| `server/memory-store.ts` | Local/test Unit-of-Work adapter: clone identity map, rollback khi lỗi, swap khi commit; không phải persistence production |
+| `server/postgres-store.ts` | PostgreSQL Unit-of-Work adapter: load normalized aggregates, diff/flush theo FK order, serializable transaction và retry có giới hạn |
 | `server/artifacts.ts` | Giới hạn intake, URL safety, magic-byte/MIME checks và chunking |
 | `server/module-graph.ts` | AJV + semantic validation cho `gon.module-graph/1.0`, local graph, player projection không lộ đáp án |
 | `server/assessment.ts` | Deterministic rubric, disclosure và human-review safeguards |
 | `server/embeddings.ts` | Biên `gon-semantic-v1` 768D; local hash provider và Gemini adapter chưa có bằng chứng chạy thật |
 | `server/auth.ts`, `actor.ts` | Auth.js Google boundary và actor resolution từ session server-side |
 | `server/http.ts` | Request ID, envelope, Problem Details, same-origin/CSRF, streamed body limits, proxy-header trust có điều kiện, If-Match/Idempotency-Key parsing |
-| `server/db.ts` | Optional `pg.Pool` cho Auth.js adapter với timeout/TLS bounds, redacted pool-error log, readiness ping và close helper |
-| `server/postgres-search.ts` | Production PostgreSQL hybrid Search repository; authorization trước candidate limit, chưa wired vào `GonService` cho tới R1.2 |
-| `server/health.ts` | Liveness/readiness semantics có thể test bằng dependency injection |
-| `server/runtime.ts` | Singleton local service; `GON_STORE=postgres` cố tình fail-fast vì repository chưa wired; memory bị cấm trong production nếu không có override cô lập tường minh |
+| `server/db.ts` | `pg.Pool` dùng chung cho Auth.js adapter/domain store với timeout/TLS bounds, redacted pool-error log, schema-aware readiness và close helper |
+| `server/postgres-search.ts` | PostgreSQL hybrid Search repository; authorization trước candidate limit và được thực thi bằng savepoint trong Unit of Work |
+| `server/health.ts` | Liveness/readiness semantics có thể test bằng dependency injection; PostgreSQL phải qua runtime + ping + required-table checks |
+| `server/runtime.ts` | Composition root: chọn memory hoặc PostgreSQL store tường minh; PostgreSQL thiếu `DATABASE_URL` thì fail-fast, memory bị cấm trong production nếu không có override cô lập |
 
 ## Chạy local
 
@@ -48,6 +50,7 @@ Kiểm chứng:
 
 ```bash
 npm test
+npm run test:postgres
 npm run typecheck
 npm run build
 npm run db:check
@@ -57,9 +60,9 @@ npm run db:check
 
 | Biến | Ý nghĩa hiện tại |
 |---|---|
-| `GON_STORE=memory` | Store duy nhất đã wired. Giá trị `postgres` sẽ throw thay vì fallback. |
+| `GON_STORE=memory|postgres` | `memory` chỉ cho local/test. `postgres` dùng domain Unit-of-Work trên PostgreSQL và yêu cầu `DATABASE_URL` + migrations đã áp dụng; cấu hình sai sẽ throw thay vì fallback. |
 | `GON_ALLOW_MEMORY_STORE_IN_PRODUCTION` | Mặc định tắt. Chỉ bật cho môi trường production-build cô lập không có dữ liệu thật; không dùng cho Private Alpha thật. |
-| `DATABASE_URL` | Bật Auth.js PG adapter/database sessions và là điều kiện để chạy migration; chưa bật domain repository. |
+| `DATABASE_URL` | Connection dùng cho Auth.js PG adapter/database sessions và domain repositories khi `GON_STORE=postgres`; web runtime không tự chạy migrations. |
 | `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` hoặc `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` | Google OAuth credentials cho Auth.js. |
 | `AUTH_SECRET` hoặc `NEXTAUTH_SECRET` | Secret của Auth.js. |
 | `AUTH_TRUST_HOST` | Production mặc định không tin forwarded host. Chỉ bật sau khi P06 chứng minh edge proxy ghi đè các forwarded headers. |
@@ -81,7 +84,7 @@ npm run db:check
 5. External proof không được nâng lên Issuer-verified bởi client.
 6. Artifact `metadata_only` không được trình bày như đã đọc transcript/nội dung chính.
 7. PDF hiện là `unsupported`; ảnh là `metadata_only`; URL chưa fetch ngoài trong increment local.
-8. PostgreSQL là canonical target theo ADR-0006. Schema/migration nằm ở [`../db/README.md`](../db/README.md), nhưng repository phải được implement và chạy contract tests trên database thật trước khi đổi runtime mặc định.
+8. PostgreSQL là canonical target theo ADR-0006. Domain repositories đã chạy trên PGlite/PostgreSQL WASM ở R1.2, nhưng chưa được coi là staging/production evidence cho tới khi lặp lại trên managed PostgreSQL với dữ liệu/tải đại diện, TLS/IAM, backup/restore và RLS/role policy đã chốt.
 9. ADK là worker không trạng thái ở [`../../gon-adk/README.md`](../../gon-adk/README.md); nó không có quyền DB/publish.
 
 ## Phần chưa implement trong dispatcher

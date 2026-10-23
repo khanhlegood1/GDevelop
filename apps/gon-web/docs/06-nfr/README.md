@@ -19,6 +19,11 @@ Tài liệu chi tiết:
 5. Công cụ tái lập local:
    - [`scripts/http_benchmark.py`](scripts/http_benchmark.py) — benchmark HTTP local có giới hạn rõ;
    - [`scripts/http_security_probe.py`](scripts/http_security_probe.py) — DAST-equivalent probes cho auth/CSRF/origin/body limit/headers.
+6. Remediation sau vòng review gốc:
+   - [P05-R1.1 — PostgreSQL Foundation, Hybrid Search Repository và CI Gates](P05-R1-POSTGRES-FOUNDATION.md);
+   - [P05-R1.2 — Domain Repository Boundaries & Unit of Work](P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md).
+
+> Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1/R1.2 đã cải thiện một phần PostgreSQL/Search/readiness/CI, nhưng chưa đóng các blocker staging/Auth thật/object storage/queue/AI/DR; kết luận gate vẫn **NOT YET PASS**.
 
 Mức bằng chứng dùng trong toàn bộ gói:
 
@@ -83,7 +88,7 @@ P06 chỉ được bắt đầu theo nghĩa triển khai production-like khi cá
 
 | ID | Blocker | Điều kiện đóng tối thiểu |
 |---|---|---|
-| B-P05-01 | PostgreSQL repository, migrations runtime, object storage và durable queue/outbox chưa nối | Chạy migrations + contract/service tests trên PostgreSQL/pgvector; job retry/lease/reconciler và signed storage hoạt động trên staging |
+| B-P05-01 | PostgreSQL domain repositories/UoW đã chạy local qua PGlite; object storage và durable queue/outbox worker vẫn chưa nối, managed PostgreSQL chưa kiểm chứng | Lặp lại migrations + domain tests trên managed PostgreSQL staging; job retry/lease/reconciler và signed storage hoạt động trên staging |
 | B-P05-02 | Google OAuth/database session/revoke/account lifecycle chưa chạy thật | Staging Google sign-in, DB session revoke, expired/revoked invite, suspended/deleted account E2E |
 | B-P05-03 | S-P03-01 và S-P03-03 chưa passed; Gemini/ADK chưa nối | Hybrid Search trên corpus đại diện; TS worker → ADK → Gemini có AiRun/cost/repair/retry không tạo module trùng |
 | B-P05-04 | Upload/URL/extraction security chưa đủ | Malware scan, parser sandbox, image/PDF limits, DNS/redirect/rebinding defense cho fetcher; chưa bật tính năng nào chưa qua kiểm chứng |
@@ -109,7 +114,7 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 
 ## 7. Lộ trình đóng P05
 
-1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation đã xong ở mức local; tiếp theo là domain repositories/Unit of Work, Auth DB sessions, object storage, durable jobs/outbox, ADK worker integration và persistent quotas.
+1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation và R1.2 domain repositories/Unit of Work đã có bằng chứng local/PGlite; tiếp theo là Auth DB-session E2E, object storage, durable jobs/outbox, ADK worker integration, targeted repository queries/RLS và persistent quotas.
 2. **P05-R2 — Staging verification:** S-P03-01/02/03/04, load/DAST/AI evaluation, accessibility browser test, backup/restore và rollback drills.
 3. **P05-R3 — Re-review:** chạy lại toàn bộ gates trên cùng một staging build, đóng findings hoặc xin ngoại lệ có hạn, sau đó mới trình PO duyệt P05.
 4. **P06:** chỉ bắt đầu sau P05 APPROVED; Go-Live vẫn cần quyết định riêng.

@@ -37,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, account, profile }) {
       if (account?.provider !== "google" || !account.providerAccountId) return false;
       const service = getGonService();
-      service.ensureGoogleUser({
+      await service.ensureGoogleUser({
         providerSubject: account.providerAccountId,
         email: typeof profile?.email === "string" ? profile.email : user.email,
         displayName: typeof profile?.name === "string" ? profile.name : user.name,
@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async jwt({ token, user }) {
       const authUserId = user?.id === undefined || user?.id === null ? token.sub : String(user.id);
       if (authUserId) {
-        token.gonUserId = getGonService().findUserIdByAuthUserId(authUserId);
+        token.gonUserId = await getGonService().findUserIdByAuthUserId(authUserId);
       }
       return token;
     },
@@ -58,10 +58,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (typeof user?.gonUserId === "string") gonUserId = user.gonUserId;
       if (!gonUserId && typeof token?.gonUserId === "string") gonUserId = token.gonUserId;
       if (!gonUserId && user?.id !== undefined && user?.id !== null) {
-        gonUserId = service.findUserIdByAuthUserId(String(user.id));
+        gonUserId = await service.findUserIdByAuthUserId(String(user.id));
       }
       if (!gonUserId && typeof token?.sub === "string") {
-        gonUserId = service.findUserIdByAuthUserId(token.sub);
+        gonUserId = await service.findUserIdByAuthUserId(token.sub);
       }
       if (session.user) session.user.gonUserId = gonUserId;
       return session;

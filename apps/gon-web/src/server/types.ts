@@ -567,7 +567,7 @@ export interface OutboxEventRecord {
   correlationId: string;
   causationId: string | null;
   data: JsonRecord;
-  publishState: "pending" | "published";
+  publishState: "pending" | "publishing" | "published" | "failed";
 }
 
 export interface AuditRecord {
@@ -584,6 +584,9 @@ export interface AuditRecord {
 
 export interface IdempotencyRecord {
   key: string;
+  /** Persisted scope columns; optional only for records created before R1.2. */
+  actorUserId?: string;
+  operation?: string;
   requestFingerprint: string;
   resourceType: string;
   resourceId: string;

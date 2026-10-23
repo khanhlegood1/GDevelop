@@ -15,7 +15,7 @@
 
 ### Chưa được tính là runtime production
 
-- PostgreSQL domain repositories và transaction boundaries thật;
+- PostgreSQL domain repositories/Unit of Work trên managed staging (R1.2 mới có bằng chứng PGlite local);
 - signed Cloud Storage, malware scanning, PDF/OCR/transcript và external URL fetching;
 - durable queue/outbox publisher/reconciler;
 - TypeScript worker → ADK và Gemini generation/embedding thật;
@@ -63,7 +63,7 @@ Các quota trên là **domain guardrails local**; chúng mất hiệu lực khi 
 | NFR-PERF-03 | Brew được chấp nhận bất đồng bộ p95 ≤ 300 ms; completion p50 ≤ 60 giây, p95 ≤ 180 giây cho profile module Alpha | Queue/job/AiRun telemetry | Local synchronous Brew 155 ms/1 mẫu; Gemini **NOT RUN** |
 | NFR-PERF-04 | Workspace/player không tải toàn bộ graph/chunk không cần thiết; response JSON p95 ≤ 250 KB cho VS1 điển hình | Response-size budget tại staging | Chưa đo payload budget |
 | NFR-PERF-05 | Web Vitals field/lab: LCP ≤ 2,5 giây, INP ≤ 200 ms, CLS ≤ 0,1 trên thiết bị/mạng tham chiếu đã duyệt | Browser lab + RUM không chứa nội dung học | Bundle 633.356 bytes raw JS/CSS, 192.519 bytes gzip; browser **NOT RUN** |
-| NFR-PERF-06 | Không có request path nào quét toàn bộ chunks/module versions theo cấp số nhân khi corpus tăng; Search dùng index + authorization filter trước limit | EXPLAIN/benchmark S-P03-01 | Memory implementation hiện quét tuyến tính lặp; **chưa đạt kiến trúc scale** |
+| NFR-PERF-06 | Không có request path nào quét toàn bộ chunks/module versions theo cấp số nhân khi corpus tăng; Search dùng index + authorization filter trước limit | EXPLAIN/benchmark S-P03-01 | PostgreSQL hybrid Search đã dùng SQL/index và authorization trước limit; Unit of Work R1.2 vẫn load identity map ở đầu transaction, nên **chưa đạt kiến trúc scale cuối** |
 
 ### 3.3 Availability, reliability và data integrity
 
@@ -74,7 +74,7 @@ Các quota trên là **domain guardrails local**; chúng mất hiệu lực khi 
 | NFR-REL-03 | Job chạy lại sau crash không tạo module/XP/proof trùng; stale running jobs được lease/reconciler thu hồi | Chaos/retry tests trên queue/DB | Idempotency local có test tuần tự; race/multi-instance chưa đạt |
 | NFR-REL-04 | Provider 429/5xx/timeout được phân loại retryable/terminal, có backoff+jitter, circuit breaker và không fallback giả danh provider khác | Fault injection Gemini/ADK | Local fail-closed một phần; provider thật **NOT RUN** |
 | NFR-REL-05 | Migration chỉ tiến về phía trước, checksum immutable; rollback app tương thích schema trước/sau theo expand-contract | Migration rehearsal trên bản sao staging | Static checker đạt; execution **NOT RUN** |
-| NFR-REL-06 | XP/mastery/proof chỉ thay đổi từ server rules đã version; reversal có Audit và không sửa lịch sử âm thầm | Concurrency + Audit tests trên DB | Local service đạt các case chính; DB transaction chưa có |
+| NFR-REL-06 | XP/mastery/proof chỉ thay đổi từ server rules đã version; reversal có Audit và không sửa lịch sử âm thầm | Concurrency + Audit tests trên DB | Local service và PostgreSQL UoW trên PGlite đạt các case chính; concurrency/managed-DB drill vẫn chưa chạy |
 
 ### 3.4 Security và privacy
 

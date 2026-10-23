@@ -35,7 +35,7 @@ Browser (untrusted input/session cookie)
   │ HTTPS + CSRF trên staging/production
   ▼
 Next.js web/API ── Auth.js ↔ Google OAuth
-  ├─ PostgreSQL/pgvector (chưa wired)
+  ├─ PostgreSQL/pgvector (wired; bằng chứng hiện tại là PGlite, staging NOT RUN)
   ├─ Object Storage signed uploads (chưa wired)
   ├─ Durable queue/outbox (chưa wired)
   │    └─ Worker ── service identity ──► Python ADK ──► Gemini

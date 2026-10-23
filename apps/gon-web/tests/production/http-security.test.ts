@@ -124,15 +124,15 @@ describe("runtime store guard", () => {
 });
 
 describe("Auth.js identity mapping", () => {
-  it("normalizes numeric PostgreSQL adapter IDs before domain lookup", () => {
+  it("normalizes numeric PostgreSQL adapter IDs before domain lookup", async () => {
     const service = new GonService({ requireInvite: false });
-    const user = service.ensureGoogleUser({
+    const user = await service.ensureGoogleUser({
       providerSubject: "google-subject-123",
       authUserId: 42,
     });
     expect(user.authUserId).toBe("42");
-    expect(service.findUserIdByAuthUserId(42)).toBe(user.id);
-    expect(service.findUserIdByAuthUserId("42")).toBe(user.id);
+    expect(await service.findUserIdByAuthUserId(42)).toBe(user.id);
+    expect(await service.findUserIdByAuthUserId("42")).toBe(user.id);
   });
 });
 
