@@ -14,6 +14,7 @@ import {
   problemResponse,
   readJsonBody,
 } from "./http";
+import { logRequest, startRequestTimer } from "./observability";
 import { getAbuseController, getGonService } from "./runtime";
 import { paginationFromSearchParams } from "./validation";
 
@@ -30,8 +31,52 @@ function splitActionSegment(segment: string, action: string): string | null {
   return segment.endsWith(suffix) ? segment.slice(0, -suffix.length) : null;
 }
 
+/**
+ * Actor attribution for the per-request access log (P05-R1.11). The inner
+ * handler records the authenticated user on the Request; the wrapper logs one
+ * sanitized line per request after the response is built.
+ */
+const requestActors = new WeakMap<Request, string>();
+
 export async function handleV1(request: Request, rawSegments: string[]): Promise<NextResponse> {
   const requestId = createRequestId(request);
+  const timer = startRequestTimer();
+  const method = request.method.toUpperCase();
+  // Route label only — query strings can carry learner data and are never logged.
+  const route = `/${rawSegments.slice(0, 2).join("/")}`;
+  let response: NextResponse;
+  try {
+    response = await handleV1Inner(request, rawSegments, requestId);
+  } catch (error) {
+    logRequest({
+      requestId,
+      method,
+      route,
+      status: 500,
+      durationMs: timer(),
+      outcome: "error",
+      errorCode: "INTERNAL_ERROR",
+    });
+    throw error;
+  }
+  const userId = requestActors.get(request);
+  logRequest({
+    requestId,
+    method,
+    route,
+    status: response.status,
+    durationMs: timer(),
+    outcome: response.status < 400 ? "ok" : response.status >= 500 ? "error" : "rejected",
+    ...(userId ? { userId } : {}),
+  });
+  return response;
+}
+
+async function handleV1Inner(
+  request: Request,
+  rawSegments: string[],
+  requestId: string,
+): Promise<NextResponse> {
   const segments = rawSegments.map((segment) => {
     try {
       return decodeURIComponent(segment);
@@ -60,6 +105,7 @@ export async function handleV1(request: Request, rawSegments: string[]): Promise
     if (!ipDecision.allowed) throw rateLimited(ipDecision.detail, ipDecision.retryAfterSeconds);
 
     const actor = await requireActor(request, requestId);
+    requestActors.set(request, actor.userId);
     const service = getGonService();
     const userDecision = await abuse.admit({
       scope: "user",
