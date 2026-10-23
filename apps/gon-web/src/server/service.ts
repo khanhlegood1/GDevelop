@@ -70,6 +70,7 @@ import {
   type CandidateSetRecord,
   type ChunkRecord,
   type ConsentRecord,
+  type DataRequestRecord,
   type InviteRecord,
   type JobRecord,
   type JourneyRecord,
@@ -77,6 +78,7 @@ import {
   type MasteryLevel,
   type ModuleGraph,
   type ModuleVersionRecord,
+  type PersonalizationRecord,
   type ProjectRecord,
   type ProofRecord,
   type RankingSnapshotRecord,
@@ -699,6 +701,451 @@ class GonServiceCore {
     this.emit(actor, "identity.consent.changed", "user_account", user.id, { purpose, status, policyVersion });
     this.Audit(actor, "identity.consent.changed", "consent", purpose);
     return this.consentDto(record);
+  }
+
+  // ---------------------------------------------------------------------
+  // Privacy: data requests (export / delete footprint / delete account)
+  // P05-R1.7 implementing P03 /me/data-requests + /me/personalization.
+  // ---------------------------------------------------------------------
+
+  private static readonly SIGNAL_GROUPS = [
+    "search_history",
+    "learning_activity",
+    "candidate_votes",
+    "artifact_topics",
+  ] as const;
+
+  private dataRequestStatusDto(
+    status: DataRequestRecord["status"],
+  ): "received" | "processing" | "completed" | "rejected" | "failed" {
+    switch (status) {
+      case "requested":
+        return "received";
+      case "cancelled":
+        return "rejected";
+      default:
+        return status;
+    }
+  }
+
+  private dataRequestDto(record: DataRequestRecord): JsonRecord {
+    return {
+      id: record.id,
+      type: record.requestType,
+      status: this.dataRequestStatusDto(record.status),
+      requestedAt: record.requestedAt,
+      completedAt: record.completedAt,
+      receipt: record.receipt,
+    };
+  }
+
+  private footprintConsentGranted(userId: string): boolean {
+    return this.consentRecord(userId, "personalization_footprint").status === "granted";
+  }
+
+  private personalizationDto(userId: string): JsonRecord {
+    const enabled = this.footprintConsentGranted(userId);
+    const stored = this.repositories.personalizations.get(userId);
+    return {
+      footprintEnabled: enabled,
+      usedSignalGroups: enabled ? [...GonServiceCore.SIGNAL_GROUPS] : [],
+      notUsedSignalGroups: enabled ? [] : [...GonServiceCore.SIGNAL_GROUPS],
+      preferences: stored ? stored.preferences : {},
+      version: stored ? stored.version : 1,
+    };
+  }
+
+  getPersonalization(actor: Actor): JsonRecord {
+    this.requireActiveUser(actor);
+    return this.personalizationDto(actor.userId);
+  }
+
+  patchPersonalization(actor: Actor, bodyValue: unknown): JsonRecord {
+    const user = this.requireUser(actor);
+    const body = ensureRecord(bodyValue);
+    if ("footprintEnabled" in body) {
+      const enabled = body.footprintEnabled === true;
+      this.setConsentRecord(
+        user.id,
+        "personalization_footprint",
+        enabled ? "granted" : "denied",
+        PRIVACY_VERSION,
+        "settings",
+      );
+      this.emit(actor, "identity.consent.changed", "user_account", user.id, {
+        purpose: "personalization_footprint",
+        status: enabled ? "granted" : "denied",
+        policyVersion: PRIVACY_VERSION,
+      });
+      this.Audit(actor, "identity.consent.changed", "consent", "personalization_footprint");
+    }
+    if ("preferences" in body) {
+      const preferences = ensureRecord(body.preferences);
+      const existing = this.repositories.personalizations.get(user.id);
+      const record: PersonalizationRecord = {
+        userId: user.id,
+        preferences,
+        // The implicit default row is version 1; every stored patch bumps it.
+        version: (existing?.version ?? 1) + 1,
+        updatedAt: this.now(),
+      };
+      this.repositories.personalizations.set(user.id, record);
+    }
+    return this.personalizationDto(user.id);
+  }
+
+  createDataRequest(actor: Actor, bodyValue: unknown, options: { idempotencyKey?: string } = {}): CommandResult<JsonRecord> {
+    const user = this.requireActiveUser(actor);
+    const body = ensureRecord(bodyValue);
+    const requestType = requiredEnum(body, "type", ["export", "delete_footprint", "delete_account"] as const);
+    const payload = { type: requestType };
+    const replay = this.findIdempotentReplay(actor, "createDataRequest", options.idempotencyKey, payload);
+    if (replay) {
+      const existing = this.repositories.dataRequests.get(replay.resourceId);
+      if (existing) return { data: this.dataRequestDto(existing), status: 200, replay: true };
+    }
+    const record: DataRequestRecord = {
+      id: createId("data"),
+      userId: user.id,
+      requestType,
+      scope: {},
+      status: "requested",
+      receipt: null,
+      requestedAt: this.now(),
+      completedAt: null,
+    };
+    this.repositories.dataRequests.set(record.id, record);
+    this.emit(actor, "identity.data_request.created", "data_request", record.id, {
+      requestType,
+      policyVersion: PRIVACY_VERSION,
+    });
+    this.Audit(actor, "identity.data_request.created", "data_request", record.id);
+    this.saveIdempotentResult(actor, "createDataRequest", options.idempotencyKey, payload, "data_request", record.id, 202);
+    return { data: this.dataRequestDto(record), status: 202 };
+  }
+
+  /** P03 `DELETE /me/personalization/footprint`: request footprint erasure. */
+  deleteFootprint(actor: Actor, options: { idempotencyKey?: string } = {}): CommandResult<JsonRecord> {
+    return this.createDataRequest(actor, { type: "delete_footprint" }, options);
+  }
+
+  getDataRequest(actor: Actor, requestId: string): JsonRecord {
+    this.requireActiveUser(actor);
+    const record = this.repositories.dataRequests.get(requestId);
+    if (!record || record.userId !== actor.userId) throw notFound();
+    return this.dataRequestDto(record);
+  }
+
+  /**
+   * Process one privacy data request to completion inside the Unit of Work
+   * (Alpha: synchronous processor entry, same shape as the Brew worker
+   * entries). A queued job wrapper can call this without changing the
+   * domain logic.
+   */
+  async processDataRequest(requestId: string): Promise<JsonRecord | null> {
+    const record = this.repositories.dataRequests.get(requestId);
+    if (!record) return null;
+    if (record.status === "completed" || record.status === "failed" || record.status === "cancelled") {
+      return this.dataRequestDto(record);
+    }
+    const actor: Actor = {
+      userId: record.userId,
+      roles: [],
+      authProvider: "service",
+      requestId: `req_data_${record.id}`,
+    };
+    record.status = "processing";
+    try {
+      const receipt = await this.applyDataRequest(record);
+      record.status = "completed";
+      record.receipt = receipt;
+      record.completedAt = this.now();
+      this.emit(actor, "identity.data_request.completed", "data_request", record.id, {
+        requestType: record.requestType,
+        status: "completed",
+      });
+      this.Audit(actor, "identity.data_request.completed", "data_request", record.id);
+    } catch (error) {
+      record.status = "failed";
+      record.receipt = {
+        errorCode: "DATA_REQUEST_FAILED",
+        detail: error instanceof Error ? error.message : "unknown",
+      };
+      record.completedAt = this.now();
+      this.emit(actor, "identity.data_request.completed", "data_request", record.id, {
+        requestType: record.requestType,
+        status: "failed",
+      });
+      this.Audit(actor, "identity.data_request.completed", "data_request", record.id);
+    }
+    return this.dataRequestDto(record);
+  }
+
+  private async applyDataRequest(record: DataRequestRecord): Promise<JsonRecord> {
+    switch (record.requestType) {
+      case "export":
+        return this.applyExportRequest(record);
+      case "delete_footprint":
+        return this.applyDeleteFootprint(record);
+      case "delete_account":
+        return this.applyDeleteAccount(record);
+    }
+  }
+
+  private async applyExportRequest(record: DataRequestRecord): Promise<JsonRecord> {
+    const bundle = this.buildExportBundle(record.userId);
+    const bytes = new TextEncoder().encode(JSON.stringify(bundle, null, 2));
+    const objectKey = `private/exports/${record.userId}/${record.id}.json`;
+    const metadata = await this.objectStorage.putObject({
+      key: objectKey,
+      bytes,
+      contentType: "application/json",
+    });
+    const expiresAt = new Date(this.clock().getTime() + 24 * 60 * 60 * 1000).toISOString();
+    return {
+      kind: "export",
+      policyVersion: PRIVACY_VERSION,
+      objectKey: metadata.key,
+      sha256: metadata.sha256,
+      contentType: "application/json",
+      generatedAt: this.now(),
+      expiresAt,
+      contents: bundle.contents as JsonRecord,
+    };
+  }
+
+  private buildExportBundle(userId: string): JsonRecord {
+    const user = this.repositories.users.get(userId);
+    const profile = this.repositories.profiles.get(userId);
+    const consents = CONSENT_PURPOSES.map((purpose) => this.consentDto(this.consentRecord(userId, purpose)));
+    const projects = [...this.repositories.projects.values()].filter(
+      (project) => project.ownerUserId === userId && !project.deletedAt,
+    );
+    const artifacts = [...this.repositories.artifacts.values()].filter(
+      (artifact) => artifact.ownerUserId === userId && !artifact.deletedAt,
+    );
+    const journeys = [...this.repositories.journeys.values()].filter(
+      (journey) => journey.ownerUserId === userId && !journey.deletedAt,
+    );
+    const attempts = [...this.repositories.attempts.values()].filter(
+      (attempt) => attempt.ownerUserId === userId,
+    );
+    const proofs = [...this.repositories.proofs.values()].filter(
+      (proof) => proof.ownerUserId === userId && !proof.deletedAt,
+    );
+    const xpLedger = [...this.repositories.xpLedger.values()].filter(
+      (entry) => entry.userId === userId,
+    );
+    const footprintEvents = [...this.repositories.footprintEvents.values()].filter(
+      (event) => event.userId === userId,
+    );
+    return {
+      schemaVersion: "gon.privacy.export/1.0",
+      generatedAt: this.now(),
+      policyVersion: PRIVACY_VERSION,
+      account: user
+        ? { id: user.id, status: user.status, locale: user.locale, timeZone: user.timeZone, createdAt: user.createdAt }
+        : null,
+      profile: profile ?? null,
+      consents,
+      projects: projects.map((project) => ({
+        id: project.id,
+        title: project.title,
+        goal: project.goal,
+        learningMode: project.learningMode,
+        createdAt: project.createdAt,
+      })),
+      artifacts: artifacts.map((artifact) => ({
+        id: artifact.id,
+        projectId: artifact.projectId,
+        kind: artifact.kind,
+        displayName: artifact.displayName,
+        originUri: artifact.originUri,
+        rightsBasis: artifact.rightsBasis,
+        sourceText: artifact.sourceText,
+        sha256: artifact.sha256,
+        createdAt: artifact.createdAt,
+      })),
+      journeys: journeys.map((journey) => ({
+        id: journey.id,
+        projectId: journey.projectId,
+        title: journey.title,
+        goal: journey.goal,
+        status: journey.status,
+        createdAt: journey.createdAt,
+      })),
+      attempts: attempts.map((attempt) => ({
+        id: attempt.id,
+        journeyId: attempt.journeyId,
+        nodeId: attempt.nodeId,
+        attemptNumber: attempt.attemptNumber,
+        status: attempt.status,
+        assessed: attempt.assessment !== null,
+        createdAt: attempt.createdAt,
+      })),
+      proofs: proofs.map((proof) => ({
+        id: proof.id,
+        journeyId: proof.journeyId,
+        proofType: proof.proofType,
+        createdAt: proof.createdAt,
+      })),
+      xpLedger: xpLedger.map((entry) => ({
+        id: entry.id,
+        sequence: entry.sequence,
+        delta: entry.delta,
+        sourceType: entry.sourceType,
+        reasonCode: entry.reasonCode,
+        createdAt: entry.createdAt,
+      })),
+      footprint: {
+        preferences: this.repositories.personalizations.get(userId)?.preferences ?? {},
+        footprintEnabled: this.footprintConsentGranted(userId),
+        events: footprintEvents.map((event) => ({
+          category: event.category,
+          entityType: event.entityType,
+          entityId: event.entityId,
+          occurredAt: event.occurredAt,
+        })),
+      },
+      contents: {
+        consents: consents.length,
+        projects: projects.length,
+        artifacts: artifacts.length,
+        journeys: journeys.length,
+        attempts: attempts.length,
+        proofs: proofs.length,
+        xpLedgerEntries: xpLedger.length,
+        footprintEvents: footprintEvents.length,
+      },
+    };
+  }
+
+  private applyDeleteFootprint(record: DataRequestRecord): JsonRecord {
+    // P03: stop using footprint for new ranking immediately, delete detailed
+    // events and derived preferences; never delete projects/journeys/proofs/XP.
+    let deletedEvents = 0;
+    for (const event of [...this.repositories.footprintEvents.values()]) {
+      if (event.userId !== record.userId) continue;
+      this.repositories.footprintEvents.delete(event.id);
+      deletedEvents += 1;
+    }
+    this.repositories.personalizations.delete(record.userId);
+    if (this.footprintConsentGranted(record.userId)) {
+      this.setConsentRecord(
+        record.userId,
+        "personalization_footprint",
+        "denied",
+        PRIVACY_VERSION,
+        "privacy_deletion",
+      );
+    }
+    return {
+      kind: "delete_footprint",
+      policyVersion: PRIVACY_VERSION,
+      deletedFootprintEvents: deletedEvents,
+      footprintDisabled: true,
+      retained: ["projects", "journeys", "proofs", "xp_ledger"],
+    };
+  }
+
+  private applyDeleteAccount(record: DataRequestRecord): JsonRecord {
+    const userId = record.userId;
+    const now = this.now();
+    const retained: string[] = [];
+    const notes: JsonRecord = {};
+
+    // Revoke sessions and block access immediately.
+    for (const session of [...this.repositories.devSessions.values()]) {
+      if (session.userId === userId) this.repositories.devSessions.delete(session.tokenHash);
+    }
+    const user = this.repositories.users.get(userId);
+    if (user) {
+      user.status = "deleted";
+      user.deletedAt = now;
+    }
+
+    // Tombstone projects, artifacts, journeys, proofs and delete objects.
+    for (const project of this.repositories.projects.values()) {
+      if (project.ownerUserId === userId && !project.deletedAt) project.deletedAt = now;
+    }
+    let deletedObjects = 0;
+    for (const artifact of this.repositories.artifacts.values()) {
+      if (artifact.ownerUserId !== userId || artifact.deletedAt) continue;
+      artifact.deletedAt = now;
+      if (artifact.storageObjectKey) {
+        // Object deletions are best-effort inside the transaction; a sweeper
+        // job can retry any stragglers keyed by the receipt.
+        void this.objectStorage.deleteObject(artifact.storageObjectKey);
+        deletedObjects += 1;
+      }
+    }
+    for (const chunk of this.repositories.chunks.values()) {
+      if (chunk.ownerUserId === userId && !chunk.deletedAt) chunk.deletedAt = now;
+    }
+    for (const journey of this.repositories.journeys.values()) {
+      if (journey.ownerUserId !== userId || journey.deletedAt) continue;
+      journey.status = "deleted";
+      journey.deletedAt = now;
+    }
+    for (const proof of this.repositories.proofs.values()) {
+      if (proof.ownerUserId === userId && !proof.deletedAt) proof.deletedAt = now;
+    }
+
+    // Detailed footprint is erased; personalization is switched off.
+    let deletedEvents = 0;
+    for (const event of [...this.repositories.footprintEvents.values()]) {
+      if (event.userId !== userId) continue;
+      this.repositories.footprintEvents.delete(event.id);
+      deletedEvents += 1;
+    }
+    this.repositories.personalizations.delete(userId);
+    if (this.footprintConsentGranted(userId)) {
+      this.setConsentRecord(userId, "personalization_footprint", "denied", PRIVACY_VERSION, "privacy_deletion");
+    }
+
+    // Anonymize profile/identity PII; keep pseudonymous references.
+    const profile = this.repositories.profiles.get(userId);
+    if (profile) {
+      profile.displayName = "Người dùng đã xóa";
+      profile.selfDeclaredHeadline = null;
+      profile.version += 1;
+    }
+    for (const link of this.repositories.identityLinks.values()) {
+      if (link.userId === userId) link.emailAtLink = null;
+    }
+
+    // Modules lose owner attribution; reviewed drafts are hidden again.
+    let hiddenModuleVersions = 0;
+    for (const module of this.repositories.modules.values()) {
+      if (module.ownerUserId !== userId) continue;
+      module.ownerUserId = null;
+      module.attributionSnapshot = { displayName: "Người dùng đã xóa", deleted: true };
+    }
+    for (const version of this.repositories.moduleVersions.values()) {
+      if (version.createdByUserId !== userId) continue;
+      version.createdByUserId = null;
+      if (version.visibility === "internal_reviewed") {
+        version.visibility = "private";
+        hiddenModuleVersions += 1;
+      }
+    }
+
+    // XP ledger, audit logs and data-request receipts stay per retention
+    // schedule (pseudonymous once the account row is tombstoned).
+    retained.push("xp_ledger_entries", "audit_logs", "data_request_receipts");
+    notes.retentionPolicy =
+      "XP ledger/audit kept pseudonymous per P03 retention (24 months Alpha audit); backups expire within their cycle.";
+
+    return {
+      kind: "delete_account",
+      policyVersion: PRIVACY_VERSION,
+      tombstonedAt: now,
+      deletedFootprintEvents: deletedEvents,
+      deletedObjects,
+      hiddenModuleVersions,
+      retained,
+      ...notes,
+    };
   }
 
   private requireOwnedProject(actor: Actor, projectId: string): ProjectRecord {
@@ -3947,6 +4394,37 @@ export class GonService {
 
   async setConsent(actor: Actor, purpose: string, bodyValue: unknown): Promise<JsonRecord> {
     return this.run((core) => core.setConsent(actor, purpose, bodyValue));
+  }
+
+  async getPersonalization(actor: Actor): Promise<JsonRecord> {
+    return this.run((core) => core.getPersonalization(actor));
+  }
+
+  async patchPersonalization(actor: Actor, bodyValue: unknown): Promise<JsonRecord> {
+    return this.run((core) => core.patchPersonalization(actor, bodyValue));
+  }
+
+  async createDataRequest(
+    actor: Actor,
+    bodyValue: unknown,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createDataRequest(actor, bodyValue, options));
+  }
+
+  async deleteFootprint(
+    actor: Actor,
+    options: { idempotencyKey?: string } = {},
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.deleteFootprint(actor, options));
+  }
+
+  async getDataRequest(actor: Actor, requestId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getDataRequest(actor, requestId));
+  }
+
+  async processDataRequest(requestId: string): Promise<JsonRecord | null> {
+    return this.run((core) => core.processDataRequest(requestId));
   }
 
   async createProject(

@@ -73,6 +73,31 @@ export async function handleV1(request: Request, rawSegments: string[]): Promise
         const result = await service.listMyXpLedger(actor, pagination);
         return jsonPage(result.data, result.page, requestId);
       }
+      if (method === "GET" && segments[1] === "personalization" && segments.length === 2) {
+        return jsonData(await service.getPersonalization(actor), 200, requestId);
+      }
+      if (method === "PATCH" && segments[1] === "personalization" && segments.length === 2) {
+        assertMutation(request);
+        return jsonData(await service.patchPersonalization(actor, await readJsonBody(request)), 200, requestId);
+      }
+      if (
+        method === "DELETE" &&
+        segments[1] === "personalization" &&
+        segments.length === 3 &&
+        segments[2] === "footprint"
+      ) {
+        const { idempotencyKey } = assertMutation(request);
+        const result = await service.deleteFootprint(actor, { idempotencyKey });
+        return jsonData(result.data, result.status, requestId);
+      }
+      if (method === "POST" && segments[1] === "data-requests" && segments.length === 2) {
+        const { idempotencyKey } = assertMutation(request);
+        const result = await service.createDataRequest(actor, await readJsonBody(request), { idempotencyKey });
+        return jsonData(result.data, result.status, requestId);
+      }
+      if (method === "GET" && segments[1] === "data-requests" && segments.length === 3) {
+        return jsonData(await service.getDataRequest(actor, segments[2]), 200, requestId);
+      }
     }
 
     if (segments[0] === "projects") {

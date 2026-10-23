@@ -25,7 +25,8 @@ Tài liệu chi tiết:
    - [P05-R1.3 — Durable Jobs & Transactional Outbox](P05-R1.3-DURABLE-JOBS-OUTBOX.md);
    - [P05-R1.4 — Auth Staging Contract & Private Object Storage](P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md);
    - [P05-R1.5 — Worker runtime & ADK integration](P05-R1.5-WORKER-RUNTIME-ADK-INTEGRATION.md);
-   - [P05-R1.6 — Persistent guardrails, targeted queries & RLS](P05-R1.6-PERSISTENT-GUARDRAILS-RLS-TARGETED-QUERIES.md).
+   - [P05-R1.6 — Persistent guardrails, targeted queries & RLS](P05-R1.6-PERSISTENT-GUARDRAILS-RLS-TARGETED-QUERIES.md);
+   - [P05-R1.7 — Privacy export/delete & account lifecycle](P05-R1.7-PRIVACY-EXPORT-DELETE.md).
 
 > Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1–R1.6 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue/Auth contract/object-storage boundary/worker runtime/outbox sink/TS→ADK wiring/persistent quotas/kill switches/circuit breaker/targeted queries/RLS, nhưng chưa đóng các blocker Google/GCS/managed staging, worker deployment, Gemini thật và DR; kết luận gate vẫn **NOT YET PASS**.
 

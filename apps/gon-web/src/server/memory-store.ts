@@ -16,8 +16,10 @@ import type {
   CandidateSetRecord,
   ChunkRecord,
   ConsentRecord,
+  DataRequestRecord,
   DevSessionRecord,
   FeatureFlagRecord,
+  FootprintEventRecord,
   IdempotencyRecord,
   IdentityLinkRecord,
   InviteRecord,
@@ -27,6 +29,7 @@ import type {
   ModuleRecord,
   ModuleVersionRecord,
   OutboxEventRecord,
+  PersonalizationRecord,
   ProfileRecord,
   ProjectRecord,
   ProofRecord,
@@ -220,6 +223,18 @@ export class MemoryGonStore implements GonStore {
 
   get featureFlags(): Map<string, FeatureFlagRecord> {
     return (this.repositories.featureFlags as MapRepositoryCollection<string, FeatureFlagRecord>).map;
+  }
+
+  get dataRequests(): Map<string, DataRequestRecord> {
+    return (this.repositories.dataRequests as MapRepositoryCollection<string, DataRequestRecord>).map;
+  }
+
+  get personalizations(): Map<string, PersonalizationRecord> {
+    return (this.repositories.personalizations as MapRepositoryCollection<string, PersonalizationRecord>).map;
+  }
+
+  get footprintEvents(): Map<string, FootprintEventRecord> {
+    return (this.repositories.footprintEvents as MapRepositoryCollection<string, FootprintEventRecord>).map;
   }
 
   get quotaReservations(): Map<string, QuotaReservationRecord> {

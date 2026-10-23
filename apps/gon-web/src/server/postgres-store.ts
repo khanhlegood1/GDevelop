@@ -36,8 +36,10 @@ import type {
   CandidateSetRecord,
   ChunkRecord,
   ConsentRecord,
+  DataRequestRecord,
   DevSessionRecord,
   FeatureFlagRecord,
+  FootprintEventRecord,
   IdempotencyRecord,
   IdentityLinkRecord,
   InviteRecord,
@@ -48,6 +50,7 @@ import type {
   ModuleRecord,
   ModuleVersionRecord,
   OutboxEventRecord,
+  PersonalizationRecord,
   ProfileRecord,
   ProjectRecord,
   ProofRecord,
@@ -1349,6 +1352,54 @@ async function loadRepositories(
     repositories.featureFlags.set(record.key, record);
   }
 
+  for (const row of await queryRows(
+    executor,
+    "select * from data_requests order by requested_at, id",
+  )) {
+    const record: DataRequestRecord = {
+      id: asText(row.id),
+      userId: asText(row.user_id),
+      requestType: asEnum(row.request_type, "export"),
+      scope: asJsonRecord(row.scope),
+      status: asEnum(row.status, "requested"),
+      receipt: row.receipt === null || row.receipt === undefined ? null : asJsonRecord(row.receipt),
+      requestedAt: asIso(row.requested_at),
+      completedAt: asNullableIso(row.completed_at),
+    };
+    repositories.dataRequests.set(record.id, record);
+  }
+
+  for (const row of await queryRows(
+    executor,
+    "select * from user_personalization order by user_id",
+  )) {
+    const record: PersonalizationRecord = {
+      userId: asText(row.user_id),
+      preferences: asJsonRecord(row.preferences),
+      version: asNumber(row.version, 1),
+      updatedAt: asIso(row.updated_at),
+    };
+    repositories.personalizations.set(record.userId, record);
+  }
+
+  for (const row of await queryRows(
+    executor,
+    "select * from footprint_events order by id",
+  )) {
+    const record: FootprintEventRecord = {
+      id: asText(row.id),
+      userId: asText(row.user_id),
+      category: asEnum(row.category, "goal_selected"),
+      entityType: asText(row.entity_type),
+      entityId: asText(row.entity_id),
+      attributes: asJsonRecord(row.attributes),
+      consentPurpose: asText(row.consent_purpose, "personalization_footprint"),
+      consentStatusAtEvent: asText(row.consent_status_at_event),
+      occurredAt: asIso(row.occurred_at),
+    };
+    repositories.footprintEvents.set(record.id, record);
+  }
+
   return repositories;
 }
 
@@ -1389,6 +1440,9 @@ const DURABLE_COLLECTIONS = [
   "reviewCases",
   "idempotencyRecords",
   "featureFlags",
+  "dataRequests",
+  "personalizations",
+  "footprintEvents",
 ] as const;
 
 function snapshotEntries(entries: Iterable<readonly [string, unknown]>): SnapshotMap {
@@ -2810,6 +2864,70 @@ async function saveFeatureFlag(
   );
 }
 
+async function saveDataRequest(
+  executor: SqlExecutor,
+  record: DataRequestRecord,
+): Promise<void> {
+  await executor.query(
+    `insert into data_requests
+       (id, user_id, request_type, scope, status, receipt, requested_at, completed_at)
+     values ($1, $2, $3, $4::jsonb, $5, $6::jsonb, $7::timestamptz, $8::timestamptz)
+     on conflict (id) do update set
+       scope = excluded.scope,
+       status = excluded.status,
+       receipt = excluded.receipt,
+       completed_at = excluded.completed_at`,
+    [
+      record.id,
+      record.userId,
+      record.requestType,
+      jsonParam(record.scope),
+      record.status,
+      record.receipt ? jsonParam(record.receipt) : null,
+      record.requestedAt,
+      record.completedAt,
+    ],
+  );
+}
+
+async function savePersonalization(
+  executor: SqlExecutor,
+  record: PersonalizationRecord,
+): Promise<void> {
+  await executor.query(
+    `insert into user_personalization (user_id, preferences, version, updated_at)
+     values ($1, $2::jsonb, $3, $4::timestamptz)
+     on conflict (user_id) do update set
+       preferences = excluded.preferences,
+       version = excluded.version,
+       updated_at = excluded.updated_at`,
+    [record.userId, jsonParam(record.preferences), record.version, record.updatedAt],
+  );
+}
+
+async function insertFootprintEvent(
+  executor: SqlExecutor,
+  record: FootprintEventRecord,
+): Promise<void> {
+  // Local id is a correlation key only; PostgreSQL uses bigint identity.
+  await executor.query(
+    `insert into footprint_events
+       (user_id, category, entity_type, entity_id, attributes,
+        consent_purpose, consent_status_at_event, occurred_at)
+     values ($1, $2, $3, $4, $5::jsonb, $6, $7, $8::timestamptz)`,
+    [
+      record.userId,
+      record.category,
+      record.entityType,
+      record.entityId,
+      jsonParam(record.attributes),
+      record.consentPurpose,
+      record.consentStatusAtEvent,
+      record.occurredAt,
+    ],
+  );
+}
+
 async function saveIdempotency(
   executor: SqlExecutor,
   collectionKey: string,
@@ -2886,6 +3004,9 @@ async function flushRepositories(
     reviewCases: mapDiff("reviewCases"),
     idempotencyRecords: mapDiff("idempotencyRecords"),
     featureFlags: mapDiff("featureFlags"),
+    dataRequests: mapDiff("dataRequests"),
+    personalizations: mapDiff("personalizations"),
+    footprintEvents: mapDiff("footprintEvents"),
     outboxEvents: diffEntries(
       [...repositories.outboxEvents.values()].map((event) => [event.eventId, event] as const),
       snapshot.get("outboxEvents") ?? new Map(),
@@ -2907,9 +3028,23 @@ async function flushRepositories(
   assertAppendOnly("ai_runs", diffs.aiRuns as CollectionDiff<unknown>);
 
   for (const [name, diff] of Object.entries(diffs)) {
-    if (name !== "chunks" && diff.deleted.length > 0) {
+    if (
+      name !== "chunks" &&
+      name !== "footprintEvents" &&
+      name !== "personalizations" &&
+      diff.deleted.length > 0
+    ) {
       throw new Error(`Deleting ${name} through the domain Unit of Work is not supported`);
     }
+  }
+  // Footprint events are immutable; privacy erasure may delete them outright.
+  if (diffs.footprintEvents.updated.length > 0) {
+    throw new Error("footprint_events is immutable; refusing to update events");
+  }
+
+  // Privacy erasure: derived personalization preferences are removed outright.
+  for (const { previous } of diffs.personalizations.deleted) {
+    await executor.query("delete from user_personalization where user_id = $1", [previous.userId]);
   }
 
   // Tombstone replaced chunks first so a reprocessed artifact can reuse the
@@ -2919,6 +3054,14 @@ async function flushRepositories(
       "update content_chunks set deleted_at = now() where id = $1 and deleted_at is null",
       [previous.id],
     );
+  }
+
+  // Privacy erasure: hard-delete persisted footprint events. Rows created and
+  // deleted inside this transaction were never flushed (their local keys are
+  // not numeric), so only persisted bigint ids reach the database.
+  for (const { previous } of diffs.footprintEvents.deleted) {
+    if (!/^\d+$/.test(previous.id)) continue;
+    await executor.query("delete from footprint_events where id = $1", [previous.id]);
   }
 
   // Inserts in foreign-key dependency order. Projects and journeys receive a
@@ -2993,6 +3136,15 @@ async function flushRepositories(
   for (const { record } of diffs.auditLogs.inserted) await insertAudit(executor, record);
   // ai_runs references async_jobs; jobs are inserted earlier in this flush.
   for (const { record } of diffs.aiRuns.inserted) await insertAiRun(executor, record);
+  for (const { record } of diffs.footprintEvents.inserted) {
+    await insertFootprintEvent(executor, record);
+  }
+  for (const { record } of diffs.personalizations.inserted) {
+    await savePersonalization(executor, record);
+  }
+  for (const { record } of diffs.dataRequests.inserted) {
+    await saveDataRequest(executor, record);
+  }
   for (const { key, record } of diffs.idempotencyRecords.inserted) {
     await saveIdempotency(executor, key, record);
   }
@@ -3042,6 +3194,12 @@ async function flushRepositories(
   }
   for (const { record } of diffs.featureFlags.updated) {
     await saveFeatureFlag(executor, record);
+  }
+  for (const { record } of diffs.dataRequests.updated) {
+    await saveDataRequest(executor, record);
+  }
+  for (const { record } of diffs.personalizations.updated) {
+    await savePersonalization(executor, record);
   }
 
   for (const { record } of diffs.journeys.updated) await updateJourney(executor, record);

@@ -668,3 +668,55 @@ export interface FeatureFlagRecord {
   version: number;
   updatedAt: string;
 }
+
+/**
+ * Privacy data request (P05-R1.7, `data_requests` 0002). Storage statuses are
+ * the persistence enum; the HTTP DTO maps them to the P03 contract statuses
+ * (`received`/`processing`/`completed`/`partially_completed`/`rejected`/`failed`).
+ */
+export interface DataRequestRecord {
+  id: string;
+  userId: string;
+  requestType: "export" | "delete_footprint" | "delete_account";
+  scope: JsonRecord;
+  status: "requested" | "processing" | "completed" | "failed" | "cancelled";
+  receipt: JsonRecord | null;
+  requestedAt: string;
+  completedAt: string | null;
+}
+
+export type FootprintEventCategory =
+  | "goal_selected"
+  | "candidate_saved"
+  | "candidate_hidden"
+  | "arena_voted"
+  | "journey_started"
+  | "attempt_passed"
+  | "artifact_created"
+  | "proof_recorded"
+  | "not_interested";
+
+/**
+ * Detailed footprint event (`footprint_events` 0005). Like `AiRunRecord`, the
+ * id is a local correlation key; PostgreSQL uses its bigint identity and the
+ * loaded row key is that identity as a string.
+ */
+export interface FootprintEventRecord {
+  id: string;
+  userId: string;
+  category: FootprintEventCategory;
+  entityType: string;
+  entityId: string;
+  attributes: JsonRecord;
+  consentPurpose: string;
+  consentStatusAtEvent: string;
+  occurredAt: string;
+}
+
+/** Per-user personalization preferences (`user_personalization` 0009). */
+export interface PersonalizationRecord {
+  userId: string;
+  preferences: JsonRecord;
+  version: number;
+  updatedAt: string;
+}
