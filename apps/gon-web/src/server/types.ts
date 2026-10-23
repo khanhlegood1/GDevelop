@@ -625,3 +625,46 @@ export interface IdempotencyRecord {
   status: number;
   createdAt: string;
 }
+
+export type QuotaReservationStatus =
+  | "reserved"
+  | "consumed"
+  | "partially_refunded"
+  | "refunded"
+  | "expired";
+
+/**
+ * Persistent quota/budget accounting row (P05-R1.6). Accessible only through
+ * the targeted-queries port: PostgreSQL executes window sums/conditional
+ * reservations as targeted SQL (no identity-map load), the memory adapter
+ * keeps a transactional map. Active units for a window are
+ * `reservedUnits - refundedUnits`.
+ */
+export interface QuotaReservationRecord {
+  id: string;
+  userId: string;
+  quotaKey: string;
+  /** Fixed accounting window (UTC hour or UTC day bucket), start inclusive. */
+  windowStart: string;
+  /** Fixed accounting window end, exclusive. */
+  windowEnd: string;
+  reservedUnits: number;
+  consumedUnits: number;
+  refundedUnits: number;
+  status: QuotaReservationStatus;
+  jobId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Persistent, runtime-toggleable feature flag / kill switch (0006 schema).
+ * A disabled flag is fail-closed for the guarded operation.
+ */
+export interface FeatureFlagRecord {
+  key: string;
+  enabled: boolean;
+  scope: JsonRecord;
+  version: number;
+  updatedAt: string;
+}

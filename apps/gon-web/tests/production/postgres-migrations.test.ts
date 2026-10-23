@@ -14,8 +14,8 @@ const sql = migrationFiles
 
 describe("PostgreSQL migration contract (static, not executed)", () => {
   it("uses ordered unique SQL-first migration files", () => {
-    expect(migrationFiles).toHaveLength(7);
-    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(7);
+    expect(migrationFiles).toHaveLength(8);
+    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(8);
     for (const file of migrationFiles) {
       expect(file).toMatch(/^\d{4}_[a-z0-9_]+\.sql$/i);
     }
@@ -62,5 +62,40 @@ describe("PostgreSQL migration contract (static, not executed)", () => {
     ]) {
       expect(sql).toContain(trigger);
     }
+  });
+
+  it("locks the R1.6 guardrails: quota backfill, targeted indexes and RLS policies", () => {
+    // Targeted guardrail queries need their indexes.
+    expect(sql).toContain("quota_reservations_active_window_idx");
+    expect(sql).toContain("async_jobs_owner_fingerprint_idx");
+    // Count-quota history is backfilled idempotently with deterministic ids.
+    expect(sql).toContain("qrsv_bf1_");
+    expect(sql).toContain("qrsv_bf2_");
+    expect(sql).toContain("qrsv_bf3_");
+    expect(sql).toContain("on conflict (id) do nothing");
+    expect(sql).toContain("deferrable initially deferred");
+    expect(sql).toContain("'search_per_hour'");
+    expect(sql).toContain("'brew_per_day'");
+    expect(sql).toContain("'artifact_per_day'");
+    // Deny-by-default RLS model for non-owner roles.
+    expect(sql).toContain("current_setting('gon.user_id', true)");
+    for (const table of [
+      "gon_users",
+      "learning_projects",
+      "source_artifacts",
+      "content_chunks",
+      "search_attempts",
+      "async_jobs",
+      "journeys",
+      "learning_attempts",
+      "proofs",
+      "xp_ledger_entries",
+      "footprint_events",
+    ]) {
+      expect(sql).toContain(`alter table ${table} enable row level security`);
+    }
+    expect(sql).toContain("create policy gon_rls_owner_journeys on journeys");
+    // Roles stay deploy-time (managed platforms own role administration).
+    expect(sql).not.toContain("create role");
   });
 });

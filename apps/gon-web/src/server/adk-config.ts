@@ -1,7 +1,9 @@
 import {
+  CircuitBreakingBrewAiProvider,
   HttpAdkBrewAiProvider,
   LocalDeterministicBrewAiProvider,
   type BrewAiProvider,
+  type CircuitBreakerOptions,
 } from "./ai-provider";
 
 export type BrewAiProviderKind = "local" | "adk" | "invalid";
@@ -149,19 +151,30 @@ export function inspectBrewAiConfig(
 
 export function createBrewAiProviderFromEnv(
   env: NodeJS.ProcessEnv = process.env,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch; circuitBreaker?: CircuitBreakerOptions | false } = {},
 ): BrewAiProvider {
   const parsed = parseBrewAiConfig(env);
-  if (parsed.kind === "local") return new LocalDeterministicBrewAiProvider();
-  if (parsed.kind !== "adk" || !parsed.configured || !parsed.baseUrl) {
+  let provider: BrewAiProvider;
+  if (parsed.kind === "local") {
+    provider = new LocalDeterministicBrewAiProvider();
+  } else if (parsed.kind !== "adk" || !parsed.configured || !parsed.baseUrl) {
     throw new Error(
       `Brew AI provider is not configured (${parsed.errorCode ?? "BREW_AI_PROVIDER_INVALID"}).`,
     );
+  } else {
+    provider = new HttpAdkBrewAiProvider({
+      baseUrl: parsed.baseUrl,
+      serviceToken: parsed.serviceToken,
+      timeoutMs: parsed.timeoutMs,
+      fetch: options.fetch,
+    });
   }
-  return new HttpAdkBrewAiProvider({
-    baseUrl: parsed.baseUrl,
-    serviceToken: parsed.serviceToken,
-    timeoutMs: parsed.timeoutMs,
-    fetch: options.fetch,
+  if (options.circuitBreaker === false) return provider;
+  const threshold = Number(env.GON_AI_CIRCUIT_FAILURE_THRESHOLD ?? "");
+  const cooldownMs = Number(env.GON_AI_CIRCUIT_COOLDOWN_MS ?? "");
+  return new CircuitBreakingBrewAiProvider(provider, {
+    ...(options.circuitBreaker ?? {}),
+    ...(Number.isSafeInteger(threshold) && threshold >= 1 ? { failureThreshold: threshold } : {}),
+    ...(Number.isFinite(cooldownMs) && cooldownMs >= 1_000 ? { cooldownMs } : {}),
   });
 }

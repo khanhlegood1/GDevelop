@@ -547,3 +547,145 @@ export class HttpAdkBrewAiProvider implements BrewAiProvider {
     }
   }
 }
+
+export type CircuitState = "closed" | "open" | "half_open";
+
+export interface CircuitBreakerOptions {
+  /** Consecutive failures that trip the breaker open. Default 3. */
+  failureThreshold?: number;
+  /** Open-state cooldown before a half-open probe is allowed. Default 30s. */
+  cooldownMs?: number;
+  now?: () => number;
+}
+
+function circuitBreakerTelemetry(code: string): AiCallTelemetry {
+  return {
+    provider: "circuit-breaker",
+    modelId: "none",
+    agentPipelineVersion: "circuit-breaker/1.0",
+    promptTemplateVersions: [],
+    inputSchemaVersion: "n/a",
+    outputSchemaVersion: "n/a",
+    evidenceBundleHash: null,
+    inputTokens: null,
+    outputTokens: null,
+    costUnits: 0,
+    latencyMs: 0,
+    finishReason: null,
+    errorCode: code,
+  };
+}
+
+/**
+ * Provider circuit breaker (P05-R1.6, B-P05-06): wraps any BrewAiProvider and
+ * fails fast with `AI_PROVIDER_CIRCUIT_OPEN` (retryable) while the circuit is
+ * open, so a flapping upstream (ADK/Gemini) cannot consume worker time and
+ * quota. One half-open probe is admitted after the cooldown; a success closes
+ * the circuit, a failure re-opens it. Kill switches stay at the feature-flag
+ * layer — this breaker protects availability/cost, not policy.
+ */
+export class CircuitBreakingBrewAiProvider implements BrewAiProvider {
+  readonly id: string;
+  readonly kind: "local" | "adk_http";
+  readonly pipelineVersion: string;
+
+  private readonly failureThreshold: number;
+  private readonly cooldownMs: number;
+  private readonly now: () => number;
+  private state: CircuitState = "closed";
+  private consecutiveFailures = 0;
+  private openUntil = 0;
+  private halfOpenProbeInFlight = false;
+
+  constructor(
+    private readonly inner: BrewAiProvider,
+    options: CircuitBreakerOptions = {},
+  ) {
+    const threshold = options.failureThreshold ?? 3;
+    const cooldown = options.cooldownMs ?? 30_000;
+    if (!Number.isSafeInteger(threshold) || threshold < 1) {
+      throw new Error("circuit failureThreshold must be an integer >= 1");
+    }
+    if (!Number.isFinite(cooldown) || cooldown < 1_000) {
+      throw new Error("circuit cooldownMs must be >= 1000");
+    }
+    this.failureThreshold = threshold;
+    this.cooldownMs = cooldown;
+    this.now = options.now ?? Date.now;
+    this.id = `${inner.id}+circuit`;
+    this.kind = inner.kind;
+    this.pipelineVersion = inner.pipelineVersion;
+  }
+
+  get circuitState(): CircuitState {
+    return this.state;
+  }
+
+  private admit(): void {
+    const at = this.now();
+    if (this.state === "open") {
+      if (at < this.openUntil) throw this.openError();
+      this.state = "half_open";
+      this.halfOpenProbeInFlight = false;
+    }
+    if (this.state === "half_open") {
+      if (this.halfOpenProbeInFlight) throw this.openError();
+      this.halfOpenProbeInFlight = true;
+    }
+  }
+
+  private openError(): AiProviderError {
+    return new AiProviderError({
+      code: "AI_PROVIDER_CIRCUIT_OPEN",
+      retryable: true,
+      telemetry: circuitBreakerTelemetry("AI_PROVIDER_CIRCUIT_OPEN"),
+      message: "AI provider circuit breaker is open",
+    });
+  }
+
+  private recordSuccess(): void {
+    this.consecutiveFailures = 0;
+    this.state = "closed";
+    this.openUntil = 0;
+    this.halfOpenProbeInFlight = false;
+  }
+
+  private recordFailure(): void {
+    const at = this.now();
+    this.halfOpenProbeInFlight = false;
+    if (this.state === "half_open") {
+      this.state = "open";
+      this.openUntil = at + this.cooldownMs;
+      return;
+    }
+    this.consecutiveFailures += 1;
+    if (this.consecutiveFailures >= this.failureThreshold) {
+      this.state = "open";
+      this.openUntil = at + this.cooldownMs;
+    }
+  }
+
+  async topicCheck(input: TopicCheckInput): Promise<AiCallResult<TopicCheckOutput>> {
+    this.admit();
+    try {
+      const result = await this.inner.topicCheck(input);
+      this.recordSuccess();
+      return result;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
+  }
+
+  async generateModule(work: GenerateModuleWork): Promise<AiCallResult<GenerateModuleOutput>> {
+    this.admit();
+    try {
+      const result = await this.inner.generateModule(work);
+      this.recordSuccess();
+      return result;
+    } catch (error) {
+      this.recordFailure();
+      throw error;
+    }
+  }
+}

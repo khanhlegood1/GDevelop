@@ -1,5 +1,6 @@
 import { EMBEDDING_DIMENSIONS, EMBEDDING_PROFILE } from "./embeddings";
 import { stableHash } from "./hash";
+import { createId } from "./ids";
 import {
   formatPostgresTextArray,
   formatPostgresVector,
@@ -12,6 +13,15 @@ import {
   type GonRepositories,
   type GonStore,
 } from "./repositories";
+import type {
+  JobFingerprintInput,
+  QuotaRefundInput,
+  QuotaReserveInput,
+  QuotaReserveResult,
+  QuotaSettleInput,
+  QuotaWindowInput,
+  TargetedQueriesPort,
+} from "./targeted-queries";
 import type {
   AiRunRecord,
   ArtifactCoverage,
@@ -27,6 +37,7 @@ import type {
   ChunkRecord,
   ConsentRecord,
   DevSessionRecord,
+  FeatureFlagRecord,
   IdempotencyRecord,
   IdentityLinkRecord,
   InviteRecord,
@@ -40,6 +51,7 @@ import type {
   ProfileRecord,
   ProjectRecord,
   ProofRecord,
+  QuotaReservationRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -350,6 +362,213 @@ function coverageFromRow(value: unknown): ArtifactCoverage {
   };
 }
 
+function jobFromRow(row: Record<string, unknown>): JobRecord {
+  return {
+    id: asText(row.id),
+    jobType: asText(row.job_type),
+    ownerUserId: asText(row.owner_user_id),
+    aggregateType: asText(row.aggregate_type),
+    aggregateId: asText(row.aggregate_id),
+    status: asEnum(row.status, "queued"),
+    currentStep: asNullableText(row.current_step),
+    idempotencyKey: asText(row.idempotency_key),
+    inputFingerprint: asText(row.input_fingerprint),
+    attemptCount: asNumber(row.attempt_count),
+    maxAttempts: asNumber(row.max_attempts, 3),
+    estimatedCostUnits: asNumber(row.estimated_cost_units),
+    actualCostUnits: asNumber(row.actual_cost_units),
+    failureCode: asNullableText(row.failure_code),
+    retryable: asBoolean(row.retryable),
+    availableAt: asIso(row.available_at, asIso(row.created_at)),
+    leaseOwner: asNullableText(row.lease_owner),
+    leaseExpiresAt: asNullableIso(row.lease_expires_at),
+    createdAt: asIso(row.created_at),
+    startedAt: asNullableIso(row.started_at),
+    completedAt: asNullableIso(row.completed_at),
+    cancelledAt: asNullableIso(row.cancelled_at),
+    payload: asJsonRecord(row.payload),
+  };
+}
+
+function quotaReservationFromRow(row: Record<string, unknown>): QuotaReservationRecord {
+  return {
+    id: asText(row.id),
+    userId: asText(row.user_id),
+    quotaKey: asText(row.quota_key),
+    windowStart: asIso(row.window_start),
+    windowEnd: asIso(row.window_end),
+    reservedUnits: asNumber(row.reserved_units),
+    consumedUnits: asNumber(row.consumed_units),
+    refundedUnits: asNumber(row.refunded_units),
+    status: asEnum(row.status, "reserved"),
+    jobId: asNullableText(row.job_id),
+    createdAt: asIso(row.created_at),
+    updatedAt: asIso(row.updated_at),
+  };
+}
+
+/**
+ * PostgreSQL binding of the targeted guardrail queries (P05-R1.6).
+ *
+ * Every method is a targeted statement against indexed columns; quota
+ * reservation rows are written directly inside the ambient Unit-of-Work
+ * transaction and therefore commit/roll back with it and stay visible to
+ * later statements in the same transaction. They deliberately bypass the
+ * identity-map diff/flush.
+ */
+export class PostgresTargetedQueries implements TargetedQueriesPort {
+  constructor(private readonly executor: SqlExecutor) {}
+
+  async sumActiveQuotaUnits(input: QuotaWindowInput): Promise<number> {
+    const rows = await queryRows(
+      this.executor,
+      `select coalesce(sum(reserved_units - refunded_units), 0) as used
+         from quota_reservations
+        where user_id = $1 and quota_key = $2
+          and window_start = $3::timestamptz and window_end = $4::timestamptz
+          and status in ('reserved', 'consumed', 'partially_refunded')`,
+      [input.userId, input.quotaKey, input.windowStart, input.windowEnd],
+    );
+    return Number(asText(rows[0]?.used ?? "0"));
+  }
+
+  async reserveQuotaUnits(input: QuotaReserveInput): Promise<QuotaReserveResult> {
+    const id = createId("qrsv");
+    const consumedUnits = input.mode === "consume" ? input.units : 0;
+    const status = input.mode === "consume" ? "consumed" : "reserved";
+    const result = await this.executor.query(
+      `with active as (
+         select coalesce(sum(reserved_units - refunded_units), 0) as used
+           from quota_reservations
+          where user_id = $1 and quota_key = $2
+            and window_start = $3::timestamptz and window_end = $4::timestamptz
+            and status in ('reserved', 'consumed', 'partially_refunded')
+       ), inserted as (
+         insert into quota_reservations
+           (id, user_id, quota_key, window_start, window_end,
+            reserved_units, consumed_units, refunded_units, status, job_id,
+            created_at, updated_at)
+         select $5::text, $1::text, $2::text, $3::timestamptz, $4::timestamptz,
+                $6::numeric, $7::numeric, 0::numeric, $8::text, $9::text,
+                $10::timestamptz, $10::timestamptz
+          where (select used from active) + $6::numeric <= $11::numeric
+         returning 1
+       )
+       select (select used from active) as used_before,
+              exists (select 1 from inserted) as ok`,
+      [
+        input.userId,
+        input.quotaKey,
+        input.windowStart,
+        input.windowEnd,
+        id,
+        input.units,
+        consumedUnits,
+        status,
+        input.jobId ?? null,
+        input.createdAt,
+        input.limit,
+      ],
+    );
+    const row = result.rows[0] as Record<string, unknown> | undefined;
+    const usedBefore = Number(asText(row?.used_before ?? "0"));
+    const ok = asBoolean(row?.ok ?? false);
+    return {
+      reserved: ok,
+      usedUnitsBefore: usedBefore,
+      usedUnitsAfter: ok ? usedBefore + input.units : usedBefore,
+      limit: input.limit,
+      reservationId: ok ? id : null,
+    };
+  }
+
+  private async getReservation(id: string): Promise<QuotaReservationRecord | null> {
+    const rows = await queryRows(
+      this.executor,
+      "select * from quota_reservations where id = $1::text",
+      [id],
+    );
+    const row = rows[0];
+    return row ? quotaReservationFromRow(row) : null;
+  }
+
+  private async saveReservation(record: QuotaReservationRecord): Promise<QuotaReservationRecord> {
+    await this.executor.query(
+      `update quota_reservations
+          set reserved_units = $2::numeric, consumed_units = $3::numeric,
+              refunded_units = $4::numeric, status = $5::text,
+              updated_at = $6::timestamptz
+        where id = $1::text`,
+      [
+        record.id,
+        record.reservedUnits,
+        record.consumedUnits,
+        record.refundedUnits,
+        record.status,
+        record.updatedAt,
+      ],
+    );
+    return record;
+  }
+
+  async settleQuotaReservation(input: QuotaSettleInput): Promise<QuotaReservationRecord | null> {
+    const record = await this.getReservation(input.reservationId);
+    if (!record) return null;
+    const consumed = Math.max(0, Math.min(input.consumedUnits, record.reservedUnits));
+    const refunded = record.reservedUnits - consumed;
+    return this.saveReservation({
+      ...record,
+      consumedUnits: consumed,
+      refundedUnits: refunded,
+      status: consumed === 0 ? "refunded" : consumed === record.reservedUnits ? "consumed" : "partially_refunded",
+      updatedAt: input.at,
+    });
+  }
+
+  async refundQuotaReservation(input: QuotaRefundInput): Promise<QuotaReservationRecord | null> {
+    const record = await this.getReservation(input.reservationId);
+    if (!record) return null;
+    const open = record.reservedUnits - record.consumedUnits - record.refundedUnits;
+    const refunded = Math.max(0, Math.min(input.refundedUnits, open));
+    const refundedTotal = record.refundedUnits + refunded;
+    return this.saveReservation({
+      ...record,
+      refundedUnits: refundedTotal,
+      status:
+        record.consumedUnits > 0 && refundedTotal < record.reservedUnits
+          ? "partially_refunded"
+          : "refunded",
+      updatedAt: input.at,
+    });
+  }
+
+  async findReservationsByJobId(jobId: string): Promise<QuotaReservationRecord[]> {
+    const rows = await queryRows(
+      this.executor,
+      "select * from quota_reservations where job_id = $1::text order by created_at, id",
+      [jobId],
+    );
+    return rows.map((row) => quotaReservationFromRow(row));
+  }
+
+  async findJobByInputFingerprint(input: JobFingerprintInput): Promise<JobRecord | null> {
+    const statuses = input.statuses.filter((status) => /^[a-z_]+$/.test(status));
+    if (statuses.length === 0) return null;
+    const placeholders = statuses.map((_, index) => `$${index + 4}`).join(", ");
+    const rows = await queryRows(
+      this.executor,
+      `select * from async_jobs
+        where owner_user_id = $1 and job_type = $2 and input_fingerprint = $3
+          and status in (${placeholders})
+        order by created_at desc, id desc
+        limit 1`,
+      [input.userId, input.jobType, input.fingerprint, ...statuses],
+    );
+    const row = rows[0];
+    return row ? jobFromRow(row) : null;
+  }
+}
+
 async function loadRepositories(
   executor: SqlExecutor,
   devSessions: Map<string, DevSessionRecord>,
@@ -359,6 +578,7 @@ async function loadRepositories(
     devSessions,
     objects,
     hybridSearch: new PostgresHybridSearchRepository(savepointExecutor(executor)),
+    targetedQueries: new PostgresTargetedQueries(executor),
   });
 
   const roleOrder = new Map<string, number>([
@@ -548,31 +768,7 @@ async function loadRepositories(
   }
 
   for (const row of await queryRows(executor, "select * from async_jobs order by created_at, id")) {
-    const record: JobRecord = {
-      id: asText(row.id),
-      jobType: asText(row.job_type),
-      ownerUserId: asText(row.owner_user_id),
-      aggregateType: asText(row.aggregate_type),
-      aggregateId: asText(row.aggregate_id),
-      status: asEnum(row.status, "queued"),
-      currentStep: asNullableText(row.current_step),
-      idempotencyKey: asText(row.idempotency_key),
-      inputFingerprint: asText(row.input_fingerprint),
-      attemptCount: asNumber(row.attempt_count),
-      maxAttempts: asNumber(row.max_attempts, 3),
-      estimatedCostUnits: asNumber(row.estimated_cost_units),
-      actualCostUnits: asNumber(row.actual_cost_units),
-      failureCode: asNullableText(row.failure_code),
-      retryable: asBoolean(row.retryable),
-      availableAt: asIso(row.available_at, asIso(row.created_at)),
-      leaseOwner: asNullableText(row.lease_owner),
-      leaseExpiresAt: asNullableIso(row.lease_expires_at),
-      createdAt: asIso(row.created_at),
-      startedAt: asNullableIso(row.started_at),
-      completedAt: asNullableIso(row.completed_at),
-      cancelledAt: asNullableIso(row.cancelled_at),
-      payload: asJsonRecord(row.payload),
-    };
+    const record = jobFromRow(row);
     repositories.jobs.set(record.id, record);
   }
 
@@ -1142,6 +1338,17 @@ async function loadRepositories(
     });
   }
 
+  for (const row of await queryRows(executor, "select * from feature_flags order by key")) {
+    const record: FeatureFlagRecord = {
+      key: asText(row.key),
+      enabled: asBoolean(row.enabled),
+      scope: asJsonRecord(row.scope),
+      version: asNumber(row.version, 1),
+      updatedAt: asIso(row.updated_at),
+    };
+    repositories.featureFlags.set(record.key, record);
+  }
+
   return repositories;
 }
 
@@ -1181,6 +1388,7 @@ const DURABLE_COLLECTIONS = [
   "reports",
   "reviewCases",
   "idempotencyRecords",
+  "featureFlags",
 ] as const;
 
 function snapshotEntries(entries: Iterable<readonly [string, unknown]>): SnapshotMap {
@@ -2580,6 +2788,28 @@ function idempotencyScope(
   };
 }
 
+async function saveFeatureFlag(
+  executor: SqlExecutor,
+  record: FeatureFlagRecord,
+): Promise<void> {
+  await executor.query(
+    `insert into feature_flags (key, enabled, scope, version, updated_at)
+     values ($1, $2, $3::jsonb, $4, $5::timestamptz)
+     on conflict (key) do update set
+       enabled = excluded.enabled,
+       scope = excluded.scope,
+       version = excluded.version,
+       updated_at = excluded.updated_at`,
+    [
+      record.key,
+      record.enabled,
+      jsonParam(record.scope),
+      record.version,
+      record.updatedAt,
+    ],
+  );
+}
+
 async function saveIdempotency(
   executor: SqlExecutor,
   collectionKey: string,
@@ -2655,6 +2885,7 @@ async function flushRepositories(
     reports: mapDiff("reports"),
     reviewCases: mapDiff("reviewCases"),
     idempotencyRecords: mapDiff("idempotencyRecords"),
+    featureFlags: mapDiff("featureFlags"),
     outboxEvents: diffEntries(
       [...repositories.outboxEvents.values()].map((event) => [event.eventId, event] as const),
       snapshot.get("outboxEvents") ?? new Map(),
@@ -2804,6 +3035,13 @@ async function flushRepositories(
   for (const { record } of diffs.outboxEvents.updated) await saveOutboxEvent(executor, record, "update");
   for (const { key, record } of diffs.idempotencyRecords.updated) {
     await saveIdempotency(executor, key, record);
+  }
+  // Feature flags are tiny upserts; inserts and updates share one save path.
+  for (const { record } of diffs.featureFlags.inserted) {
+    await saveFeatureFlag(executor, record);
+  }
+  for (const { record } of diffs.featureFlags.updated) {
+    await saveFeatureFlag(executor, record);
   }
 
   for (const { record } of diffs.journeys.updated) await updateJourney(executor, record);

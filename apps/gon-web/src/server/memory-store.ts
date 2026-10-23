@@ -17,6 +17,7 @@ import type {
   ChunkRecord,
   ConsentRecord,
   DevSessionRecord,
+  FeatureFlagRecord,
   IdempotencyRecord,
   IdentityLinkRecord,
   InviteRecord,
@@ -29,6 +30,7 @@ import type {
   ProfileRecord,
   ProjectRecord,
   ProofRecord,
+  QuotaReservationRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -214,5 +216,13 @@ export class MemoryGonStore implements GonStore {
 
   get idempotencyRecords(): Map<string, IdempotencyRecord> {
     return (this.repositories.idempotencyRecords as MapRepositoryCollection<string, IdempotencyRecord>).map;
+  }
+
+  get featureFlags(): Map<string, FeatureFlagRecord> {
+    return (this.repositories.featureFlags as MapRepositoryCollection<string, FeatureFlagRecord>).map;
+  }
+
+  get quotaReservations(): Map<string, QuotaReservationRecord> {
+    return (this.repositories.quotaReservations as MapRepositoryCollection<string, QuotaReservationRecord>).map;
   }
 }

@@ -1,5 +1,16 @@
 import { sha256Hex } from "./hash";
 import { createId } from "./ids";
+import {
+  activeQuotaUnits,
+  isQuotaWindowActive,
+  type JobFingerprintInput,
+  type QuotaRefundInput,
+  type QuotaReserveInput,
+  type QuotaReserveResult,
+  type QuotaSettleInput,
+  type QuotaWindowInput,
+  type TargetedQueriesPort,
+} from "./targeted-queries";
 import type {
   AiRunRecord,
   ArtifactRecord,
@@ -13,6 +24,7 @@ import type {
   ChunkRecord,
   ConsentRecord,
   DevSessionRecord,
+  FeatureFlagRecord,
   IdempotencyRecord,
   IdentityLinkRecord,
   InviteRecord,
@@ -25,6 +37,7 @@ import type {
   ProfileRecord,
   ProjectRecord,
   ProofRecord,
+  QuotaReservationRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -181,6 +194,21 @@ export interface GonRepositories {
   readonly aiRuns: AppendOnlyCollection<AiRunRecord>;
   readonly idempotencyRecords: RepositoryCollection<string, IdempotencyRecord>;
 
+  /**
+   * Persistent feature flags / kill switches (P05-R1.6). A missing flag is
+   * treated as enabled at this layer; callers decide defaults.
+   */
+  readonly featureFlags: RepositoryCollection<string, FeatureFlagRecord>;
+
+  /**
+   * Targeted guardrail queries (P05-R1.6): persistent quota reservations,
+   * budget settle/refund and job fingerprint lookups run through this port
+   * instead of scanning identity-map collections. Bound to targeted SQL by
+   * the PostgreSQL Unit of Work and to a transactional map by the memory
+   * adapter.
+   */
+  readonly targetedQueries: TargetedQueriesPort;
+
   /** Present only when the active Unit of Work can execute SQL Search. */
   hybridSearch?: HybridSearchPort;
 
@@ -203,6 +231,8 @@ interface InMemoryRepositoryOptions {
   devSessions?: Map<string, DevSessionRecord>;
   objects?: Map<string, StoredObjectRecord>;
   hybridSearch?: HybridSearchPort;
+  /** External binding (e.g. targeted SQL); defaults to the in-memory port. */
+  targetedQueries?: TargetedQueriesPort;
 }
 
 const MAP_COLLECTION_NAMES = [
@@ -235,6 +265,8 @@ const MAP_COLLECTION_NAMES = [
   "reports",
   "reviewCases",
   "idempotencyRecords",
+  "featureFlags",
+  "quotaReservations",
 ] as const;
 
 type MapCollectionName = (typeof MAP_COLLECTION_NAMES)[number];
@@ -281,15 +313,26 @@ export class InMemoryGonRepositories implements GonRepositories {
   readonly auditLogs = new ArrayAppendOnlyCollection<AuditRecord>();
   readonly aiRuns = new ArrayAppendOnlyCollection<AiRunRecord>();
   readonly idempotencyRecords = new MapRepositoryCollection<string, IdempotencyRecord>();
+  readonly featureFlags = new MapRepositoryCollection<string, FeatureFlagRecord>();
+  /**
+   * Memory-adapter backing store for the targeted quota port. The PostgreSQL
+   * Unit of Work binds `targetedQueries` to targeted SQL instead and leaves
+   * this map empty (quota rows bypass the identity-map diff/flush on purpose).
+   */
+  readonly quotaReservations = new MapRepositoryCollection<string, QuotaReservationRecord>();
 
+  readonly targetedQueries: TargetedQueriesPort;
   hybridSearch?: HybridSearchPort;
 
+  private readonly externalTargetedQueries?: TargetedQueriesPort;
   private xpSequenceByUser = new Map<string, number>();
 
   constructor(options: InMemoryRepositoryOptions = {}) {
     this.devSessions = new MapRepositoryCollection(options.devSessions ?? new Map());
     this.objects = new MapRepositoryCollection(options.objects ?? new Map());
     this.hybridSearch = options.hybridSearch;
+    this.externalTargetedQueries = options.targetedQueries;
+    this.targetedQueries = options.targetedQueries ?? new InMemoryTargetedQueries(this);
   }
 
   seedInvite(
@@ -331,6 +374,9 @@ export class InMemoryGonRepositories implements GonRepositories {
       devSessions: options.shareEphemeral ? this.devSessions.map : new Map(),
       objects: options.shareEphemeral ? this.objects.map : new Map(),
       hybridSearch: this.hybridSearch,
+      // Keep an external (SQL) binding; a self-bound memory port must rebind
+      // to the clone so quota writes stay transactional like every other map.
+      targetedQueries: this.externalTargetedQueries,
     });
 
     for (const name of MAP_COLLECTION_NAMES) {
@@ -368,5 +414,123 @@ export class InMemoryGonRepositories implements GonRepositories {
     for (const run of source.aiRuns.values()) this.aiRuns.append(run);
     this.xpSequenceByUser = new Map(source.xpSequenceByUser);
     this.hybridSearch = source.hybridSearch;
+  }
+}
+
+/**
+ * Memory binding of the targeted guardrail queries. Reservation rows live in
+ * the cloned identity map so failed Units of Work roll back quota writes too.
+ */
+export class InMemoryTargetedQueries implements TargetedQueriesPort {
+  constructor(private readonly owner: InMemoryGonRepositories) {}
+
+  private matchesWindow(record: QuotaReservationRecord, input: QuotaWindowInput): boolean {
+    return (
+      record.userId === input.userId &&
+      record.quotaKey === input.quotaKey &&
+      record.windowStart === input.windowStart &&
+      record.windowEnd === input.windowEnd &&
+      isQuotaWindowActive(record)
+    );
+  }
+
+  async sumActiveQuotaUnits(input: QuotaWindowInput): Promise<number> {
+    let used = 0;
+    for (const record of this.owner.quotaReservations.values()) {
+      if (this.matchesWindow(record, input)) used += activeQuotaUnits(record);
+    }
+    return used;
+  }
+
+  async reserveQuotaUnits(input: QuotaReserveInput): Promise<QuotaReserveResult> {
+    const windowInput: QuotaWindowInput = {
+      userId: input.userId,
+      quotaKey: input.quotaKey,
+      windowStart: input.windowStart,
+      windowEnd: input.windowEnd,
+    };
+    const usedBefore = await this.sumActiveQuotaUnits(windowInput);
+    if (usedBefore + input.units > input.limit) {
+      return {
+        reserved: false,
+        usedUnitsBefore: usedBefore,
+        usedUnitsAfter: usedBefore,
+        limit: input.limit,
+        reservationId: null,
+      };
+    }
+    const record: QuotaReservationRecord = {
+      id: createId("qrsv"),
+      userId: input.userId,
+      quotaKey: input.quotaKey,
+      windowStart: input.windowStart,
+      windowEnd: input.windowEnd,
+      reservedUnits: input.units,
+      consumedUnits: input.mode === "consume" ? input.units : 0,
+      refundedUnits: 0,
+      status: input.mode === "consume" ? "consumed" : "reserved",
+      jobId: input.jobId ?? null,
+      createdAt: input.createdAt,
+      updatedAt: input.createdAt,
+    };
+    this.owner.quotaReservations.set(record.id, record);
+    return {
+      reserved: true,
+      usedUnitsBefore: usedBefore,
+      usedUnitsAfter: usedBefore + input.units,
+      limit: input.limit,
+      reservationId: record.id,
+    };
+  }
+
+  async settleQuotaReservation(input: QuotaSettleInput): Promise<QuotaReservationRecord | null> {
+    const record = this.owner.quotaReservations.get(input.reservationId);
+    if (!record) return null;
+    const consumed = Math.max(0, Math.min(input.consumedUnits, record.reservedUnits));
+    const refunded = record.reservedUnits - consumed;
+    const settled: QuotaReservationRecord = {
+      ...record,
+      consumedUnits: consumed,
+      refundedUnits: refunded,
+      status: consumed === 0 ? "refunded" : consumed === record.reservedUnits ? "consumed" : "partially_refunded",
+      updatedAt: input.at,
+    };
+    this.owner.quotaReservations.set(settled.id, settled);
+    return settled;
+  }
+
+  async refundQuotaReservation(input: QuotaRefundInput): Promise<QuotaReservationRecord | null> {
+    const record = this.owner.quotaReservations.get(input.reservationId);
+    if (!record) return null;
+    const open = record.reservedUnits - record.consumedUnits - record.refundedUnits;
+    const refunded = Math.max(0, Math.min(input.refundedUnits, open));
+    const refundedTotal = record.refundedUnits + refunded;
+    const settled: QuotaReservationRecord = {
+      ...record,
+      refundedUnits: refundedTotal,
+      status:
+        record.consumedUnits > 0 && refundedTotal < record.reservedUnits
+          ? "partially_refunded"
+          : "refunded",
+      updatedAt: input.at,
+    };
+    this.owner.quotaReservations.set(settled.id, settled);
+    return settled;
+  }
+
+  async findReservationsByJobId(jobId: string): Promise<QuotaReservationRecord[]> {
+    return [...this.owner.quotaReservations.values()].filter((record) => record.jobId === jobId);
+  }
+
+  async findJobByInputFingerprint(input: JobFingerprintInput): Promise<JobRecord | null> {
+    const matches = [...this.owner.jobs.values()].filter(
+      (job) =>
+        job.ownerUserId === input.userId &&
+        job.jobType === input.jobType &&
+        job.inputFingerprint === input.fingerprint &&
+        input.statuses.includes(job.status),
+    );
+    matches.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    return matches[0] ?? null;
   }
 }
