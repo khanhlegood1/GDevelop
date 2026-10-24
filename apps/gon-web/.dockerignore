@@ -1,0 +1,11 @@
+node_modules
+.next
+coverage
+storybook-static
+ux-prototype
+docs
+deploy
+.env
+.env.*
+*.log
+tsconfig.tsbuildinfo

@@ -23,7 +23,7 @@ Chưa được chứng minh:
 
 - chưa gọi Gemini thật vì sandbox không có Google credentials/model được PO cấu hình;
 - chưa nối TypeScript `GonService` sang HTTP provider này;
-- chưa có durable job worker/Cloud Tasks/Cloud Run deployment;
+- chưa có durable job worker/Cloud Tasks/Cloud Run deployment **thật** — container image + script deploy đã đóng gói ở P06-S1 ([`Dockerfile`](Dockerfile) + `apps/gon-web/deploy/gcp/40-deploy-adk.sh`) nhưng **NOT RUN** trên hạ tầng thật;
 - S-P03-03 vẫn **NOT RUN** cho tới khi chạy Google provider với credentials kiểm thử và ghi kết quả vào P05 staging evidence;
 - P05 `pip-audit` trên clean runtime ghi nhận `CVE-2026-114603` trong transitive `opentelemetry-api 1.42.1` do `google-adk 2.12.0` kéo theo. App không trực tiếp gắn OTel ASGI propagation middleware, nhưng đây vẫn là ngoại lệ dependency phải đóng hoặc được PO phê duyệt có điều kiện/hạn tại P05/P06.
 

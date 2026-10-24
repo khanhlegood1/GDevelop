@@ -20,7 +20,7 @@
 | P03 | API Contract & Data Model First | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 tại `b4e6ec2` |
 | P04 | Vertical Slice Build | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 cho PR #13/head `76eac20`/merge `ef594de` |
 | P05 | NFR & Well-Architected Review | **IN REVIEW — NOT YET PASS** | Đóng các blocker production và được PO duyệt sau re-review |
-| P06 | Cloud Deployment | Chưa bắt đầu | P05 đạt và PO ra quyết định Go-Live riêng |
+| P06 | Cloud Deployment | **IN PROGRESS — package đã bàn giao, execution/Go-Live NOT RUN** | Thực thi sau P05 APPROVED; Go-Live cần quyết định riêng của PO |
 | R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
 
 ## Tài liệu P05 đang review
@@ -34,6 +34,12 @@
 7. [P05-R1.2 — Domain Repository Boundaries & Unit of Work](06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) — VS1 đã chạy qua PostgreSQL normalized repositories trên PGlite; managed staging/storage/queue vẫn mở
 8. [P05-R1.3 — Durable Jobs & Transactional Outbox](06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md) — PostgreSQL lease/retry/reconciler, outbox publisher primitives và queued Brew đã có bằng chứng PGlite; worker deployment/sink vẫn mở
 9. [P05-R1.4 — Auth Staging Contract & Private Object Storage](06-nfr/P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md) — Auth.js DB-session/revoke và private storage port/GCS adapter đã có bằng chứng PGlite/fake transport; Google/GCS/staging thật vẫn NOT RUN
+
+## Tài liệu P06 đang đóng gói
+
+1. [P06 — Cloud Deployment: cổng package](07-deployment/README.md) — **IN PROGRESS — execution/Go-Live NOT RUN**
+2. [P06-S1 — Cloud deployment package: evidence + quyết định D1–D10](07-deployment/P06-S1-CLOUD-DEPLOYMENT-PACKAGE.md)
+3. [Gói lệnh hạ tầng GCP](../deploy/gcp/README.md) — Cloud Run ×3, Cloud SQL PG17, GCS, Secret Manager, LB + Cloud Armor, monitoring, DR drill
 
 ## Tài liệu P04 đã được phê duyệt
 
@@ -110,7 +116,7 @@ Các lựa chọn sau đã được PO xác nhận trong phiên làm việc ngà
 - Tái sử dụng code **có chọn lọc sau Audit**; không fork nguyên FastChat/WSIC thành production.
 - Mã production của GON nằm trong **`khanhlegood1/GDevelop`**.
 
-PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2`, P02 tại `33c2641`, P03 tại `b4e6ec2` và P04 cho PR #13/head `76eac20`/merge `ef594de`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`, `D-P02-*`, `D-P03-*` tương ứng. PO đã cho phép bắt đầu P05; P05 hiện **IN REVIEW — NOT YET PASS**, còn P06 chưa bắt đầu và vẫn cần P05 APPROVED cộng quyết định Go-Live riêng.
+PO đã duyệt Gate 0 tại `5482dac`, P01 tại `9a09fa2`, P02 tại `33c2641`, P03 tại `b4e6ec2` và P04 cho PR #13/head `76eac20`/merge `ef594de`, đồng thời duyệt toàn bộ các mặc định `D-P01-*`, `D-P02-*`, `D-P03-*` tương ứng. PO đã cho phép bắt đầu P05; P05 hiện **IN REVIEW — NOT YET PASS**. Dưới ủy quyền liên tục 24/10/2026, P06-S1 đã đóng gói hạ tầng cloud (deploy/gcp) nhưng **execution/Go-Live vẫn chờ P05 APPROVED cộng quyết định Go-Live riêng**.
 
 ## Tài liệu sản phẩm đã có
 

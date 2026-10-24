@@ -130,7 +130,7 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 1. **P05-R1 — Production platform completion:** R1.1 PostgreSQL/Search/readiness/CI foundation, R1.2 domain repositories/Unit of Work, R1.3 durable jobs/outbox primitives, R1.4 Auth DB-session contract + private object-storage port, R1.5 worker runtime/outbox consumers/ADK integration và R1.6 targeted repository queries/RLS + persistent quotas/kill switches/circuit breaker đã có bằng chứng local/PGlite; còn lại của R1 là Google/GCS/managed-PostgreSQL staging verification (trong đó có roles/IAM cho RLS) và TS→ADK→Gemini với credentials thật.
 2. **P05-R2 — Staging verification:** S-P03-01/02/03/04, load/DAST/AI evaluation, accessibility browser test, backup/restore và rollback drills.
 3. **P05-R3 — Re-review:** chạy lại toàn bộ gates trên cùng một staging build, đóng findings hoặc xin ngoại lệ có hạn, sau đó mới trình PO duyệt P05.
-4. **P06:** chỉ bắt đầu sau P05 APPROVED; Go-Live vẫn cần quyết định riêng.
+4. **P06:** theo kế hoạch gốc chỉ bắt đầu sau P05 APPROVED; dưới ủy quyền liên tục 24/10/2026, **P06-S1 đã đóng gói hạ tầng (deploy/gcp) nhưng execution/Go-Live vẫn chờ P05 APPROVED và quyết định riêng của PO** — xem [07-deployment](../07-deployment/README.md).
 
 ## 8. Tài liệu liên quan
 
@@ -141,6 +141,4 @@ Các quyết định dưới đây là **đề xuất P05**, chưa tự động 
 - [PostgreSQL guide](../../db/README.md)
 - [ADK service guide](../../../gon-adk/README.md)
 - [Gate review & approval](../00-process/GATE-REVIEW-AND-APPROVAL.md)
-README.md)
-- [ADK service guide](../../../gon-adk/README.md)
-- [Gate review & approval](../00-process/GATE-REVIEW-AND-APPROVAL.md)
+- [P06 cloud deployment package (packaged, NOT RUN)](../07-deployment/README.md)

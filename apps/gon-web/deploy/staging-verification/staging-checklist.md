@@ -22,6 +22,7 @@
 | 0.5 | Gemini API key / Vertex credentials cho `gon-adk` | `P05-R1.5` TS→ADK→Gemini |
 | 0.6 | Cloud Run service (web) + worker (job) hoặc môi trường tương đương | `GON_STORE=postgres` bắt buộc; memory guard fail-closed |
 | 0.7 | Secrets: `DATABASE_URL`, `AUTH_SECRET`, `GON_ABUSE_HASH_SALT`, `GON_ADK_*`, `GCS_*` | Đặt qua Secret Manager, không qua file |
+| 0.8 | **Đường dẫn thực thi:** toàn bộ 0.1–0.7 đã được đóng gói thành script chạy được | `../gcp/README.md` (00→80, P06-S1; NOT RUN — chưa từng chạy trên hạ tầng thật) |
 
 ## 1. Triển khai & migrations (B-P05-01)
 

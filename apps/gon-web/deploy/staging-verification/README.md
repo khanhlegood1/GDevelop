@@ -15,6 +15,7 @@ chạy lại được cho P06.
 | `results/local-*.json` | Output thô của lần chạy evidence gần nhất (kèm timestamp UTC). |
 | `results/dev-server-*.log` | Log server của lần chạy (git-ignored). |
 | `staging-checklist.md` | Runbook P06: mỗi blocker `B-P05-01`…`B-P05-09` → tiên quyết, lệnh chạy, tiêu chí đạt trên hạ tầng thật. |
+| `../gcp/` | Gói lệnh dựng hạ tầng (Cloud Run/SQL/GCS/LB/Armor/monitoring/DR) — chạy §0 trước khi vào §1 của checklist. |
 
 ## Chạy lại local
 

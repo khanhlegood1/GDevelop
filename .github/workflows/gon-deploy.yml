@@ -1,0 +1,80 @@
+name: GON Deploy (manual)
+
+# P06-S1 — OPTIONAL build pipeline for the staging/production images.
+# STATUS: NOT RUN — written and reviewed in the dev sandbox, never executed
+# on real GCP. The primary deploy path is the script package
+# apps/gon-web/deploy/gcp/ (README.md): the scripts deploy and wire secrets
+# from gcp.env, which is deliberately NOT committed. This workflow automates
+# only the reproducible part — build + push to Artifact Registry via
+# Workload Identity Federation — so images never depend on a local Docker.
+#
+# Safety model (mirrors the R1.14 fork-friendly decisions):
+#   - manual dispatch ONLY — never runs on push/PR, so forks are unaffected;
+#   - gated to the production repository — never executes anywhere else;
+#   - without the WIF_* secrets the job is skipped visibly, never fails.
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_tag:
+        description: "Image tag (defaults to the commit SHA)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: gon-deploy
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    name: Build and push GON images (Artifact Registry)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >-
+      github.repository == 'khanhlegood1/GDevelop' &&
+      vars.GCP_PROJECT_ID != '' &&
+      vars.GCP_REGION != '' &&
+      secrets.WIF_PROVIDER != '' &&
+      secrets.WIF_SERVICE_ACCOUNT != ''
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      DEPLOY_TAG: ${{ inputs.deploy_tag || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Workload Identity Federation
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Stage P03 contracts into the ADK build context
+        run: cp -R apps/gon-web/docs/04-contracts apps/gon-adk/docs-contracts
+
+      - name: Build and push gon-adk image
+        run: |
+          gcloud config set project "${GCP_PROJECT_ID}"
+          gcloud builds submit apps/gon-adk \
+            --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/gon/gon-adk:${DEPLOY_TAG}"
+
+      - name: Build and push gon-web image
+        run: |
+          gcloud builds submit apps/gon-web \
+            --tag "${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/gon/gon-web:${DEPLOY_TAG}"
+
+      - name: Next steps (manual, by design)
+        run: |
+          echo "Images pushed:"
+          echo "  ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/gon/gon-web:${DEPLOY_TAG}"
+          echo "  ${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/gon/gon-adk:${DEPLOY_TAG}"
+          echo "Deploy them with deploy/gcp/40-deploy-adk.sh + 45-deploy-web.sh + 55-worker.sh"
+          echo "(gcp.env on the operator machine pins DEPLOY_TAG=${DEPLOY_TAG}; secrets and"
+          echo " service wiring stay in the audited script package, not in this workflow)."
