@@ -1,4 +1,12 @@
-import type { JobRecord, QuotaReservationRecord } from "./types";
+import type {
+  AccountStatus,
+  BranchCommitRecord,
+  JourneyRecord,
+  JobRecord,
+  ProofRecord,
+  QuotaReservationRecord,
+  XpLedgerRecord,
+} from "./types";
 
 /**
  * Targeted guardrail queries (P05-R1.6).
@@ -74,6 +82,49 @@ export interface TargetedQueriesPort {
   sumActiveQuotaUnits(input: QuotaWindowInput): Promise<number>;
   findReservationsByJobId(jobId: string): Promise<QuotaReservationRecord[]>;
   findJobByInputFingerprint(input: JobFingerprintInput): Promise<JobRecord | null>;
+}
+
+/**
+ * Targeted pagination port (P05-R1.13).
+ *
+ * User-facing ledger/list reads must not trigger the identity-map load-all
+ * Unit of Work, because that loads every table (and the whole chunk corpus)
+ * into memory on every request. This port pages the four single-owner list
+ * collections with LIMIT/OFFSET SQL on the PostgreSQL side (order and filter
+ * semantics are the exact ones the in-UoW core lists define) and returns only
+ * the requested page plus the filtered total, so `hasMore`/`nextCursor`
+ * stay identical to the Unit-of-Work path.
+ *
+ * The port runs OUTSIDE any Unit of Work (pool-level executor in
+ * PostgreSQL): it is read-only and must never be used for write-then-read
+ * flows that rely on seeing uncommitted writes.
+ */
+export interface TargetedPageQuery {
+  limit: number;
+  offset: number;
+}
+
+export interface TargetedPage<T> {
+  rows: T[];
+  total: number;
+}
+
+export interface TargetedPaginationPort {
+  /** Account status by user id (`null` when the user row does not exist). */
+  findAccountStatus(userId: string): Promise<AccountStatus | null>;
+  /** Owned, non-deleted journeys, newest first (updated_at DESC, id DESC). */
+  listJourneySummaries(userId: string, query: TargetedPageQuery): Promise<TargetedPage<JourneyRecord>>;
+  /** Whether the journey exists, is not deleted and belongs to the user. */
+  journeyOwnedBy(journeyId: string, userId: string): Promise<boolean>;
+  /** Commits of one journey, oldest first (sequence ASC). */
+  listJourneyCommitSummaries(journeyId: string, query: TargetedPageQuery): Promise<TargetedPage<BranchCommitRecord>>;
+  /** XP ledger entries of one user, newest first (sequence DESC). */
+  listXpLedgerEntries(userId: string, query: TargetedPageQuery): Promise<TargetedPage<XpLedgerRecord>>;
+  /** Owned, non-deleted proofs, newest first (created_at DESC, id DESC). */
+  listProofSummaries(
+    userId: string,
+    query: TargetedPageQuery & { verificationLevel?: string },
+  ): Promise<TargetedPage<ProofRecord>>;
 }
 
 /** Fixed UTC hour bucket: [HH:00, HH+1:00). */

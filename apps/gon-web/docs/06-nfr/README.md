@@ -31,7 +31,8 @@ Tài liệu chi tiết:
    - [P05-R1.9 — Assess-attempt AI integration](P05-R1.9-ASSESS-ATTEMPT-AI.md);
    - [P05-R1.10 — Abuse/cost distributed controls (token bucket, flood guard, budget alerts)](P05-R1.10-ABUSE-COST-DISTRIBUTED-CONTROLS.md);
    - [P05-R1.11 — Observability, backup/restore & DR](P05-R1.11-OBSERVABILITY-BACKUP-DR.md);
-   - [P05-R1.12 — Supply-chain & quality gates (locks, SBOM, CVE governance, coverage)](P05-R1.12-SUPPLY-CHAIN-QUALITY-GATES.md).
+   - [P05-R1.12 — Supply-chain & quality gates (locks, SBOM, CVE governance, coverage)](P05-R1.12-SUPPLY-CHAIN-QUALITY-GATES.md);
+   - [P05-R1.13 — Indexing ngoài Unit of Work & targeted pagination](P05-R1.13-INDEXING-PHASE-TARGETED-PAGINATION.md).
 
 > Scorecard và bảng bằng chứng gốc bên dưới là snapshot của vòng P05 review. R1.1–R1.6 đã cải thiện một phần PostgreSQL/Search/readiness/CI/queue/Auth contract/object-storage boundary/worker runtime/outbox sink/TS→ADK wiring/persistent quotas/kill switches/circuit breaker/targeted queries/RLS, nhưng chưa đóng các blocker Google/GCS/managed staging, worker deployment, Gemini thật và DR; kết luận gate vẫn **NOT YET PASS**.
 

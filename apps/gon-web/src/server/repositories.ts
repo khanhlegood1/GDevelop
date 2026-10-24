@@ -9,9 +9,13 @@ import {
   type QuotaReserveResult,
   type QuotaSettleInput,
   type QuotaWindowInput,
+  type TargetedPage,
+  type TargetedPageQuery,
+  type TargetedPaginationPort,
   type TargetedQueriesPort,
 } from "./targeted-queries";
 import type {
+  AccountStatus,
   AiRunRecord,
   ArtifactRecord,
   AttemptRecord,
@@ -558,4 +562,90 @@ export class InMemoryTargetedQueries implements TargetedQueriesPort {
     matches.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
     return matches[0] ?? null;
   }
+}
+
+/**
+ * Memory binding of the targeted pagination port (P05-R1.13).
+ *
+ * Reads the committed collections directly (no Unit of Work, no identity-map
+ * clone) and applies EXACTLY the filter/sort semantics of the corresponding
+ * in-UoW core list methods, so both paths return identical pages:
+ * - journeys: owner + not deleted + status != "deleted", updated_at DESC, id DESC;
+ * - journey commits: one journey, sequence ASC;
+ * - XP ledger: one user, sequence DESC;
+ * - proofs: owner + not deleted + status != "deleted" (+ optional
+ *   verification_level equality), created_at DESC, id DESC.
+ */
+export class MemoryTargetedPagination implements TargetedPaginationPort {
+  constructor(
+    private readonly view: {
+      users: Map<string, UserRecord>;
+      journeys: Map<string, JourneyRecord>;
+      branchCommits: Map<string, BranchCommitRecord>;
+      xpLedger: Map<string, XpLedgerRecord>;
+      proofs: Map<string, ProofRecord>;
+    },
+  ) {}
+
+  async findAccountStatus(userId: string): Promise<AccountStatus | null> {
+    return this.view.users.get(userId)?.status ?? null;
+  }
+
+  async listJourneySummaries(
+    userId: string,
+    query: TargetedPageQuery,
+  ): Promise<TargetedPage<JourneyRecord>> {
+    const rows = [...this.view.journeys.values()]
+      .filter((journey) => journey.ownerUserId === userId && !journey.deletedAt && journey.status !== "deleted")
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
+    return page(rows, query);
+  }
+
+  async journeyOwnedBy(journeyId: string, userId: string): Promise<boolean> {
+    const journey = this.view.journeys.get(journeyId);
+    return Boolean(journey && journey.ownerUserId === userId && !journey.deletedAt && journey.status !== "deleted");
+  }
+
+  async listJourneyCommitSummaries(
+    journeyId: string,
+    query: TargetedPageQuery,
+  ): Promise<TargetedPage<BranchCommitRecord>> {
+    const rows = [...this.view.branchCommits.values()]
+      .filter((commit) => commit.journeyId === journeyId)
+      .sort((a, b) => a.sequence - b.sequence);
+    return page(rows, query);
+  }
+
+  async listXpLedgerEntries(
+    userId: string,
+    query: TargetedPageQuery,
+  ): Promise<TargetedPage<XpLedgerRecord>> {
+    const rows = [...this.view.xpLedger.values()]
+      .filter((entry) => entry.userId === userId)
+      .sort((a, b) => b.sequence - a.sequence);
+    return page(rows, query);
+  }
+
+  async listProofSummaries(
+    userId: string,
+    query: TargetedPageQuery & { verificationLevel?: string },
+  ): Promise<TargetedPage<ProofRecord>> {
+    const rows = [...this.view.proofs.values()]
+      .filter(
+        (proof) =>
+          proof.ownerUserId === userId &&
+          !proof.deletedAt &&
+          proof.status !== "deleted" &&
+          (!query.verificationLevel || proof.verificationLevel === query.verificationLevel),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    return page(rows, query);
+  }
+}
+
+function page<T>(rows: T[], query: TargetedPageQuery): TargetedPage<T> {
+  return {
+    rows: rows.slice(query.offset, query.offset + query.limit),
+    total: rows.length,
+  };
 }

@@ -1,5 +1,6 @@
 import {
   InMemoryGonRepositories,
+  MemoryTargetedPagination,
   type GonRepositories,
   type GonStore,
   type MapRepositoryCollection,
@@ -89,6 +90,22 @@ export class MemoryGonStore implements GonStore {
 
   nextXpSequence(userId: string): number {
     return this.repositories.nextXpSequence(userId);
+  }
+
+  /**
+   * P05-R1.13: targeted pagination view over the committed collections.
+   * Reads bypass the Unit of Work (and its identity-map clone) exactly like
+   * the PostgreSQL pool-level binding, so list endpoints page without
+   * loading the whole store.
+   */
+  createTargetedPagination(): MemoryTargetedPagination {
+    return new MemoryTargetedPagination({
+      users: this.users,
+      journeys: this.journeys,
+      branchCommits: this.branchCommits,
+      xpLedger: this.xpLedger,
+      proofs: this.proofs,
+    });
   }
 
   // Compatibility accessors for existing hermetic tests and diagnostics.

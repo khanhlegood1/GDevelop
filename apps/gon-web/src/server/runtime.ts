@@ -6,6 +6,7 @@ import {
   parseAbusePolicyFromEnv,
 } from "./abuse-controls";
 import { getPostgresPool } from "./db";
+import { PostgresTargetedQueries } from "./postgres-store";
 import { PostgresJobQueue } from "./postgres-job-queue";
 import { PostgresOutboxPublisher, type OutboxEventSink } from "./postgres-outbox";
 import { createOutboxSinkFromEnv } from "./outbox-sink";
@@ -76,6 +77,9 @@ export function getGonService(): GonService {
   const brewExecutionMode = config.brewExecutionMode as BrewExecutionMode;
 
   let store: MemoryGonStore | PostgresGonStore;
+  // P05-R1.13: pool-level targeted pagination — list endpoints page with
+  // LIMIT/OFFSET SQL without opening a Unit of Work (no identity-map load).
+  let targetedPagination: PostgresTargetedQueries | undefined;
   if (config.storeKind === "memory") {
     store = new MemoryGonStore();
     if (config.devInviteCode) store.seedInvite(config.devInviteCode);
@@ -88,12 +92,14 @@ export function getGonService(): GonService {
       createPgPoolTransactionRunner(pool as unknown as PgPoolLike),
       { seedInviteCode: config.devInviteCode },
     );
+    targetedPagination = new PostgresTargetedQueries(requirePostgresExecutor());
   } else {
     throw new Error(`Unsupported GON_STORE: ${config.storeKind}`);
   }
 
   const service = new GonService({
     store,
+    targetedPagination,
     objectStorage: getGonObjectStorage(),
     requireInvite: config.requireInvite,
     brewExecutionMode,
