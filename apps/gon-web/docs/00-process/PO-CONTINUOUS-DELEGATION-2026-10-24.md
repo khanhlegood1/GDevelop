@@ -45,7 +45,7 @@
 | R1.10 | Abuse/cost distributed controls | Rate-limit per-IP/edge module, token bucket, budget alert hooks, idempotent flood guard | **xong** — [evidence](../06-nfr/P05-R1.10-ABUSE-COST-DISTRIBUTED-CONTROLS.md) (edge module `deploy/edge-rate-limit/` NOT RUN chờ hạ tầng) |
 | R1.11 | Observability + backup/restore/DR | Metrics/logs có cấu trúc, readiness sâu, backup/restore scripts, DR runbook | **xong** — [evidence](../06-nfr/P05-R1.11-OBSERVABILITY-BACKUP-DR.md) (backup/DR drill NOT RUN chờ hạ tầng thật) |
 | R1.12 | Supply-chain & quality gates | Python locks + SBOM, đóng `CVE-2026-114603`, coverage gate, npm audit pin | **xong** — [evidence](../06-nfr/P05-R1.12-SUPPLY-CHAIN-QUALITY-GATES.md) (google-adk 2.13.0 + governed exception có expiry 2027-01-31; SBOM publishing NOT RUN chờ ops) |
-| R1.13 | Tàn dư hiệu năng/kiến trúc | `indexModuleVersion` ra ngoài UoW, targeted pagination còn lại | chờ |
+| R1.13 | Tàn dư hiệu năng/kiến trúc | `indexModuleVersion` ra ngoài UoW, targeted pagination còn lại | **xong** — [evidence](../06-nfr/P05-R1.13-INDEXING-PHASE-TARGETED-PAGINATION.md) (embedding indexing tách khỏi transaction + 4 list endpoint phân trang SQL ngoài UoW; `listProjects`/ingest embeds còn mở — xem §4 evidence) |
 | R1.14 | Storybook CI xanh (thực thi `D-SB-01`) | Sửa build storybook GDevelop-core tối thiểu để CI xanh | chờ |
 | R1.15 | Staging verification package + P05 re-review | DAST/load probe local, gói evidence tổng, trình PO duyệt P05 | chờ |
 | P06 | Cloud deployment package | Cloud Run/Cloud SQL manifests, deploy workflows, migration/worker deploy, Go-Live checklist (NOT RUN) | chờ |

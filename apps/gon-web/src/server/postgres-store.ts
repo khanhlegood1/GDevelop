@@ -20,9 +20,13 @@ import type {
   QuotaReserveResult,
   QuotaSettleInput,
   QuotaWindowInput,
+  TargetedPage,
+  TargetedPageQuery,
+  TargetedPaginationPort,
   TargetedQueriesPort,
 } from "./targeted-queries";
 import type {
+  AccountStatus,
   AiRunRecord,
   ArtifactCoverage,
   ArtifactRecord,
@@ -225,6 +229,15 @@ async function queryRows(
   return result.rows as Row[];
 }
 
+async function countRows(
+  executor: SqlExecutor,
+  text: string,
+  params: unknown[] = [],
+): Promise<number> {
+  const rows = await queryRows(executor, text, params);
+  return Number(asText(rows[0]?.total, "0"));
+}
+
 function asText(value: unknown, fallback = ""): string {
   return value === null || value === undefined ? fallback : String(value);
 }
@@ -419,7 +432,7 @@ function quotaReservationFromRow(row: Record<string, unknown>): QuotaReservation
  * later statements in the same transaction. They deliberately bypass the
  * identity-map diff/flush.
  */
-export class PostgresTargetedQueries implements TargetedQueriesPort {
+export class PostgresTargetedQueries implements TargetedQueriesPort, TargetedPaginationPort {
   constructor(private readonly executor: SqlExecutor) {}
 
   async sumActiveQuotaUnits(input: QuotaWindowInput): Promise<number> {
@@ -570,6 +583,219 @@ export class PostgresTargetedQueries implements TargetedQueriesPort {
     const row = rows[0];
     return row ? jobFromRow(row) : null;
   }
+
+  // ---------------------------------------------------------------------
+  // Targeted pagination (P05-R1.13). These methods page the user-facing
+  // ledger/list tables with LIMIT/OFFSET on indexed columns. When bound to a
+  // pool-level executor they run OUTSIDE any Unit of Work, so list endpoints
+  // never trigger the identity-map load-all. Filter and order semantics are
+  // exactly the ones of the in-UoW core lists (see MemoryTargetedPagination).
+  // ---------------------------------------------------------------------
+
+  async findAccountStatus(userId: string): Promise<AccountStatus | null> {
+    const rows = await queryRows(
+      this.executor,
+      "select status from gon_users where id = $1",
+      [userId],
+    );
+    const status = rows[0]?.status;
+    return typeof status === "string" ? (status as AccountStatus) : null;
+  }
+
+  async listJourneySummaries(
+    userId: string,
+    query: TargetedPageQuery,
+  ): Promise<TargetedPage<JourneyRecord>> {
+    const rows = await queryRows(
+      this.executor,
+      `select * from journeys
+        where owner_user_id = $1 and deleted_at is null and status <> 'deleted'
+        order by updated_at desc, id desc
+        limit $2 offset $3`,
+      [userId, query.limit, query.offset],
+    );
+    const total = await countRows(
+      this.executor,
+      "select count(*) as total from journeys where owner_user_id = $1 and deleted_at is null and status <> 'deleted'",
+      [userId],
+    );
+    return { rows: rows.map(mapJourneyRow), total };
+  }
+
+  async journeyOwnedBy(journeyId: string, userId: string): Promise<boolean> {
+    const rows = await queryRows(
+      this.executor,
+      `select 1 from journeys
+        where id = $1 and owner_user_id = $2 and deleted_at is null and status <> 'deleted'`,
+      [journeyId, userId],
+    );
+    return rows.length > 0;
+  }
+
+  async listJourneyCommitSummaries(
+    journeyId: string,
+    query: TargetedPageQuery,
+  ): Promise<TargetedPage<BranchCommitRecord>> {
+    const rows = await queryRows(
+      this.executor,
+      `select * from branch_commits
+        where journey_id = $1
+        order by sequence asc
+        limit $2 offset $3`,
+      [journeyId, query.limit, query.offset],
+    );
+    const total = await countRows(
+      this.executor,
+      "select count(*) as total from branch_commits where journey_id = $1",
+      [journeyId],
+    );
+    return { rows: rows.map(mapBranchCommitRow), total };
+  }
+
+  async listXpLedgerEntries(
+    userId: string,
+    query: TargetedPageQuery,
+  ): Promise<TargetedPage<XpLedgerRecord>> {
+    const rows = await queryRows(
+      this.executor,
+      `select * from xp_ledger_entries
+        where user_id = $1
+        order by sequence desc
+        limit $2 offset $3`,
+      [userId, query.limit, query.offset],
+    );
+    const total = await countRows(
+      this.executor,
+      "select count(*) as total from xp_ledger_entries where user_id = $1",
+      [userId],
+    );
+    return { rows: rows.map(mapXpLedgerRow), total };
+  }
+
+  async listProofSummaries(
+    userId: string,
+    query: TargetedPageQuery & { verificationLevel?: string },
+  ): Promise<TargetedPage<ProofRecord>> {
+    const params: unknown[] = [userId];
+    let filter = "owner_user_id = $1 and deleted_at is null and status <> 'deleted'";
+    if (query.verificationLevel) {
+      if (!/^[a-z_]+$/.test(query.verificationLevel)) {
+        return { rows: [], total: 0 };
+      }
+      params.push(query.verificationLevel);
+      filter += ` and verification_level = $${params.length}`;
+    }
+    params.push(query.limit, query.offset);
+    const rows = await queryRows(
+      this.executor,
+      `select * from proofs where ${filter}
+        order by created_at desc, id desc
+        limit $${params.length - 1} offset $${params.length}`,
+      params,
+    );
+    const total = await countRows(
+      this.executor,
+      `select count(*) as total from proofs where ${filter}`,
+      params.slice(0, params.length - 2),
+    );
+    if (rows.length === 0) return { rows: [], total };
+    const artifactsByProof = new Map<string, string[]>();
+    const placeholders = rows.map((_, index) => `$${index + 1}`).join(", ");
+    for (const link of await queryRows(
+      this.executor,
+      `select proof_id, artifact_id from proof_artifacts
+        where proof_id in (${placeholders}) order by proof_id, artifact_id`,
+      rows.map((row) => asText(row.id)),
+    )) {
+      const proofId = asText(link.proof_id);
+      const ids = artifactsByProof.get(proofId) ?? [];
+      ids.push(asText(link.artifact_id));
+      artifactsByProof.set(proofId, ids);
+    }
+    return {
+      rows: rows.map((row) => mapProofRow(row, artifactsByProof.get(asText(row.id)) ?? [])),
+      total,
+    };
+  }
+}
+
+/** Row mappers shared by the identity-map loader and the targeted pagination
+ * queries (P05-R1.13) so both paths hydrate identical records. */
+function mapJourneyRow(row: Row): JourneyRecord {
+  return {
+    id: asText(row.id),
+    ownerUserId: asText(row.owner_user_id),
+    projectId: asText(row.project_id),
+    sourceCandidateId: asText(row.source_candidate_id),
+    upstreamModuleVersionId: asText(row.upstream_module_version_id),
+    parentJourneyId: asNullableText(row.parent_journey_id),
+    title: asText(row.title),
+    goal: asText(row.goal),
+    status: asEnum(row.status, "active"),
+    attribution: asJsonRecord(row.attribution),
+    headCommitId: asNullableText(row.head_commit_id),
+    currentNodeId: asNullableText(row.current_node_id),
+    version: asNumber(row.version, 1),
+    createdAt: asIso(row.created_at),
+    updatedAt: asIso(row.updated_at),
+    deletedAt: asNullableIso(row.deleted_at),
+  };
+}
+
+function mapBranchCommitRow(row: Row): BranchCommitRecord {
+  return {
+    id: asText(row.id),
+    journeyId: asText(row.journey_id),
+    parentCommitId: asNullableText(row.parent_commit_id),
+    sequence: asNumber(row.sequence, 1),
+    type: asText(row.type),
+    actorUserId: asText(row.actor_user_id),
+    payloadRef: asJsonRecord(row.payload_ref),
+    summary: asText(row.summary),
+    createdAt: asIso(row.created_at),
+  };
+}
+
+function mapXpLedgerRow(row: Row): XpLedgerRecord {
+  return {
+    id: asText(row.id),
+    userId: asText(row.user_id),
+    sequence: asNumber(row.sequence, 1),
+    delta: asNumber(row.delta),
+    sourceEventId: asText(row.source_event_id),
+    sourceType: asText(row.source_type),
+    sourceId: asText(row.source_id),
+    ruleVersion: asText(row.rule_version),
+    formulaVersion: "gon-level-v1",
+    status: asEnum(row.status, "posted"),
+    reversesEntryId: asNullableText(row.reverses_entry_id),
+    reasonCode: asNullableText(row.reason_code),
+    lifetimeXpAfter: asNumber(row.lifetime_xp_after),
+    createdAt: asIso(row.created_at),
+  };
+}
+
+function mapProofRow(row: Row, artifactIds: string[]): ProofRecord {
+  return {
+    id: asText(row.id),
+    ownerUserId: asText(row.owner_user_id),
+    proofType: asText(row.proof_type),
+    title: asText(row.title),
+    description: asNullableText(row.description),
+    journeyId: asNullableText(row.journey_id),
+    attemptId: asNullableText(row.attempt_id),
+    artifactIds,
+    issuerDisplayName: asNullableText(row.issuer_display_name),
+    externalReference: asNullableText(row.external_reference),
+    verificationLevel: asEnum(row.verification_level, "self_declared"),
+    status: asEnum(row.status, "active"),
+    proves: asTextArray(row.proves),
+    doesNotProve: asTextArray(row.does_not_prove),
+    version: asNumber(row.version, 1),
+    createdAt: asIso(row.created_at),
+    updatedAt: asIso(row.updated_at),
+    deletedAt: asNullableIso(row.deleted_at),
+  };
 }
 
 async function loadRepositories(
@@ -1039,24 +1265,7 @@ async function loadRepositories(
   }
 
   for (const row of await queryRows(executor, "select * from journeys order by created_at, id")) {
-    const record: JourneyRecord = {
-      id: asText(row.id),
-      ownerUserId: asText(row.owner_user_id),
-      projectId: asText(row.project_id),
-      sourceCandidateId: asText(row.source_candidate_id),
-      upstreamModuleVersionId: asText(row.upstream_module_version_id),
-      parentJourneyId: asNullableText(row.parent_journey_id),
-      title: asText(row.title),
-      goal: asText(row.goal),
-      status: asEnum(row.status, "active"),
-      attribution: asJsonRecord(row.attribution),
-      headCommitId: asNullableText(row.head_commit_id),
-      currentNodeId: asNullableText(row.current_node_id),
-      version: asNumber(row.version, 1),
-      createdAt: asIso(row.created_at),
-      updatedAt: asIso(row.updated_at),
-      deletedAt: asNullableIso(row.deleted_at),
-    };
+    const record = mapJourneyRow(row);
     repositories.journeys.set(record.id, record);
   }
 
@@ -1064,17 +1273,7 @@ async function loadRepositories(
     executor,
     "select * from branch_commits order by journey_id, sequence",
   )) {
-    const record: BranchCommitRecord = {
-      id: asText(row.id),
-      journeyId: asText(row.journey_id),
-      parentCommitId: asNullableText(row.parent_commit_id),
-      sequence: asNumber(row.sequence, 1),
-      type: asText(row.type),
-      actorUserId: asText(row.actor_user_id),
-      payloadRef: asJsonRecord(row.payload_ref),
-      summary: asText(row.summary),
-      createdAt: asIso(row.created_at),
-    };
+    const record = mapBranchCommitRow(row);
     repositories.branchCommits.set(record.id, record);
   }
 
@@ -1083,22 +1282,7 @@ async function loadRepositories(
     executor,
     "select * from xp_ledger_entries order by user_id, sequence",
   )) {
-    const record: XpLedgerRecord = {
-      id: asText(row.id),
-      userId: asText(row.user_id),
-      sequence: asNumber(row.sequence, 1),
-      delta: asNumber(row.delta),
-      sourceEventId: asText(row.source_event_id),
-      sourceType: asText(row.source_type),
-      sourceId: asText(row.source_id),
-      ruleVersion: asText(row.rule_version),
-      formulaVersion: "gon-level-v1",
-      status: asEnum(row.status, "posted"),
-      reversesEntryId: asNullableText(row.reverses_entry_id),
-      reasonCode: asNullableText(row.reason_code),
-      lifetimeXpAfter: asNumber(row.lifetime_xp_after),
-      createdAt: asIso(row.created_at),
-    };
+    const record = mapXpLedgerRow(row);
     repositories.xpLedger.set(record.id, record);
     repositories.restoreXpSequence(record.userId, record.sequence);
     if (record.sourceType === "learning_attempt") {
@@ -1197,26 +1381,7 @@ async function loadRepositories(
 
   for (const row of await queryRows(executor, "select * from proofs order by created_at, id")) {
     const id = asText(row.id);
-    const record: ProofRecord = {
-      id,
-      ownerUserId: asText(row.owner_user_id),
-      proofType: asText(row.proof_type),
-      title: asText(row.title),
-      description: asNullableText(row.description),
-      journeyId: asNullableText(row.journey_id),
-      attemptId: asNullableText(row.attempt_id),
-      artifactIds: proofArtifacts.get(id) ?? [],
-      issuerDisplayName: asNullableText(row.issuer_display_name),
-      externalReference: asNullableText(row.external_reference),
-      verificationLevel: asEnum(row.verification_level, "self_declared"),
-      status: asEnum(row.status, "active"),
-      proves: asTextArray(row.proves),
-      doesNotProve: asTextArray(row.does_not_prove),
-      version: asNumber(row.version, 1),
-      createdAt: asIso(row.created_at),
-      updatedAt: asIso(row.updated_at),
-      deletedAt: asNullableIso(row.deleted_at),
-    };
+    const record = mapProofRow(row, proofArtifacts.get(id) ?? []);
     repositories.proofs.set(id, record);
   }
 

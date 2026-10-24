@@ -44,7 +44,7 @@ import {
   type ObjectStorage,
 } from "./object-storage";
 import type { GonRepositories, GonStore } from "./repositories";
-import { utcDayWindow, utcHourWindow } from "./targeted-queries";
+import { utcDayWindow, utcHourWindow, type TargetedPaginationPort } from "./targeted-queries";
 import {
   BREW_POLICY_VERSION,
   GENERATE_MODULE_INPUT_SCHEMA_VERSION,
@@ -78,6 +78,7 @@ import {
   type ArtifactRecord,
   type AssessmentResult,
   type AttemptRecord,
+  type BranchCommitRecord,
   type CandidateRecord,
   type CandidateSetRecord,
   type ChunkRecord,
@@ -99,6 +100,7 @@ import {
   type SearchAttemptRecord,
   type SearchResultRecord,
   type UserRecord,
+  type XpLedgerRecord,
 } from "./types";
 import {
   ensureRecord,
@@ -130,6 +132,15 @@ export interface GonServiceOptions {
   store?: GonStore;
   objectStorage?: ObjectStorage;
   embeddingProvider?: EmbeddingProvider;
+  /**
+   * Targeted pagination port (P05-R1.13). When present, the user-facing
+   * ledger/list endpoints (`/journeys`, `/journeys/{id}/commits`,
+   * `/me/xp-ledger`, `/proofs`) page through this port WITHOUT opening a
+   * Unit of Work, so PostgreSQL requests no longer load the identity map
+   * (every table incl. the chunk corpus) just to render a list screen.
+   * Bind it to a pool-level executor; the port is read-only.
+   */
+  targetedPagination?: TargetedPaginationPort;
   requireInvite?: boolean;
   brewExecutionMode?: BrewExecutionMode;
   /**
@@ -203,14 +214,135 @@ interface BrewGenerationWorkPackage {
   generateWork: GenerateModuleWork;
 }
 
+/**
+ * R1.13: continuation package for the search-indexing phase. Embedding calls
+ * run OUTSIDE every database transaction (phase index-1); chunk writes and
+ * job finalization commit in their own short Unit of Work (phase index-2).
+ */
+interface BrewIndexWorkPackage {
+  jobId: string;
+  workerId: string;
+  actor: Actor;
+  version: ModuleVersionRecord;
+  /** Fresh generation path settles the reserved cost budget from AI runs. */
+  runs: readonly AiRunDraft[];
+  /** Resume path already generated earlier and settles with zero usage. */
+  resume: boolean;
+  /** False when persist_draft completed earlier (chunks already committed). */
+  needsIndexing: boolean;
+}
+
 type BrewPhaseOneResult =
   | { kind: "settled"; job: JsonRecord }
-  | { kind: "generate"; work: BrewGenerationWorkPackage };
+  | { kind: "generate"; work: BrewGenerationWorkPackage }
+  | { kind: "index"; work: BrewIndexWorkPackage };
+
+type BrewPhaseThreeResult =
+  | { kind: "settled"; job: JsonRecord }
+  | { kind: "index"; work: BrewIndexWorkPackage };
 
 type BrewGenerationOutcome =
   | { kind: "generated"; generateOutput: GenerateModuleOutput }
   | { kind: "topic_decision"; topicOutput: TopicCheckOutput }
   | { kind: "provider_error"; errorCode: string; retryable: boolean };
+
+/**
+ * Offset-cursor pagination helpers (P05-R1.13). Shared by the in-UoW core
+ * lists and the targeted bypass so both paths emit identical `page` metadata
+ * for the same data.
+ */
+function decodeOffsetCursor(cursor: string | undefined): number {
+  if (!cursor) return 0;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as { offset?: unknown };
+    if (!Number.isInteger(parsed.offset) || (parsed.offset as number) < 0) throw new Error("invalid");
+    return parsed.offset as number;
+  } catch {
+    throw validationError("Cursor phân trang không hợp lệ.");
+  }
+}
+
+function encodeOffsetCursor(offset: number): string {
+  return Buffer.from(JSON.stringify({ offset }), "utf8").toString("base64url");
+}
+
+function pageMeta(total: number, limit: number, offset: number, returned: number): JsonRecord {
+  const nextOffset = offset + returned;
+  return {
+    nextCursor: nextOffset < total ? encodeOffsetCursor(nextOffset) : null,
+    hasMore: nextOffset < total,
+  };
+}
+
+function listPageParams(query: { limit?: number; cursor?: string }): { limit: number; offset: number } {
+  return { limit: query.limit ?? 20, offset: decodeOffsetCursor(query.cursor) };
+}
+
+function journeyDto(journey: JourneyRecord): JsonRecord {
+  return {
+    id: journey.id,
+    projectId: journey.projectId,
+    sourceCandidateId: journey.sourceCandidateId,
+    upstreamModuleVersionId: journey.upstreamModuleVersionId,
+    title: journey.title,
+    goal: journey.goal,
+    visibility: "private",
+    status: journey.status,
+    attribution: journey.attribution,
+    version: journey.version,
+    currentNodeId: journey.currentNodeId,
+    createdAt: journey.createdAt,
+    updatedAt: journey.updatedAt,
+  };
+}
+
+function journeyCommitDto(commit: BranchCommitRecord): JsonRecord {
+  return {
+    id: commit.id,
+    journeyId: commit.journeyId,
+    sequence: commit.sequence,
+    type: commit.type,
+    summary: commit.summary,
+    createdAt: commit.createdAt,
+  };
+}
+
+function xpLedgerEntryDto(entry: XpLedgerRecord): JsonRecord {
+  return {
+    id: entry.id,
+    delta: entry.delta,
+    sourceEventId: entry.sourceEventId,
+    sourceType: entry.sourceType,
+    sourceId: entry.sourceId,
+    ruleVersion: entry.ruleVersion,
+    formulaVersion: entry.formulaVersion,
+    status: entry.status,
+    reversesEntryId: entry.reversesEntryId,
+    createdAt: entry.createdAt,
+  };
+}
+
+function proofDto(proof: ProofRecord): JsonRecord {
+  return {
+    id: proof.id,
+    proofType: proof.proofType,
+    title: proof.title,
+    description: proof.description,
+    journeyId: proof.journeyId,
+    attemptId: proof.attemptId,
+    artifactIds: proof.artifactIds,
+    issuerDisplayName: proof.issuerDisplayName,
+    externalReference: proof.externalReference,
+    verificationLevel: proof.verificationLevel,
+    status: proof.status,
+    visibility: "private",
+    proves: proof.proves,
+    doesNotProve: proof.doesNotProve,
+    version: proof.version,
+    createdAt: proof.createdAt,
+    updatedAt: proof.updatedAt,
+  };
+}
 
 const CONSENT_PURPOSES = [
   "essential_service",
@@ -472,7 +604,7 @@ class GonServiceCore {
     return {
       ...progress,
       mastery,
-      latestProof: latestProof ? this.proofDto(latestProof) : null,
+      latestProof: latestProof ? proofDto(latestProof) : null,
       nextSteps,
     };
   }
@@ -1805,24 +1937,11 @@ class GonServiceCore {
   }
 
   private paginate<T>(items: T[], limit: number, cursor: string | undefined, map: (item: T) => JsonRecord): { data: JsonRecord[]; page: JsonRecord } {
-    let offset = 0;
-    if (cursor) {
-      try {
-        const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as { offset?: unknown };
-        if (!Number.isInteger(parsed.offset) || (parsed.offset as number) < 0) throw new Error("invalid");
-        offset = parsed.offset as number;
-      } catch {
-        throw validationError("Cursor phân trang không hợp lệ.");
-      }
-    }
+    const offset = decodeOffsetCursor(cursor);
     const slice = items.slice(offset, offset + limit);
-    const nextOffset = offset + slice.length;
     return {
       data: slice.map(map),
-      page: {
-        nextCursor: nextOffset < items.length ? Buffer.from(JSON.stringify({ offset: nextOffset }), "utf8").toString("base64url") : null,
-        hasMore: nextOffset < items.length,
-      },
+      page: pageMeta(items.length, limit, offset, slice.length),
     };
   }
 
@@ -3074,46 +3193,6 @@ class GonServiceCore {
     };
   }
 
-  private async indexModuleVersion(actor: Actor, version: ModuleVersionRecord): Promise<void> {
-    this.removeModuleChunks(version.id);
-    const chunksText = [
-      `${version.title}\n${version.summary}\n${version.graph.module.concepts.map((concept) => `${concept.name}: ${concept.description}`).join("\n")}`,
-      ...version.graph.nodes.map((node) => {
-        const blocks = Array.isArray(node.content.blocks)
-          ? node.content.blocks.map((block) => (block && typeof block === "object" && "text" in block ? String((block as JsonRecord).text ?? "") : "")).join("\n")
-          : "";
-        const prompt = typeof node.content.prompt === "string" ? node.content.prompt : "";
-        return `${node.title}\n${blocks}\n${prompt}`;
-      }),
-    ];
-    for (const [index, text] of chunksText.entries()) {
-      const clean = text.trim();
-      if (!clean) continue;
-      const embedding = await this.embeddingProvider.embed(clean);
-      const chunk: ChunkRecord = {
-        id: createId("evt"),
-        ownerUserId: version.createdByUserId,
-        sourceType: "module_version",
-        sourceId: version.id,
-        artifactId: null,
-        moduleVersionId: version.id,
-        ordinal: index,
-        text: clean,
-        locator: `module-chunk-${index + 1}`,
-        language: version.language,
-        tokenCount: tokenize(clean, { keepStopwords: true }).length,
-        contentSha256: sha256Hex(clean),
-        embedding: embedding.vector,
-        embeddingProfile: embedding.profile,
-        providerModel: embedding.providerModel,
-        weight: 1,
-        deletedAt: null,
-      };
-      this.repositories.chunks.set(chunk.id, chunk);
-    }
-    void actor;
-  }
-
   async createBrewJob(
     actor: Actor,
     projectId: string,
@@ -3320,38 +3399,20 @@ class GonServiceCore {
           return { kind: "settled", job: await this.brewJobDto(jobId) };
         }
 
-        job.currentStep = "persist_draft";
-        if (!steps.includes("persist_draft")) {
-          await this.indexModuleVersion(actor, version);
-          completeStep("persist_draft");
-          this.emit(actor, "module.version.created", "module_version", version.id, {
-            moduleId: version.moduleId,
-            publicationStatus: version.publicationStatus,
-            groundingStatus: version.groundingStatus,
-          }, job.id);
-        }
-
-        job.currentStep = "build_candidate_set";
-        await this.buildCandidateSet(actor, project, searchAttempt, [{
-          moduleVersionId: version.id,
-          rank: 1,
-          title: version.title,
-          sourceStatus: version.groundingStatus,
-          reasonCodes: ["same_source_topic"],
-          matchedConcepts: version.graph.module.concepts
-            .filter((concept) => concept.role === "core")
-            .map((concept) => concept.name),
-          missingConcepts: [],
-          internalScores: { vector: 1, lexical: 1, conceptCoverage: 1, specificity: 1, quality: 0.7, hybrid: 0.92 },
-        }], version.id);
-        completeStep("build_candidate_set");
-        job.actualCostUnits = 0;
-        this.succeedJob(job, "succeeded");
-        this.emit(actor, "brew.job.succeeded", "brew_job", job.id, {
-          projectId: project.id,
-          resultModuleVersionId: version.id,
-        }, job.id);
-        return { kind: "settled", job: await this.brewJobDto(jobId) };
+        // R1.13: indexing (embedding calls) and job finalization run in their
+        // own short Units of Work at the orchestrator — never inside this one.
+        return {
+          kind: "index",
+          work: {
+            jobId,
+            workerId,
+            actor,
+            version,
+            runs: [],
+            resume: true,
+            needsIndexing: !steps.includes("persist_draft"),
+          },
+        };
       }
 
       job.currentStep = "topic_and_safety_check";
@@ -3464,13 +3525,16 @@ class GonServiceCore {
    * Phase 3 of queued Brew processing (one Unit of Work): persist safe AI-run
    * telemetry, then either apply the policy-revalidated generation result or
    * record the failure decision. Only runs when this worker still holds the
-   * job lease; a fenced-out worker records telemetry only.
+   * job lease; a fenced-out worker records telemetry only. On success this
+   * phase checkpoints the ModuleVersion and returns an index continuation so
+   * the orchestrator can run the embedding work OUTSIDE any transaction
+   * (R1.13) before committing chunks + job finalization.
    */
   async finishBrewJobProcessing(
     work: BrewGenerationWorkPackage,
     outcome: BrewGenerationOutcome,
     runs: readonly AiRunDraft[],
-  ): Promise<JsonRecord> {
+  ): Promise<BrewPhaseThreeResult> {
     const job = this.repositories.jobs.get(work.jobId);
     const brew = this.repositories.brewJobs.get(work.jobId);
     if (!job || !brew) throw notFound();
@@ -3492,14 +3556,14 @@ class GonServiceCore {
         Boolean(job.leaseExpiresAt) &&
         Date.parse(job.leaseExpiresAt!) > this.clock().getTime();
       if (!leaseHeld) {
-        return await this.brewJobDto(work.jobId);
+        return { kind: "settled", job: await this.brewJobDto(work.jobId) };
       }
 
       if (outcome.kind === "provider_error") {
         this.failJob(job, outcome.errorCode, outcome.retryable, "generate_module_graph");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
         if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, runs);
-        return await this.brewJobDto(work.jobId);
+        return { kind: "settled", job: await this.brewJobDto(work.jobId) };
       }
 
       if (outcome.kind === "topic_decision") {
@@ -3516,15 +3580,15 @@ class GonServiceCore {
           job.leaseOwner = null;
           job.leaseExpiresAt = null;
           job.payload = { ...job.payload, clarificationQuestions: questions };
-          this.emit(actor, "brew.job.needs_input", "brew_job", job.id, {
-            projectId: brew.projectId,
-            reasonCodes: outcome.topicOutput.reasonCodes.slice(0, 32),
-            clarificationQuestionCount: questions.length,
-          }, job.id);
-        }
-        await this.settleBrewCostBudget(job, runs);
-        return await this.brewJobDto(work.jobId);
+        this.emit(actor, "brew.job.needs_input", "brew_job", job.id, {
+          projectId: brew.projectId,
+          reasonCodes: outcome.topicOutput.reasonCodes.slice(0, 32),
+          clarificationQuestionCount: questions.length,
+        }, job.id);
       }
+      await this.settleBrewCostBudget(job, runs);
+      return { kind: "settled", job: await this.brewJobDto(work.jobId) };
+    }
 
       // Policy revalidation of the provider output (TS stays the authority).
       const graph = outcome.generateOutput.moduleGraph;
@@ -3535,14 +3599,15 @@ class GonServiceCore {
         this.failJob(job, "MODULE_GRAPH_INVALID", false, "verify_citations");
         this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
         await this.settleBrewCostBudget(job, runs);
-        return await this.brewJobDto(work.jobId);
+        return { kind: "settled", job: await this.brewJobDto(work.jobId) };
       }
       graph.quality.citationCoverage = validation.citationCoverage;
       completeStep("verify_citations");
       completeStep("safety_and_policy_review");
 
       job.currentStep = "persist_draft";
-      const project = this.requireOwnedProject(actor, brew.projectId);
+      // Ownership is re-asserted before persisting the generated module.
+      this.requireOwnedProject(actor, brew.projectId);
       const searchAttempt = this.repositories.searchAttempts.get(brew.searchAttemptId);
       if (!searchAttempt) throw new Error("SEARCH_ATTEMPT_NOT_FOUND");
       const artifacts = searchAttempt.artifactIds
@@ -3590,13 +3655,79 @@ class GonServiceCore {
       // then resume from this exact ModuleVersion instead of generating a
       // duplicate module.
       brew.resultModuleVersionId = version.id;
-      await this.indexModuleVersion(actor, version);
-      completeStep("persist_draft");
-      this.emit(actor, "module.version.created", "module_version", version.id, {
-        moduleId: version.moduleId,
-        publicationStatus: version.publicationStatus,
-        groundingStatus: version.groundingStatus,
-      }, job.id);
+      // R1.13: embedding/indexing moved OUT of this Unit of Work. The
+      // orchestrator calls the embedding provider between transactions, then
+      // commits chunks + job finalization in a final short Unit of Work.
+      return {
+        kind: "index",
+        work: {
+          jobId: work.jobId,
+          workerId: work.workerId,
+          actor,
+          version,
+          runs,
+          resume: false,
+          needsIndexing: true,
+        },
+      };
+    } catch {
+      this.failJob(job, "BREW_FAILED", true, job.currentStep);
+      this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+      if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, runs);
+      return { kind: "settled", job: await this.brewJobDto(work.jobId) };
+    }
+  }
+
+  /**
+   * Final phase of queued Brew processing (one short Unit of Work, R1.13):
+   * commit the prepared search-index chunks, build the candidate set and
+   * settle the job. The embedding provider calls already ran OUTSIDE any
+   * database transaction (see `GonService.processQueuedBrewJob`); this phase
+   * only writes. A worker that lost the lease finalizes nothing.
+   */
+  async finishBrewIndexing(
+    work: BrewIndexWorkPackage,
+    chunks: readonly ChunkRecord[],
+  ): Promise<JsonRecord> {
+    const job = this.repositories.jobs.get(work.jobId);
+    const brew = this.repositories.brewJobs.get(work.jobId);
+    if (!job || !brew) throw notFound();
+    const actor = work.actor;
+    const steps = job.payload.stepsCompleted as string[];
+    const completeStep = (step: string) => {
+      job.currentStep = step;
+      if (!steps.includes(step)) steps.push(step);
+    };
+
+    try {
+      const leaseHeld =
+        job.status === "running" &&
+        job.leaseOwner === work.workerId &&
+        Boolean(job.leaseExpiresAt) &&
+        Date.parse(job.leaseExpiresAt!) > this.clock().getTime();
+      if (!leaseHeld) {
+        return await this.brewJobDto(work.jobId);
+      }
+
+      // Prefer the committed checkpoint over the in-memory work package: a
+      // concurrent retry may have persisted the same ModuleVersion already.
+      const version = this.repositories.moduleVersions.get(work.version.id) ?? work.version;
+      const project = this.requireOwnedProject(actor, brew.projectId);
+      const searchAttempt = this.repositories.searchAttempts.get(brew.searchAttemptId);
+      if (!searchAttempt) throw new Error("SEARCH_ATTEMPT_NOT_FOUND");
+
+      if (work.needsIndexing) {
+        this.removeModuleChunks(version.id);
+        for (const chunk of chunks) this.repositories.chunks.set(chunk.id, chunk);
+      }
+      if (!steps.includes("persist_draft")) {
+        completeStep("persist_draft");
+        this.emit(actor, "module.version.created", "module_version", version.id, {
+          moduleId: version.moduleId,
+          publicationStatus: version.publicationStatus,
+          groundingStatus: version.groundingStatus,
+        }, job.id);
+      }
 
       job.currentStep = "build_candidate_set";
       const brewResult: SearchResultRecord = {
@@ -3605,7 +3736,7 @@ class GonServiceCore {
         title: version.title,
         sourceStatus: version.groundingStatus,
         reasonCodes: ["same_source_topic"],
-        matchedConcepts: graph.module.concepts.filter((concept) => concept.role === "core").map((concept) => concept.name),
+        matchedConcepts: version.graph.module.concepts.filter((concept) => concept.role === "core").map((concept) => concept.name),
         missingConcepts: [],
         internalScores: { vector: 1, lexical: 1, conceptCoverage: 1, specificity: 1, quality: 0.7, hybrid: 0.92 },
       };
@@ -3613,7 +3744,7 @@ class GonServiceCore {
       completeStep("build_candidate_set");
 
       this.succeedJob(job, "succeeded");
-      await this.settleBrewCostBudget(job, runs);
+      await this.settleBrewCostBudget(job, work.runs);
       this.emit(actor, "brew.job.succeeded", "brew_job", job.id, {
         projectId: project.id,
         resultModuleVersionId: version.id,
@@ -3622,9 +3753,31 @@ class GonServiceCore {
     } catch {
       this.failJob(job, "BREW_FAILED", true, job.currentStep);
       this.emit(actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
-      if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, runs);
+      if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, work.runs);
       return await this.brewJobDto(work.jobId);
     }
+  }
+
+  /**
+   * R1.13: fail-closed transition when the out-of-transaction embedding work
+   * itself fails (phase index-1). The committed ModuleVersion checkpoint
+   * stays intact, so a retry resumes from it instead of regenerating.
+   */
+  async failBrewIndexing(work: BrewIndexWorkPackage): Promise<JsonRecord> {
+    const job = this.repositories.jobs.get(work.jobId);
+    if (!job) throw notFound();
+    const leaseHeld =
+      job.status === "running" &&
+      job.leaseOwner === work.workerId &&
+      Boolean(job.leaseExpiresAt) &&
+      Date.parse(job.leaseExpiresAt!) > this.clock().getTime();
+    if (!leaseHeld) {
+      return await this.brewJobDto(work.jobId);
+    }
+    this.failJob(job, "BREW_FAILED", true, "persist_draft");
+    this.emit(work.actor, "brew.job.failed", "brew_job", job.id, { failureCode: job.failureCode }, job.id);
+    if (job.status === "failed_terminal") await this.settleBrewCostBudget(job, work.runs);
+    return await this.brewJobDto(work.jobId);
   }
 
   /**
@@ -3730,24 +3883,6 @@ class GonServiceCore {
     return journey;
   }
 
-  private journeyDto(journey: JourneyRecord): JsonRecord {
-    return {
-      id: journey.id,
-      projectId: journey.projectId,
-      sourceCandidateId: journey.sourceCandidateId,
-      upstreamModuleVersionId: journey.upstreamModuleVersionId,
-      title: journey.title,
-      goal: journey.goal,
-      visibility: "private",
-      status: journey.status,
-      attribution: journey.attribution,
-      version: journey.version,
-      currentNodeId: journey.currentNodeId,
-      createdAt: journey.createdAt,
-      updatedAt: journey.updatedAt,
-    };
-  }
-
   private appendCommit(journey: JourneyRecord, actor: Actor, type: string, summary: string, payloadRef: JsonRecord = {}): void {
     const sequence = [...this.repositories.branchCommits.values()].filter((commit) => commit.journeyId === journey.id).length + 1;
     const commit = {
@@ -3779,7 +3914,7 @@ class GonServiceCore {
     const replay = this.findIdempotentReplay(actor, "createJourney", options.idempotencyKey, payload);
     if (replay) {
       const existing = this.repositories.journeys.get(replay.resourceId);
-      if (existing) return { data: this.journeyDto(existing), status: 200, replay: true };
+      if (existing) return { data: journeyDto(existing), status: 200, replay: true };
     }
 
     const candidate = this.repositories.candidates.get(candidateId);
@@ -3795,7 +3930,7 @@ class GonServiceCore {
       const existing = [...this.repositories.journeys.values()].find(
         (journey) => journey.ownerUserId === actor.userId && journey.upstreamModuleVersionId === version.id && journey.status === "active" && !journey.deletedAt,
       );
-      if (existing) return { data: this.journeyDto(existing), status: 200, replay: true };
+      if (existing) return { data: journeyDto(existing), status: 200, replay: true };
     }
 
     const now = this.now();
@@ -3836,20 +3971,20 @@ class GonServiceCore {
       sourceCandidateId: candidate.id,
     });
     this.saveIdempotentResult(actor, "createJourney", options.idempotencyKey, payload, "journey_branch", journey.id, 201);
-    return { data: this.journeyDto(journey), status: 201 };
+    return { data: journeyDto(journey), status: 201 };
   }
 
   listJourneys(actor: Actor, query: { limit?: number; cursor?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
     this.requireActiveUser(actor);
     const journeys = [...this.repositories.journeys.values()]
       .filter((journey) => journey.ownerUserId === actor.userId && !journey.deletedAt && journey.status !== "deleted")
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-    return this.paginate(journeys, query.limit ?? 20, query.cursor, (journey) => this.journeyDto(journey));
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.id.localeCompare(a.id));
+    return this.paginate(journeys, query.limit ?? 20, query.cursor, (journey) => journeyDto(journey));
   }
 
   getJourney(actor: Actor, journeyId: string): JsonRecord {
     this.requireActiveUser(actor);
-    return this.journeyDto(this.requireOwnedJourney(actor, journeyId));
+    return journeyDto(this.requireOwnedJourney(actor, journeyId));
   }
 
   listJourneyCommits(actor: Actor, journeyId: string, query: { limit?: number; cursor?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
@@ -3858,14 +3993,7 @@ class GonServiceCore {
     const commits = [...this.repositories.branchCommits.values()]
       .filter((commit) => commit.journeyId === journey.id)
       .sort((a, b) => a.sequence - b.sequence);
-    return this.paginate(commits, query.limit ?? 20, query.cursor, (commit) => ({
-      id: commit.id,
-      journeyId: commit.journeyId,
-      sequence: commit.sequence,
-      type: commit.type,
-      summary: commit.summary,
-      createdAt: commit.createdAt,
-    }));
+    return this.paginate(commits, query.limit ?? 20, query.cursor, (commit) => journeyCommitDto(commit));
   }
 
   private passedAttemptNodeIds(journeyId: string): Set<string> {
@@ -3949,7 +4077,7 @@ class GonServiceCore {
     });
 
     return {
-      journey: this.journeyDto(journey),
+      journey: journeyDto(journey),
       playerGraph: toPlayerGraph(version.graph, submittedNodeIds),
       currentNodeId: journey.currentNodeId,
       nodeStates,
@@ -4426,40 +4554,7 @@ class GonServiceCore {
     const entries = [...this.repositories.xpLedger.values()]
       .filter((entry) => entry.userId === actor.userId)
       .sort((a, b) => b.sequence - a.sequence);
-    return this.paginate(entries, query.limit ?? 20, query.cursor, (entry) => ({
-      id: entry.id,
-      delta: entry.delta,
-      sourceEventId: entry.sourceEventId,
-      sourceType: entry.sourceType,
-      sourceId: entry.sourceId,
-      ruleVersion: entry.ruleVersion,
-      formulaVersion: entry.formulaVersion,
-      status: entry.status,
-      reversesEntryId: entry.reversesEntryId,
-      createdAt: entry.createdAt,
-    }));
-  }
-
-  private proofDto(proof: ProofRecord): JsonRecord {
-    return {
-      id: proof.id,
-      proofType: proof.proofType,
-      title: proof.title,
-      description: proof.description,
-      journeyId: proof.journeyId,
-      attemptId: proof.attemptId,
-      artifactIds: proof.artifactIds,
-      issuerDisplayName: proof.issuerDisplayName,
-      externalReference: proof.externalReference,
-      verificationLevel: proof.verificationLevel,
-      status: proof.status,
-      visibility: "private",
-      proves: proof.proves,
-      doesNotProve: proof.doesNotProve,
-      version: proof.version,
-      createdAt: proof.createdAt,
-      updatedAt: proof.updatedAt,
-    };
+    return this.paginate(entries, query.limit ?? 20, query.cursor, (entry) => xpLedgerEntryDto(entry));
   }
 
   listProofs(actor: Actor, query: { limit?: number; cursor?: string; verificationLevel?: string } = {}): { data: JsonRecord[]; page: JsonRecord } {
@@ -4467,8 +4562,8 @@ class GonServiceCore {
     const proofs = [...this.repositories.proofs.values()]
       .filter((proof) => proof.ownerUserId === actor.userId && !proof.deletedAt && proof.status !== "deleted")
       .filter((proof) => !query.verificationLevel || proof.verificationLevel === query.verificationLevel)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return this.paginate(proofs, query.limit ?? 20, query.cursor, (proof) => this.proofDto(proof));
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+    return this.paginate(proofs, query.limit ?? 20, query.cursor, (proof) => proofDto(proof));
   }
 
   createExternalProof(actor: Actor, bodyValue: unknown, options: { idempotencyKey?: string } = {}): CommandResult<JsonRecord> {
@@ -4486,7 +4581,7 @@ class GonServiceCore {
     const replay = this.findIdempotentReplay(actor, "createExternalProof", options.idempotencyKey, payload);
     if (replay) {
       const existing = this.repositories.proofs.get(replay.resourceId);
-      if (existing) return { data: this.proofDto(existing), status: 201, replay: true };
+      if (existing) return { data: proofDto(existing), status: 201, replay: true };
     }
     if (journeyId) this.requireOwnedJourney(actor, journeyId);
     for (const artifactId of artifactIds) this.requireOwnedArtifact(actor, artifactId);
@@ -4530,14 +4625,14 @@ class GonServiceCore {
       journeyId,
     });
     this.saveIdempotentResult(actor, "createExternalProof", options.idempotencyKey, payload, "proof", proof.id, 201);
-    return { data: this.proofDto(proof), status: 201 };
+    return { data: proofDto(proof), status: 201 };
   }
 
   getProof(actor: Actor, proofId: string): JsonRecord {
     this.requireActiveUser(actor);
     const proof = this.repositories.proofs.get(proofId);
     if (!proof || proof.ownerUserId !== actor.userId || proof.deletedAt || proof.status === "deleted") throw notFound();
-    return this.proofDto(proof);
+    return proofDto(proof);
   }
 
   createReport(actor: Actor, bodyValue: unknown, options: { idempotencyKey?: string } = {}): CommandResult<JsonRecord> {
@@ -4644,6 +4739,8 @@ export class GonService {
   private readonly urlFetcher?: SafeUrlFetcher;
   private readonly now?: () => Date;
   private readonly quotas?: GonServiceOptions["quotas"];
+  /** P05-R1.13: pool-level targeted pagination (read-only, outside any UoW). */
+  private readonly targetedPagination?: TargetedPaginationPort;
   /**
    * Shared across every Unit-of-Work core: token buckets and flood strikes
    * must survive the per-transaction core instances (P05-R1.10).
@@ -4667,6 +4764,7 @@ export class GonService {
     this.urlFetcher = options.urlFetcher;
     this.now = options.now;
     this.quotas = options.quotas;
+    this.targetedPagination = options.targetedPagination;
     this.abuseControls = options.abuseControls ?? new AbuseController({ store: new MemoryAbuseStateStore() });
     this.budgetAlertSink = options.budgetAlertSink;
   }
@@ -4948,11 +5046,60 @@ export class GonService {
   ): Promise<JsonRecord> {
     // Multi-transaction orchestration on purpose: phase 1 and phase 3 are
     // separate database Units of Work, and the AI provider calls between them
-    // run OUTSIDE any database transaction.
+    // run OUTSIDE any database transaction. R1.13 extends the same rule to
+    // search indexing: the embedding calls (phase index-1) also run outside
+    // every transaction, and chunk writes + job finalization commit in a
+    // final short Unit of Work (phase index-2).
     const phase1 = await this.run((core) => core.beginBrewJobProcessing(jobId, options));
     if (phase1.kind === "settled") return phase1.job;
+    if (phase1.kind === "index") {
+      return this.runBrewIndexingPhase(phase1.work);
+    }
     const { outcome, runs } = await this.executeBrewGeneration(phase1.work);
-    return this.run((core) => core.finishBrewJobProcessing(phase1.work, outcome, runs));
+    const phase3 = await this.run((core) => core.finishBrewJobProcessing(phase1.work, outcome, runs));
+    if (phase3.kind === "settled") return phase3.job;
+    return this.runBrewIndexingPhase(phase3.work);
+  }
+
+  /**
+   * R1.13: run the embedding work OUTSIDE any database transaction, then
+   * commit chunks + job finalization in one short Unit of Work. If the
+   * embedding provider fails mid-flight, the job transitions fail-closed
+   * (retryable) while the committed ModuleVersion checkpoint is preserved.
+   */
+  private async runBrewIndexingPhase(work: BrewIndexWorkPackage): Promise<JsonRecord> {
+    try {
+      const chunks = work.needsIndexing ? await this.prepareModuleVersionChunks(work.version) : [];
+      return this.run((core) => core.finishBrewIndexing(work, chunks));
+    } catch {
+      return this.run((core) => core.failBrewIndexing(work));
+    }
+  }
+
+  /**
+   * R1.13: the same account gate as `GonServiceCore.requireActiveUser`,
+   * evaluated through the targeted port so the list endpoints can bypass the
+   * Unit of Work entirely (identity-map loads) without weakening authz.
+   */
+  private async requireActiveAccountViaTargetedPort(
+    actor: Actor,
+    targeted: TargetedPaginationPort,
+  ): Promise<void> {
+    const status = await targeted.findAccountStatus(actor.userId);
+    if (status === null || status === "deleted") throw unauthorized("Phiên đăng nhập không còn hợp lệ.");
+    if (status === "active") return;
+    if (status === "suspended") {
+      throw forbidden("FORBIDDEN", "Tài khoản đang bị tạm dừng", "Tài khoản suspended không thể tạo nội dung học mới.");
+    }
+    if (status === "deletion_pending") {
+      throw forbidden("FORBIDDEN", "Tài khoản đang chờ xóa", "Hãy liên hệ hỗ trợ nếu bạn muốn hủy yêu cầu xóa.");
+    }
+    throw forbidden(
+      "AGE_ATTESTATION_REQUIRED",
+      "Chưa hoàn tất điều kiện Private Alpha",
+      "Cần invite hợp lệ, xác nhận đủ 18 tuổi và chấp nhận điều khoản trước khi tạo dữ liệu học.",
+      "complete_onboarding",
+    );
   }
 
   async processNextQueuedBrewJob(
@@ -4964,12 +5111,57 @@ export class GonService {
   }
 
   /**
+   * R1.13: build the search-index chunk rows for one brewed ModuleVersion.
+   * Pure data preparation + embedding provider calls — reads no repository
+   * state and writes nothing — so the orchestrator runs it OUTSIDE any
+   * database transaction. The returned rows are committed later by
+   * `GonServiceCore.finishBrewIndexing` in a short Unit of Work.
+   */
+  private async prepareModuleVersionChunks(version: ModuleVersionRecord): Promise<ChunkRecord[]> {
+    const chunksText = [
+      `${version.title}\n${version.summary}\n${version.graph.module.concepts.map((concept) => `${concept.name}: ${concept.description}`).join("\n")}`,
+      ...version.graph.nodes.map((node) => {
+        const blocks = Array.isArray(node.content.blocks)
+          ? node.content.blocks.map((block) => (block && typeof block === "object" && "text" in block ? String((block as JsonRecord).text ?? "") : "")).join("\n")
+          : "";
+        const prompt = typeof node.content.prompt === "string" ? node.content.prompt : "";
+        return `${node.title}\n${blocks}\n${prompt}`;
+      }),
+    ];
+    const chunks: ChunkRecord[] = [];
+    for (const [index, text] of chunksText.entries()) {
+      const clean = text.trim();
+      if (!clean) continue;
+      const embedding = await this.embeddingProvider.embed(clean);
+      chunks.push({
+        id: createId("evt"),
+        ownerUserId: version.createdByUserId,
+        sourceType: "module_version",
+        sourceId: version.id,
+        artifactId: null,
+        moduleVersionId: version.id,
+        ordinal: index,
+        text: clean,
+        locator: `module-chunk-${index + 1}`,
+        language: version.language,
+        tokenCount: tokenize(clean, { keepStopwords: true }).length,
+        contentSha256: sha256Hex(clean),
+        embedding: embedding.vector,
+        embeddingProfile: embedding.profile,
+        providerModel: embedding.providerModel,
+        weight: 1,
+        deletedAt: null,
+      });
+    }
+    return chunks;
+  }
+
+  /**
    * Run the stateless AI provider calls for one prepared Brew job. Never
    * touches the store: the ADK/provider holds no DB-write or publishing
    * authority, and failures become fail-closed job transitions in phase 3.
    */
-  private async executeBrewGeneration(
-    work: BrewGenerationWorkPackage,
+  private async executeBrewGeneration(    work: BrewGenerationWorkPackage,
   ): Promise<{ outcome: BrewGenerationOutcome; runs: AiRunDraft[] }> {
     const provider = this.brewAiProvider ?? new LocalDeterministicBrewAiProvider();
     const runs: AiRunDraft[] = [];
@@ -5034,7 +5226,18 @@ export class GonService {
     actor: Actor,
     query: { limit?: number; cursor?: string } = {},
   ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
-    return this.run((core) => core.listJourneys(actor, query));
+    // P05-R1.13: page through the targeted port WITHOUT opening a Unit of
+    // Work (no identity-map load on PostgreSQL). Falls back to the in-UoW
+    // core list when no port is bound.
+    const targeted = this.targetedPagination;
+    if (!targeted) return this.run((core) => core.listJourneys(actor, query));
+    await this.requireActiveAccountViaTargetedPort(actor, targeted);
+    const { limit, offset } = listPageParams(query);
+    const page = await targeted.listJourneySummaries(actor.userId, { limit, offset });
+    return {
+      data: page.rows.map(journeyDto),
+      page: pageMeta(page.total, limit, offset, page.rows.length),
+    };
   }
 
   async getJourney(actor: Actor, journeyId: string): Promise<JsonRecord> {
@@ -5046,7 +5249,16 @@ export class GonService {
     journeyId: string,
     query: { limit?: number; cursor?: string } = {},
   ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
-    return this.run((core) => core.listJourneyCommits(actor, journeyId, query));
+    const targeted = this.targetedPagination;
+    if (!targeted) return this.run((core) => core.listJourneyCommits(actor, journeyId, query));
+    await this.requireActiveAccountViaTargetedPort(actor, targeted);
+    if (!(await targeted.journeyOwnedBy(journeyId, actor.userId))) throw notFound();
+    const { limit, offset } = listPageParams(query);
+    const page = await targeted.listJourneyCommitSummaries(journeyId, { limit, offset });
+    return {
+      data: page.rows.map(journeyCommitDto),
+      page: pageMeta(page.total, limit, offset, page.rows.length),
+    };
   }
 
   async getJourneyPlayer(actor: Actor, journeyId: string): Promise<JsonRecord> {
@@ -5135,14 +5347,34 @@ export class GonService {
     actor: Actor,
     query: { limit?: number; cursor?: string } = {},
   ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
-    return this.run((core) => core.listMyXpLedger(actor, query));
+    const targeted = this.targetedPagination;
+    if (!targeted) return this.run((core) => core.listMyXpLedger(actor, query));
+    await this.requireActiveAccountViaTargetedPort(actor, targeted);
+    const { limit, offset } = listPageParams(query);
+    const page = await targeted.listXpLedgerEntries(actor.userId, { limit, offset });
+    return {
+      data: page.rows.map(xpLedgerEntryDto),
+      page: pageMeta(page.total, limit, offset, page.rows.length),
+    };
   }
 
   async listProofs(
     actor: Actor,
     query: { limit?: number; cursor?: string; verificationLevel?: string } = {},
   ): Promise<{ data: JsonRecord[]; page: JsonRecord }> {
-    return this.run((core) => core.listProofs(actor, query));
+    const targeted = this.targetedPagination;
+    if (!targeted) return this.run((core) => core.listProofs(actor, query));
+    await this.requireActiveAccountViaTargetedPort(actor, targeted);
+    const { limit, offset } = listPageParams(query);
+    const page = await targeted.listProofSummaries(actor.userId, {
+      limit,
+      offset,
+      verificationLevel: query.verificationLevel,
+    });
+    return {
+      data: page.rows.map(proofDto),
+      page: pageMeta(page.total, limit, offset, page.rows.length),
+    };
   }
 
   async createExternalProof(
