@@ -16,9 +16,10 @@
     "db:check": "node scripts/check-migrations.mjs",
     "db:migrate": "node scripts/migrate.mjs",
     "spike:search": "node scripts/spike-hybrid-search.mjs",
-    "storybook": "storybook dev -p 6006 --host 0.0.0.0 --disable-telemetry --no-open",
+    "storybook": "storybook dev -p 6006 --disable-telemetry --no-open",
+    "storybook:preview": "storybook dev -p 6006 --host 0.0.0.0 --disable-telemetry --no-open",
     "storybook:build": "storybook build -o storybook-static --disable-telemetry",
-    "storybook:smoke": "storybook dev -p 6006 --host 0.0.0.0 --disable-telemetry --ci --smoke-test"
+    "storybook:smoke": "storybook dev -p 6006 --disable-telemetry --ci --smoke-test"
   },
   "dependencies": {
     "@auth/pg-adapter": "1.11.3",

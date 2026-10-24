@@ -34,13 +34,16 @@ jobs:
         working-directory: newIDE/app
 
       # Only upload on Crowdin for the master branch
+      # GON fork note (P05-R1.14): also require the Crowdin secrets — this fork
+      # does not have them, and the upload step was the only failing step on
+      # master pushes. Extraction itself still validates on every push.
       - name: Install Crowdin CLI
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' && secrets.CROWDIN_PROJECT_ID != '' && secrets.CROWDIN_PERSONAL_TOKEN != ''
         run: npm i -g @crowdin/cli
 
       - name: Upload translations to Crowdin
         run: crowdin upload sources
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/master' && secrets.CROWDIN_PROJECT_ID != '' && secrets.CROWDIN_PERSONAL_TOKEN != ''
         env:
           CROWDIN_PROJECT_ID: ${{ secrets.CROWDIN_PROJECT_ID }}
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.CROWDIN_PERSONAL_TOKEN }}
