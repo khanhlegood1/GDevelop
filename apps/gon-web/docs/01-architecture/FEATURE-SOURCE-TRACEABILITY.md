@@ -1,5 +1,7 @@
 # Ma trận Feature ↔ Source Traceability
 
+> 🔁 **Cập nhật PO — 24/10/2026 (tối muộn) — quyết định sản phẩm mới:** Persona đầu ra (🔬 PhD / Nghiên cứu · 🎬 KOL / Sáng tạo · 🎈 Giải trí · 🚀 Nâng cao) và các Độ sâu **không hiện ra cho user chọn** — mặc định **chạy tất cả các tổ hợp**, xuất nhiều output như feed TikTok. Output user chọn chính là Persona đầu ra của họ, đồng thời là tín hiệu **Arena** và **dấu chân đẳng cấp**. **Màn hình Brew và màn hình Arena đã được gộp vào chung màn hình Khám phá.** Nội dung dưới đây giữ nguyên làm tư liệu nền; chi tiết & trạng thái triển khai: [`PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md`](../00-process/PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md).
+
 > **Artifact:** G0-TRACE-001<br>
 > **Trạng thái:** APPROVED tại Gate 0 ngày 22/10/2026; đang được nối sang P01<br>
 > **Mục đích:** Mỗi tính năng GON phải chỉ rõ nguồn tham chiếu/tái sử dụng, mức reuse và phần GON phải tự sở hữu. P01 nối các `GON-Fxx` này sang Requirement ID, user story, BDD và MoSCoW tại `../02-requirements/P01-TRACEABILITY-MATRIX.md`.

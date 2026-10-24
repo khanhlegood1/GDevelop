@@ -208,9 +208,6 @@ textarea{min-height:100px;resize:vertical}
 .verdict.missing{background:rgba(255,197,49,.08);border-color:rgba(255,197,49,.4)}
 .verdict.clarify{background:rgba(124,92,255,.1);border-color:rgba(124,92,255,.4)}
 .verdict.blocked{background:rgba(210,38,48,.12);border-color:rgba(210,38,48,.45)}
-.persona-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.persona-tab{padding:8px 14px;border:1px solid var(--line);border-radius:99px;color:#cfd9ec;font-size:.82rem}
-.persona-tab[aria-selected=true]{background:linear-gradient(135deg,var(--violet),#5a3df0);color:#fff;border-color:transparent}
 .out-item{display:flex;gap:12px;align-items:center;padding:11px 13px;border:1px solid var(--line);border-radius:13px;background:rgba(16,27,51,.5);margin-bottom:9px}
 .out-item .rank{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--midnight-3);font-weight:800;font-size:.8rem}
 .out-item.top .rank{background:var(--gold);color:#3d2b00}
@@ -366,9 +363,7 @@ textarea{min-height:100px;resize:vertical}
     <nav class="sb-nav" aria-label="Điều hướng chính">
       <button type="button" class="sb-item" data-nav="feed" id="sb-feed"><span class="em" aria-hidden="true">🏠</span><span>Bảng tin</span></button>
       <button type="button" class="sb-item" data-nav="discover" id="sb-discover"><span class="em" aria-hidden="true">🔍</span><span>Khám phá</span></button>
-      <button type="button" class="sb-item" data-nav="brew" id="sb-brew"><span class="em" aria-hidden="true">➕</span><span>Brew</span></button>
       <button type="button" class="sb-item" data-nav="journey" id="sb-journey"><span class="em" aria-hidden="true">🏆</span><span>Hành trình</span></button>
-      <button type="button" class="sb-item" data-nav="arena" id="sb-arena"><span class="em" aria-hidden="true">⚔️</span><span>Arena</span></button>
       <button type="button" class="sb-item" data-nav="proof" id="sb-proof"><span class="em" aria-hidden="true">🏅</span><span>POAP</span></button>
       <button type="button" class="sb-item" data-nav="profile" id="sb-profile"><span class="em" aria-hidden="true">👤</span><span>Hồ sơ</span></button>
       <button type="button" class="sb-item" data-nav="map" id="sb-map"><span class="em" aria-hidden="true">📋</span><span>Sơ đồ xác nhận</span></button>
@@ -395,7 +390,7 @@ textarea{min-height:100px;resize:vertical}
     <nav id="tabbar" aria-label="Điều hướng chính" class="hide">
     <button type="button" class="tab" data-nav="feed" id="tab-feed"><span class="em" aria-hidden="true">🏠</span>Bảng tin</button>
     <button type="button" class="tab" data-nav="discover" id="tab-discover"><span class="em" aria-hidden="true">🔍</span>Khám phá</button>
-    <button type="button" class="tab center" data-nav="brew" id="tab-brew" aria-label="Brew chủ đề mới"><span class="em" aria-hidden="true">➕</span>Brew</button>
+    <button type="button" class="tab center" data-nav="discover" id="tab-brew" aria-label="Brew chủ đề mới — mở Khám phá"><span class="em" aria-hidden="true">➕</span>Brew</button>
     <button type="button" class="tab" data-nav="journey" id="tab-journey"><span class="em" aria-hidden="true">🏆</span>Hành trình</button>
     <button type="button" class="tab" data-nav="profile" id="tab-profile"><span class="em" aria-hidden="true">👤</span>Hồ sơ</button>
   </nav>
@@ -434,11 +429,12 @@ var DEFAULT_STATE = {
   gameBest: null,
   formatsViewed: [],
   sectionsDone: [],
-  brewed: [],           // {topic, persona, t, trend}
+  brewed: [],           // {topic, t, trend}
   likes: {},            // cardId -> 1
   comments: {},         // cardId -> [{who, text}]
   shares: 0,
-  personalization: true
+  personalization: true,
+  picks: []             // {out,title,persona,depth,t} — persona bộc lộ qua lựa chọn output (PO 24/10)
 };
 function loadState(){
   try{
@@ -515,6 +511,13 @@ var PERSONAS = {
   kol:{id:"kol",label:"KOL / Sáng tạo",em:"🎬",hint:"Ưu tiên định dạng nổi bật, dễ chia sẻ"},
   fun:{id:"fun",label:"Giải trí",em:"🎈",hint:"Vui, nhẹ, dễ nhớ"},
   adv:{id:"adv",label:"Nâng cao",em:"🚀",hint:"Chuyên sâu, kỹ thuật, thực chiến"}
+};
+/* PO 24/10 (muộn): KHÔNG cho user chọn persona/độ sâu — mặc định chạy TẤT CẢ tổ hợp,
+ * xuất nhiều output như feed TikTok; persona bộc lộ qua output user chọn. */
+var DEPTHS = {
+  light:{id:"light",label:"Nhẹ",em:"🌤️",desc:"3 mục · lướt nhanh"},
+  mid:{id:"mid",label:"Vừa",em:"☀️",desc:"5 mục · cân bằng"},
+  deep:{id:"deep",label:"Sâu",em:"🌌",desc:"8 mục · chuyên sâu"}
 };
 var FORMATS = {
   web:{id:"web",label:"Web",em:"🌐"},
@@ -621,7 +624,7 @@ function boostCard(id, n, why){
 
 /* ---------------- Router ---------------- */
 var ROUTES = {}, AFTER = {}, CURRENT = "";
-var TAB_ROUTES = {feed:1, discover:1, journey:1, profile:1, brew:1};
+var TAB_ROUTES = {feed:1, discover:1, journey:1, profile:1};
 function nav(route){
   var h = "#/" + route;
   if(location.hash === h) render();
@@ -633,6 +636,10 @@ function render(){
   var route = (location.hash || "#/login").replace(/^#\//,"") || "login";
   if(!ROUTES[route]) route = "login";
   if(!S.started && route !== "login") route = "login"; // chưa đăng nhập: mọi route đều về login
+  if(route === "brew" || route === "arena"){ // PO 24/10 (muộn): Brew & Arena đã GỘP vào Khám phá
+    route = "discover";
+    if(location.hash !== "#/discover"){ location.hash = "#/discover"; }
+  }
   CURRENT = route;
   markVisited(route);
   document.getElementById("view").innerHTML = ROUTES[route]();
@@ -732,7 +739,7 @@ function mockComments(id){
 }
 
 /* ---------------- S03 · Khám phá ---------------- */
-var LAST_QUERY = "", CURRENT_PERSONA = "phd";
+var LAST_QUERY = "";
 function searchVerdict(q){
   var n = q.toLowerCase();
   if(!n.trim()) return "clarify";
@@ -748,7 +755,7 @@ ROUTES.discover = function(){
   if(v === "clarify") result = verdictBox("clarify","🤔","Cần làm rõ","Mô tả thêm bạn muốn học điều gì — hoặc thử một chủ đề đang hot bên dưới.");
   else if(v === "blocked") result = verdictBox("blocked","⛔","Bị chặn bởi chính sách nội dung","Truy vấn vi phạm ranh giới an toàn. Sự kiện được ghi cho kiểm soát chất lượng.") + '<div class="row" style="margin-top:10px"><button class="btn sm ghost" type="button" data-act="report-ack">Tôi hiểu</button></div>';
   else if(v === "found") result = verdictBox("found","✅","Tìm thấy module khớp","\"Tư duy phản biện — nền tảng\" · 5 mục · 6 định dạng",
-      '<button class="btn primary sm" type="button" data-nav="module">Mở module →</button> <button class="btn ghost sm" type="button" data-nav="arena">Arena</button>') + personaBlock();
+      '<button class="btn primary sm" type="button" data-nav="module">Mở module →</button>');
   else if(v === "related") result = verdictBox("related","🧭","Chưa khớp trực tiếp — nhưng có liên quan","Gần nhất với chủ đề của bạn:",
       '<div class="row">' + RELATED.slice(0,2).map(function(r){ return '<button class="btn sm ghost" type="button" data-act="rec-go" data-topic="' + esc(r.topic) + '">' + r.em + " " + esc(r.topic) + "</button>"; }).join("") + '</div><div class="row" style="margin-top:8px"><button class="btn gold sm" type="button" data-act="go-brew">🧪 Brew chủ đề của tôi</button></div>');
   else if(v === "missing") result = verdictBox("missing","🌱","Chưa ai Brew chủ đề này","Bạn sẽ là người đầu tiên — GON tổng hợp từ đầu vào của bạn thành module hoàn chỉnh.",
@@ -766,7 +773,7 @@ ROUTES.discover = function(){
       '</div>' +
       '<div class="attached" id="attached-list"></div>' +
     '</div>' +
-    (result || "") +
+    (result || "") + brewInlineBlock() + allCombosBlock() + arenaBlock() +
     '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">🔥 Xu hướng đang hot</h3><span class="small muted">topic được gợi ý theo xu hướng</span></div>' +
       '<div class="hot-list" style="margin-top:12px">' + FEED_SEED.slice().sort(function(a,b){return b.base-a.base;}).map(function(c, i){
         return '<div class="hot-item" role="button" tabindex="0" data-act="rec-go" data-topic="' + esc(c.topic) + '">' +
@@ -785,79 +792,82 @@ AFTER.discover = function(){ renderAttached(); };
 function verdictBox(kind, icon, title, desc, extra){
   return '<div class="verdict ' + kind + '" style="margin-bottom:14px"><span style="font-size:1.5rem">' + icon + '</span><div style="flex:1"><b>' + title + '</b><p class="small muted" style="margin:4px 0 8px">' + desc + '</p>' + (extra||"") + '</div></div>';
 }
-function personaBlock(){
-  return '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">12 đầu ra — xếp theo persona</h3></div>' +
-    '<div class="persona-tabs" role="tablist">' + Object.keys(PERSONAS).map(function(k){
-      return '<button type="button" role="tab" aria-selected="' + (CURRENT_PERSONA===k) + '" class="persona-tab" data-act="persona" data-p="' + k + '">' + PERSONAS[k].em + " " + PERSONAS[k].label + '</button>';
-    }).join("") + '</div><p class="small muted">' + PERSONAS[CURRENT_PERSONA].hint + '</p>' + rankedOutputs() + '</div>';
+function allCombos(){
+  var pks = Object.keys(PERSONAS), dks = Object.keys(DEPTHS), list = [];
+  dks.forEach(function(dk, di){
+    pks.forEach(function(pk, pi){
+      var o = OUTPUTS[(di*pks.length + pi) % OUTPUTS.length];
+      list.push({persona:pk, depth:dk, out:o, score:o.scores[pk]});
+    });
+  });
+  list.sort(function(a,b){ return b.score - a.score; });
+  return list;
 }
-function rankedOutputs(){
-  var arr = OUTPUTS.slice().sort(function(a,b){ return b.scores[CURRENT_PERSONA]-a.scores[CURRENT_PERSONA]; });
-  return arr.map(function(o,i){
-    var f = FORMATS[o.fmt], bars = "";
-    for(var s=1;s<=10;s++) bars += '<i class="' + (s<=o.scores[CURRENT_PERSONA]?"on":"") + '"></i>';
-    return '<div class="out-item' + (i===0?" top":"") + '"><span class="rank">' + (i+1) + '</span><span class="fmt">' + f.em + '</span>' +
-      '<div class="meta"><h4>' + esc(o.title) + '</h4><p>' + f.label + ' · ' + o.by + '</p><div class="score-bar">' + bars + '</div></div>' +
-      (i<3?'<span class="tag ok">Đề xuất</span>':"") + '</div>';
-  }).join("");
+function allCombosBlock(){
+  var combos = allCombos();
+  return '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">🎞️ ' + combos.length + ' tổ hợp Persona × Độ sâu</h3><span class="small muted">mặc định chạy tất cả</span></div>' +
+    '<p class="small muted">GON <b>không hỏi bạn chọn persona hay độ sâu</b> — mọi tổ hợp đều được sinh và xếp hạng như feed TikTok. Output bạn chọn chính là <b>Persona đầu ra</b>, tín hiệu <b>Arena</b> và <b>dấu chân đẳng cấp</b> của bạn.</p>' +
+    combos.map(function(c, i){
+      var f = FORMATS[c.out.fmt], p = PERSONAS[c.persona], d = DEPTHS[c.depth], bars = "";
+      for(var b=1;b<=10;b++) bars += '<i class="' + (b<=c.score?"on":"") + '"></i>';
+      var chosen = S.picks.some(function(pk){ return pk.out === c.out.id; });
+      return '<div class="out-item' + (i===0?" top":"") + '"><span class="rank">' + (i+1) + '</span><span class="fmt">' + f.em + '</span>' +
+        '<div class="meta"><h4>' + esc(c.out.title) + '</h4><p>' + p.em + ' ' + p.label + ' · ' + d.em + ' ' + d.label + ' (' + d.desc + ') · ' + f.label + ' · ' + c.out.by + '</p><div class="score-bar">' + bars + '</div></div>' +
+        (chosen ? '<span class="tag ok">👣 đã chọn</span>' : '<button class="btn sm primary" type="button" data-act="pick-output" data-p="' + c.persona + '" data-d="' + c.depth + '" data-o="' + c.out.id + '">Chọn</button>') +
+        (i<3 && !chosen ? '<span class="tag ok">Đề xuất</span>' : "") + '</div>';
+    }).join("") + '</div>';
+}
+function footprintCounts(){
+  var c = {phd:0,kol:0,fun:0,adv:0}, d = {light:0,mid:0,deep:0};
+  S.picks.forEach(function(p){ if(c[p.persona]!=null) c[p.persona]++; if(d[p.depth]!=null) d[p.depth]++; });
+  return {p:c, d:d};
+}
+function footprintText(){
+  if(!S.picks.length) return "chưa có — chọn một output trong Khám phá để bộc lộ persona";
+  var fc = footprintCounts();
+  var dom = Object.keys(fc.p).sort(function(a,b){ return fc.p[b]-fc.p[a]; })[0];
+  return PERSONAS[dom].em + " " + PERSONAS[dom].label + " · 🌤️ " + fc.d.light + " Nhẹ / ☀️ " + fc.d.mid + " Vừa / 🌌 " + fc.d.deep + " Sâu (" + S.picks.length + " lựa chọn)";
 }
 
-/* ---------------- S04 · Brew ---------------- */
+/* ---------------- S04 · Brew — ĐÃ GỘP vào Khám phá (PO 24/10 muộn) ---------------- */
 var BREW_STATE = {phase:"form"}, BREW_STEP = 0;
-ROUTES.brew = function(){
-  var topic = LAST_QUERY || "";
-  if(BREW_STATE.phase === "form"){
-    return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="discover" aria-label="Quay lại">←</button><h1>🧪 Brew</h1></div>' +
-      '<div class="card">' +
-        '<label class="field"><span>Bạn muốn Brew điều gì?</span><input type="text" id="brew-topic" placeholder="vd: triết lý tục ngữ Việt Nam" value="' + esc(topic) + '"></label>' +
-        '<div class="grid2">' +
-          '<label class="field"><span>Persona đầu ra</span><select id="brew-persona">' + Object.keys(PERSONAS).map(function(k){
-            return '<option value="' + k + '"' + (k===CURRENT_PERSONA?" selected":"") + '>' + PERSONAS[k].em + " " + PERSONAS[k].label + '</option>';
-          }).join("") + '</select></label>' +
-          '<label class="field"><span>Độ sâu</span><select id="brew-depth"><option>Nhẹ — 3 mục</option><option selected>Vừa — 5 mục</option><option>Sâu — 8 mục</option></select></label>' +
-        '</div>' +
-        '<div class="attached" id="attached-list"></div>' +
-        '<p class="small muted">Sau khi Brew xong, <b>output của bạn trở thành một topic trong Bảng tin</b> — có điểm xu hướng và cơ hội lên hot.</p>' +
-        '<div class="row" style="margin-top:10px"><button class="btn gold" type="button" data-act="brew-start">🔥 Bắt đầu Brew</button></div>' +
-      '</div></div>';
-  }
+ROUTES.brew = function(){ return ROUTES.discover(); }; // redirect: Brew chạy ngay trong Khám phá
+function brewInlineBlock(){
+  if(BREW_STATE.phase === "form") return "";
   var steps = [
     {ico:"🔎",t:"TopicCheck",d:"Kiểm tra chủ đề đủ mới & an toàn"},
-    {ico:"🗺️",t:"Plan",d:"Dựng dàn ý theo persona"},
-    {ico:"✨",t:"Generate",d:"Gemini + ADK sinh 12 đầu ra đa định dạng"},
+    {ico:"🗺️",t:"Plan",d:"Dựng dàn ý cho mọi persona & độ sâu"},
+    {ico:"✨",t:"Generate",d:"Gemini + ADK sinh 12 tổ hợp Persona × Độ sâu"},
     {ico:"🛡️",t:"Assess",d:"Chấm rubric, chống sao chép, gắn bằng chứng"}
   ];
   var pct = BREW_STATE.phase === "done" ? 100 : BREW_STEP*25;
-  return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="discover" aria-label="Quay lại">←</button><h1>Đang Brew…</h1></div>' +
-    '<div class="card"><div class="brew-visual"><i style="width:' + pct + '%"></i></div>' +
+  return '<div class="card" id="brew-inline"><div class="row" style="justify-content:space-between"><h3 style="margin:0">🧪 Brew ngay trong Khám phá</h3><span class="small muted">không cần chọn gì — chạy mặc định</span></div>' +
+    '<div class="brew-visual" style="margin-top:12px"><i style="width:' + pct + '%"></i></div>' +
     '<div class="pipeline">' + steps.map(function(s,i){
       var cls = i < BREW_STEP ? "done" : (i===BREW_STEP && BREW_STATE.phase==="running" ? "active" : "");
       return '<div class="pipe-step ' + cls + '"><span class="st-ico">' + s.ico + '</span><div><b>' + s.t + '</b><p class="small muted" style="margin:2px 0 0">' + s.d + '</p></div><span class="spinner"></span></div>';
     }).join("") + '</div>' +
     (BREW_STATE.phase === "done"
-      ? '<div class="okbox show">✅ Module sẵn sàng! Output của bạn vừa trở thành topic trong <b>Bảng tin</b> với 15 điểm xu hướng khởi đầu.</div>' +
+      ? '<div class="okbox show">✅ Module sẵn sàng! 12 tổ hợp Persona × Độ sâu đã sinh trong khung bên dưới — output của bạn vừa trở thành topic trong <b>Bảng tin</b> (15 điểm xu hướng khởi đầu).</div>' +
         '<div class="row" style="margin-top:12px"><button class="btn primary" type="button" data-nav="feed">Xem output trong Bảng tin →</button>' +
         '<button class="btn ghost" type="button" data-nav="module">Mở module →</button></div>'
       : '<p class="small muted">Mô phỏng agent pipeline — production chạy Google ADK + Gemini thật.</p>') +
-    '</div></div>';
-};
-AFTER.brew = function(){ renderAttached(); };
+    '</div>';
+}
 function startBrew(){
-  var el = document.getElementById("brew-topic");
-  var topic = (el && el.value.trim()) || LAST_QUERY || "Chủ đề mới";
-  LAST_QUERY = topic;
+  var topic = LAST_QUERY || "Chủ đề mới";
   BREW_STATE = {phase:"running"}; BREW_STEP = 0;
-  nav("brew");
+  render();
   var timer = setInterval(function(){
     BREW_STEP++;
     if(BREW_STEP >= 4){
       clearInterval(timer);
       BREW_STATE = {phase:"done"};
-      S.brewed.push({topic:topic, persona:CURRENT_PERSONA, t:Date.now(), trend:15});
+      S.brewed.push({topic:topic, t:Date.now(), trend:15});
       save();
       grantBadge("first_brew"); addXp(20, "Brew topic mới");
     }
-    if(CURRENT === "brew") render();
+    if(CURRENT === "discover" || CURRENT === "brew") render();
   }, 1000);
 }
 
@@ -990,7 +1000,8 @@ ROUTES.journey = function(){
       '<div style="flex:1;min-width:220px"><h3 style="margin:0 0 4px">Lv.' + lv + " · " + eraName() + '</h3>' +
       '<p class="small muted">' + xp.toLocaleString("vi-VN") + ' Lifetime XP · còn ' + (100-pct) + ' XP tới Lv.' + (lv+1) + '</p>' +
       '<p class="small mono">level = floor(LifetimeXP/100) — uncapped · Forever mở ở Lv.35+</p>' +
-      '<div class="row" style="margin-top:8px"><button class="btn sm ghost" type="button" data-nav="arena">⚔️ Arena</button>' +
+      '<p class="small">👣 Dấu chân đẳng cấp: ' + footprintText() + '</p>' +
+      '<div class="row" style="margin-top:8px"><button class="btn sm ghost" type="button" data-nav="discover">⚔️ Arena (trong Khám phá)</button>' +
       '<button class="btn sm ghost" type="button" data-nav="proof">🏅 POAP</button></div></div>' +
     '</div>' +
     '<div class="card"><h3>Mastery (tách khỏi Level)</h3>' +
@@ -1022,7 +1033,7 @@ function doFork(topic, from){
 }
 
 /* ---------------- S11 · Arena ---------------- */
-ROUTES.arena = function(){
+function arenaBlock(){
   var voted = S.votes.length ? S.votes[S.votes.length-1].choice : null;
   var p = ARENA_PAIR;
   function card(key){
@@ -1032,11 +1043,12 @@ ROUTES.arena = function(){
       (voted ? '<div class="reveal show">🏷️ ' + c.model + (chosen?' · <b>lựa chọn của bạn</b>':"") + '</div>'
              : '<button class="btn primary sm" type="button" data-act="vote" data-choice="' + key + '">Chọn phương án này</button>') + '</div>';
   }
-  return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="journey" aria-label="Quay lại">←</button><h1>⚔️ Arena</h1></div>' +
-    '<div class="card"><div class="arena-stage">' + card("a") + '<div class="arena-vs">VS</div>' + card("b") + '</div>' +
+  return '<div class="card" id="arena-inline"><div class="row" style="justify-content:space-between"><h3 style="margin:0">⚔️ Arena — chọn output hay hơn</h3><span class="small muted">đã gộp vào Khám phá</span></div>' +
+    '<div class="arena-stage">' + card("a") + '<div class="arena-vs">VS</div>' + card("b") + '</div>' +
     (voted ? '<hr class="sep"><h3 style="margin:0 0 8px">Kết quả cộng đồng</h3><div class="split-bar"><div class="a" style="width:' + p.community.a + '%">' + p.community.a + '%</div><div class="b" style="width:' + p.community.b + '%">' + p.community.b + '%</div></div>'
-           : '<p class="small muted" style="margin-top:10px">Hai đầu ra ẩn danh — nhãn model chỉ mở sau khi vote.</p>') + '</div></div>';
-};
+           : '<p class="small muted" style="margin-top:10px">Hai đầu ra ẩn danh — nhãn model chỉ mở sau khi vote. Chọn output trong feed phía trên cũng là tín hiệu Arena (bộc lộ persona).</p>') + '</div>';
+}
+ROUTES.arena = function(){ return ROUTES.discover(); }; // redirect: Arena đã gộp vào Khám phá
 function doVote(choice){
   if(S.votes.length) return;
   S.votes.push({choice:choice, t:Date.now()}); save();
@@ -1051,6 +1063,7 @@ ROUTES.proof = function(){
   S.brewed.forEach(function(b){ events.push({em:"🧪", label:"Brew topic: "+b.topic+" ("+b.trend+" xu hướng)", t:b.t}); });
   S.checks.forEach(function(){ events.push({em:"🛡️", label:"Checkpoint hiểu thật đạt (không dán)", t:Date.now()}); });
   S.votes.forEach(function(v){ events.push({em:"⚔️", label:"Vote Arena: "+v.choice.toUpperCase(), t:v.t}); });
+  S.picks.forEach(function(p){ events.push({em:"👣", label:"Chọn output: \""+p.title+"\" → "+PERSONAS[p.persona].em+" "+PERSONAS[p.persona].label+" ("+DEPTHS[p.depth].label+")", t:p.t}); });
   S.forks.forEach(function(f){ events.push({em:"🍴", label:"Fork: "+f.topic, t:f.t}); });
   if(S.gameBest!==null) events.push({em:"🎮", label:"Mini-game: "+S.gameBest+"/3", t:Date.now()});
   events.sort(function(a,b){ return b.t-a.t; });
@@ -1091,6 +1104,7 @@ ROUTES.profile = function(){
       '<p class="small muted">' + (acc.anon ? 'Tài khoản ẩn danh · <span class="mono">' + esc(acc.uuid) + '</span>' : esc(acc.email||"")) + '</p>' +
       (acc.anon ? '<span class="uuid-chip">🔑 Nâng cấp lên tài khoản thật bất cứ lúc nào để đồng bộ</span>' : "") + '</div></div>' +
     '<div class="pf-stats">' + stats.map(function(s){ return '<div class="pf-stat"><b>' + s.n + '</b><span>' + s.l + '</span></div>'; }).join("") + '</div>' +
+    footprintCard() +
     '<div class="card" style="margin-top:14px"><h3>Cá nhân hóa</h3>' +
       '<label class="checkline"><input type="checkbox" id="ck-personalization" ' + (S.personalization?"checked":"") + '><span><b>Gợi ý theo footprint</b> — ảnh hưởng tab "Dành cho bạn".</span></label></div>' +
     '<div class="card"><h3>Quyền riêng tư & dữ liệu</h3>' +
@@ -1101,6 +1115,18 @@ ROUTES.profile = function(){
       '<button class="btn ghost sm" type="button" data-act="reset-demo">↺ Reset demo</button></div></div>' +
   '</div>';
 };
+function footprintCard(){
+  var fc = footprintCounts(), total = S.picks.length;
+  var dom = Object.keys(fc.p).sort(function(a,b){ return fc.p[b]-fc.p[a]; })[0];
+  return '<div class="card" style="margin-top:14px"><h3>👣 Dấu chân đẳng cấp</h3>' +
+    '<p class="small muted">Persona <b>không tự chọn</b> — GON đọc từ output bạn chọn trong Khám phá (tín hiệu Arena). ' +
+    (total ? 'Dominant: <b>' + PERSONAS[dom].em + " " + PERSONAS[dom].label + "</b>" : "Chưa có lựa chọn nào — mở Khám phá và chọn một output.") + '</p>' +
+    Object.keys(PERSONAS).map(function(k){
+      var cnt = fc.p[k], w = total ? Math.round(cnt/total*100) : 0;
+      return '<div class="mastery-row"><span style="width:170px">' + PERSONAS[k].em + " " + PERSONAS[k].label + '</span><div class="bar"><i style="width:' + w + '%"></i></div><b>' + cnt + '</b></div>';
+    }).join("") +
+    '<p class="small muted">Độ sâu: 🌤️ ' + fc.d.light + ' Nhẹ · ☀️ ' + fc.d.mid + ' Vừa · 🌌 ' + fc.d.deep + ' Sâu</p></div>';
+}
 AFTER.profile = function(){
   var ck = document.getElementById("ck-personalization"); if(!ck) return;
   ck.addEventListener("change", function(){ S.personalization = ck.checked; save(); toast(S.personalization?"🟢 Cá nhân hóa: BẬT":"🔴 Cá nhân hóa: TẮT"); });
@@ -1120,15 +1146,15 @@ function deleteData(){
 var SCREENS = [
   {id:"login",num:"S01",label:"Đăng nhập (ẩn danh/Google)"},
   {id:"feed",num:"S02",label:"Bảng tin — feed xu hướng TikTok-style"},
-  {id:"discover",num:"S03",label:"Khám phá — tìm kiếm + xu hướng + persona"},
-  {id:"brew",num:"S04",label:"Brew — output thành topic"},
+  {id:"discover",num:"S03",label:"Khám phá — tìm + Brew + Arena + mọi tổ hợp persona (màn hình duy nhất)"},
+  {id:"brew",num:"S04",label:"Brew — ĐÃ GỘP vào Khám phá (PO 24/10)"},
   {id:"module",num:"S05",label:"Module"},
   {id:"learn",num:"S06",label:"Học + checkpoint chống copy-paste"},
   {id:"output",num:"S07",label:"6 định dạng GDevelop"},
   {id:"game",num:"S08",label:"Mini-game / easy-task"},
   {id:"journey",num:"S09",label:"Hành trình — cấp suốt đời"},
   {id:"related",num:"S10",label:"Liên quan + Fork"},
-  {id:"arena",num:"S11",label:"Arena bình chọn"},
+  {id:"arena",num:"S11",label:"Arena — ĐÃ GỘP vào Khám phá (PO 24/10)"},
   {id:"proof",num:"S12",label:"POAP / Proof of Learning"},
   {id:"profile",num:"S13",label:"Hồ sơ & quyền riêng tư"},
   {id:"map",num:"S14",label:"Sơ đồ xác nhận FE"}
@@ -1137,12 +1163,12 @@ var FLOWS = [
   {id:"F1",name:"Đăng nhập ẩn danh (không cần tài khoản)",go:"login",need:"started"},
   {id:"F2",name:"Feed: like / comment / share tăng xu hướng",go:"feed",need:"social"},
   {id:"F3",name:"Tìm thấy module (từ Khám phá)",go:"discover",need:"search-found"},
-  {id:"F4",name:"Tìm yếu → Brew → output thành topic trong feed",go:"discover",need:"brewed"},
+  {id:"F4",name:"Tìm yếu → Brew (ngay trong Khám phá) → output thành topic",go:"discover",need:"brewed"},
   {id:"F5",name:"Học mục → checkpoint chống copy-paste",go:"module",need:"checked"},
   {id:"F6",name:"Xem ≥3/6 định dạng",go:"module",need:"formats3"},
   {id:"F7",name:"Mini-game đạt ≥2/3",go:"game",need:"game-pass"},
   {id:"F8",name:"Fork hành trình (từ feed hoặc liên quan)",go:"related",need:"forked"},
-  {id:"F9",name:"Arena vote → mở nhãn model",go:"arena",need:"voted"},
+  {id:"F9",name:"Arena vote (trong Khám phá) → mở nhãn model",go:"discover",need:"voted"},
   {id:"F10",name:"Output của bạn lên ≥40 điểm xu hướng",go:"feed",need:"trending"},
   {id:"F11",name:"POAP + quyền riêng tư (xuất/xoá)",go:"profile",need:"privacy"}
 ];
@@ -1295,18 +1321,26 @@ document.addEventListener("click", function(e){
   if(act === "uni-search"){
     var v = (document.getElementById("uni-input").value || "").trim();
     if(v) trackInput("text", v);
-    LAST_QUERY = v; render(); return;
+    LAST_QUERY = v; BREW_STATE = {phase:"form"}; render(); return;
   }
   if(act === "rec-go"){
     var topic = actEl.getAttribute("data-topic") || "";
     if(topic){ trackInput("text", topic); }
-    LAST_QUERY = topic; nav("discover"); return;
+    LAST_QUERY = topic; BREW_STATE = {phase:"form"}; nav("discover"); return;
   }
   if(act === "topsearch"){ submitTopSearch(); return; }
   if(act === "report-ack"){ toast("🚦 Đã ghi nhận"); return; }
-  if(act === "persona"){ CURRENT_PERSONA = actEl.getAttribute("data-p"); render(); return; }
-  if(act === "go-brew"){ BREW_STATE = {phase:"form"}; nav("brew"); return; }
-  if(act === "brew-start"){ startBrew(); return; }
+  if(act === "pick-output"){
+    var pid = actEl.getAttribute("data-p"), did = actEl.getAttribute("data-d"), oid = actEl.getAttribute("data-o");
+    var oo = OUTPUTS.filter(function(x){ return x.id === oid; })[0];
+    if(oo && !S.picks.some(function(pk){ return pk.out === oid; })){
+      S.picks.push({out:oid, title:oo.title, persona:pid, depth:did, t:Date.now()});
+      save(); addXp(5, "Persona bộc lộ qua lựa chọn");
+      toast("👣 Persona của bạn: " + PERSONAS[pid].em + " " + PERSONAS[pid].label + " · " + DEPTHS[did].label + " — đã ghi vào dấu chân đẳng cấp");
+    }
+    render(); return;
+  }
+  if(act === "go-brew"){ startBrew(); return; }
 
   if(act === "learn-sec"){ LEARN_SEC = Number(actEl.getAttribute("data-sec"))||0; nav("learn"); return; }
   if(act === "check-submit"){ submitCheck(); return; }
@@ -1350,6 +1384,7 @@ function submitTopSearch(){
   var v = (el && el.value ? el.value : "").trim();
   if(v) trackInput("text", v);
   LAST_QUERY = v;
+  BREW_STATE = {phase:"form"};
   nav("discover");
 }
 document.getElementById("topsearch-input").addEventListener("keydown", function(e){
