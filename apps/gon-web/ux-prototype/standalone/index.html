@@ -34,7 +34,44 @@ button{cursor:pointer;border:0;background:none;color:inherit}
 .demo-banner .mini{margin-left:auto;font-weight:400;opacity:.85}
 
 /* ============ App shell ============ */
-#app{position:fixed;inset:0;padding-top:30px;display:flex;flex-direction:column}
+#app{position:fixed;inset:0;padding-top:30px;display:flex;flex-direction:row}
+#main-col{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* ---- Sidebar trái (kiểu TikTok desktop) ---- */
+#sidebar{width:236px;flex:0 0 auto;display:flex;flex-direction:column;gap:6px;padding:16px 12px 12px;
+  border-right:1px solid var(--line);background:rgba(10,11,20,.55);overflow-y:auto;scrollbar-width:thin}
+.sb-brand{display:flex;gap:10px;align-items:center;text-decoration:none;color:inherit;padding:4px 10px 14px}
+.sb-mark{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--emerald),var(--cyan));color:#06251b;font-weight:800;font-size:1.1rem}
+.sb-brand small{display:block;color:var(--muted);font-size:.58rem;letter-spacing:1.6px}
+.sb-nav{display:flex;flex-direction:column;gap:2px}
+.sb-item{display:flex;gap:12px;align-items:center;width:100%;padding:11px 12px;border-radius:12px;
+  color:#dfe7f7;font-weight:600;font-size:.9rem;text-align:left;min-height:46px}
+.sb-item:hover{background:rgba(255,255,255,.06)}
+.sb-item.active{background:rgba(255,255,255,.1);color:#fff;box-shadow:inset 0 0 0 1px rgba(40,185,216,.35)}
+.sb-item .em{font-size:1.15rem;width:24px;text-align:center}
+.sb-suggest{margin-top:14px;padding:0 4px}
+.sb-label{margin:0 0 8px;color:var(--muted);font-size:.66rem;letter-spacing:1.6px;text-transform:uppercase}
+.sb-hot-item{display:flex;gap:8px;align-items:center;width:100%;padding:7px 8px;border-radius:10px;text-align:left;color:#cfd9ec;font-size:.78rem}
+.sb-hot-item:hover{background:rgba(255,255,255,.06)}
+.sb-hot-item .bar{flex:1;height:4px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden;min-width:26px}
+.sb-hot-item .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--crimson-soft),var(--gold))}
+.sb-hot-item .n{font-weight:800;color:var(--gold);font-size:.7rem}
+.sb-footer{margin-top:auto;padding:12px 8px 0;color:var(--muted);font-size:.62rem;line-height:1.5;border-top:1px solid var(--line)}
+
+/* ---- Thanh tìm kiếm trên (kiểu TikTok) ---- */
+#topsearch{display:none;align-items:center;gap:10px;padding:11px 20px;flex:0 0 auto;
+  border-bottom:1px solid var(--line);background:rgba(10,11,20,.78);backdrop-filter:blur(12px)}
+#topsearch.on{display:flex}
+#topsearch-input{flex:1;padding:11px 46px 11px 42px;border:1px solid var(--line);border-radius:99px;
+  background:rgba(255,255,255,.07);color:#f4f7ff}
+#topsearch-input::placeholder{color:var(--muted)}
+.ts-icon{position:relative;left:-9999px}
+#topsearch .ts-icon{position:static;order:0;font-size:1rem;margin-right:-34px;z-index:2;pointer-events:none}
+.ts-btn{padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,var(--crimson-soft),var(--violet));
+  color:#fff;font-weight:700;font-size:.86rem}
+@media (max-width:899px){ #sidebar{display:none} }
+@media (min-width:900px){ #tabbar{display:none !important} }
 #view{flex:1;min-height:0;overflow:hidden;position:relative}
 .page{height:100%;overflow-y:auto;overscroll-behavior:contain;padding:14px 16px calc(var(--tabbar) + 26px)}
 .page.nopad{padding:0}
@@ -79,8 +116,6 @@ button{cursor:pointer;border:0;background:none;color:inherit}
 .feed-tabs{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px}
 .feed-tab{padding:7px 16px;border-radius:99px;color:rgba(255,255,255,.6);font-weight:700;font-size:.86rem}
 .feed-tab.active{color:#fff;background:rgba(255,255,255,.13)}
-.feed-search{position:absolute;top:8px;right:12px;z-index:10;width:38px;height:38px;border-radius:50%;
-  background:rgba(255,255,255,.1);display:grid;place-items:center;font-size:1rem}
 #feed-scroll{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none}
 #feed-scroll::-webkit-scrollbar{display:none}
 .fcard{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;
@@ -321,16 +356,44 @@ textarea{min-height:100px;resize:vertical}
 </div>
 
 <div id="app">
-  <main id="main" tabindex="-1" style="height:100%">
-    <div id="view" aria-live="polite"></div>
-  </main>
-  <nav id="tabbar" aria-label="Điều hướng chính" class="hide">
+  <aside id="sidebar" aria-label="Menu chính">
+    <a class="sb-brand" href="#/feed" data-nav="feed" aria-label="GON — về Bảng tin">
+      <span class="sb-mark" aria-hidden="true">G</span>
+      <span><strong>GON</strong><small>GAME OF NURTURE</small></span>
+    </a>
+    <nav class="sb-nav" aria-label="Điều hướng chính">
+      <button type="button" class="sb-item" data-nav="feed" id="sb-feed"><span class="em" aria-hidden="true">🏠</span><span>Bảng tin</span></button>
+      <button type="button" class="sb-item" data-nav="discover" id="sb-discover"><span class="em" aria-hidden="true">🔍</span><span>Khám phá</span></button>
+      <button type="button" class="sb-item" data-nav="brew" id="sb-brew"><span class="em" aria-hidden="true">➕</span><span>Brew</span></button>
+      <button type="button" class="sb-item" data-nav="journey" id="sb-journey"><span class="em" aria-hidden="true">🏆</span><span>Hành trình</span></button>
+      <button type="button" class="sb-item" data-nav="arena" id="sb-arena"><span class="em" aria-hidden="true">⚔️</span><span>Arena</span></button>
+      <button type="button" class="sb-item" data-nav="proof" id="sb-proof"><span class="em" aria-hidden="true">🏅</span><span>POAP</span></button>
+      <button type="button" class="sb-item" data-nav="profile" id="sb-profile"><span class="em" aria-hidden="true">👤</span><span>Hồ sơ</span></button>
+      <button type="button" class="sb-item" data-nav="map" id="sb-map"><span class="em" aria-hidden="true">📋</span><span>Sơ đồ xác nhận</span></button>
+    </nav>
+    <div class="sb-suggest">
+      <p class="sb-label">Chủ đề nổi bật</p>
+      <div id="sb-hot"></div>
+    </div>
+    <div class="sb-footer">DEMO · dữ liệu mô phỏng 100%<br>không gọi backend</div>
+  </aside>
+  <div id="main-col">
+    <div id="topsearch" role="search" class="">
+      <span class="ts-icon" aria-hidden="true">🔍</span>
+      <input id="topsearch-input" type="search" placeholder="Tìm chủ đề, dán link / file / ảnh… (vd: tư duy phản biện)" aria-label="Tìm trong GON">
+      <button class="ts-btn" type="button" data-act="topsearch">Tìm</button>
+    </div>
+    <main id="main" tabindex="-1" style="height:100%;min-height:0">
+      <div id="view" aria-live="polite"></div>
+    </main>
+    <nav id="tabbar" aria-label="Điều hướng chính" class="hide">
     <button type="button" class="tab" data-nav="feed" id="tab-feed"><span class="em" aria-hidden="true">🏠</span>Bảng tin</button>
     <button type="button" class="tab" data-nav="discover" id="tab-discover"><span class="em" aria-hidden="true">🔍</span>Khám phá</button>
     <button type="button" class="tab center" data-nav="brew" id="tab-brew" aria-label="Brew chủ đề mới"><span class="em" aria-hidden="true">➕</span>Brew</button>
     <button type="button" class="tab" data-nav="journey" id="tab-journey"><span class="em" aria-hidden="true">🏆</span>Hành trình</button>
     <button type="button" class="tab" data-nav="profile" id="tab-profile"><span class="em" aria-hidden="true">👤</span>Hồ sơ</button>
   </nav>
+  </div>
 </div>
 
 <div id="toasts" aria-live="polite"></div>
@@ -563,6 +626,7 @@ window.addEventListener("hashchange", render);
 function render(){
   var route = (location.hash || "#/login").replace(/^#\//,"") || "login";
   if(!ROUTES[route]) route = "login";
+  if(!S.started && route !== "login") route = "login"; // chưa đăng nhập: mọi route đều về login
   CURRENT = route;
   markVisited(route);
   document.getElementById("view").innerHTML = ROUTES[route]();
@@ -570,6 +634,13 @@ function render(){
   var tb = document.getElementById("tabbar");
   if(TAB_ROUTES[route]){ tb.classList.remove("hide"); tb.querySelectorAll(".tab").forEach(function(t){ t.classList.toggle("active", t.getAttribute("data-nav")===route); }); }
   else tb.classList.add("hide");
+  // Sidebar trái: hiện sau khi đăng nhập, highlight mục hiện tại
+  var sb = document.getElementById("sidebar");
+  sb.style.display = (route === "login") ? "none" : "";
+  document.querySelectorAll(".sb-item").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-nav")===route); });
+  renderSbHot();
+  // Thanh tìm kiếm trên: chỉ hiện ở các tab chính (trừ Brew)
+  document.getElementById("topsearch").classList.toggle("on", !!(TAB_ROUTES[route] && route !== "brew"));
   document.getElementById("banner-state").textContent = S.started ? (S.account && S.account.anon ? "Ẩn danh · " + S.account.uuid.slice(0,8) : "Demo") : "Chưa đăng nhập";
   window.scrollTo(0,0);
 }
@@ -613,7 +684,6 @@ ROUTES.feed = function(){
       '<div class="fc-bg" aria-hidden="true">' + c.em + '</div><div class="fc-veil"></div>' +
       '<div class="feed-tabs"><button type="button" class="feed-tab' + (FEED_TAB==="hot"?" active":"") + '" data-act="feedtab" data-t="hot">🔥 Đang Hot</button>' +
       '<button type="button" class="feed-tab' + (FEED_TAB==="you"?" active":"") + '" data-act="feedtab" data-t="you">🎯 Dành cho bạn</button></div>' +
-      '<button type="button" class="feed-search" data-nav="discover" aria-label="Tìm kiếm">🔍</button>' +
       '<div class="fc-info">' +
         '<div class="fc-author"><span class="av" aria-hidden="true">' + initialsOf(c.author) + '</span>@' + esc(c.author) +
           ' <span class="lv">Lv.' + c.authorLv + '</span>' + (c.mine ? '<span class="fc-mine">OUTPUT CỦA BẠN</span>' : '') + '</div>' +
@@ -1222,8 +1292,9 @@ document.addEventListener("click", function(e){
   if(act === "rec-go"){
     var topic = actEl.getAttribute("data-topic") || "";
     if(topic){ trackInput("text", topic); }
-    LAST_QUERY = topic; render(); return;
+    LAST_QUERY = topic; nav("discover"); return;
   }
+  if(act === "topsearch"){ submitTopSearch(); return; }
   if(act === "report-ack"){ toast("🚦 Đã ghi nhận"); return; }
   if(act === "persona"){ CURRENT_PERSONA = actEl.getAttribute("data-p"); render(); return; }
   if(act === "go-brew"){ BREW_STATE = {phase:"form"}; nav("brew"); return; }
@@ -1255,6 +1326,26 @@ document.addEventListener("click", function(e){
     openModal('<h3>Reset demo?</h3><div class="row"><button class="btn danger" type="button" data-act="delete-confirm">Reset</button><button class="btn ghost" type="button" onclick="closeModal()">Huỷ</button></div>');
     return;
   }
+});
+
+function renderSbHot(){
+  var host = document.getElementById("sb-hot"); if(!host) return;
+  var top = FEED_SEED.slice().sort(function(a,b){ return b.base-a.base; }).slice(0,4);
+  host.innerHTML = top.map(function(c){
+    return '<button type="button" class="sb-hot-item" data-act="rec-go" data-topic="' + esc(c.topic) + '">' +
+      '<span class="n">🔥</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(c.topic) + '</span>' +
+      '<span class="bar"><i style="width:' + c.base + '%"></i></span></button>';
+  }).join("");
+}
+function submitTopSearch(){
+  var el = document.getElementById("topsearch-input");
+  var v = (el && el.value ? el.value : "").trim();
+  if(v) trackInput("text", v);
+  LAST_QUERY = v;
+  nav("discover");
+}
+document.getElementById("topsearch-input").addEventListener("keydown", function(e){
+  if(e.key === "Enter"){ e.preventDefault(); submitTopSearch(); }
 });
 
 function esc(s){
