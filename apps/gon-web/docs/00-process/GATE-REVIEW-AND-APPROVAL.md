@@ -1,7 +1,8 @@
 # Review và phê duyệt Gate — Hướng dẫn cho Product Owner
 
 > **Mục đích:** giúp PO duyệt nhanh nhưng không bỏ sót quyết định có tác động lâu dài.<br>
-> **Áp dụng:** G0, P01–P06 và từng vertical slice lớn trong P04.
+> **Áp dụng:** G0, P01–P06 và từng vertical slice lớn trong P04.<br>
+> **Review tổng toàn dự án:** xem [R0 — Final Review Package](R0-FINAL-REVIEW-PACKAGE.md) (biên niên sử + checklist phán quyết một trang).
 
 ## 1. PO cần xem gì ở mỗi gate?
 

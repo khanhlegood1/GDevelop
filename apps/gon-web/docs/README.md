@@ -2,7 +2,7 @@
 
 > **Mục đích:** Khu vực tài liệu kỹ thuật chính thức cho quá trình phát triển GON theo AI-Agile/HITL. Đây là nơi lưu quyết định kiến trúc, truy vết nguồn mở, tiêu chí từng gate và bằng chứng bàn giao.<br>
 > **Repository sản xuất:** [`khanhlegood1/GDevelop`](https://github.com/khanhlegood1/GDevelop)<br>
-> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 APPROVED · P04 APPROVED · P05 IN REVIEW — NOT YET PASS**<br>
+> **Trạng thái hiện tại:** **Gate 0 APPROVED · P01 APPROVED · P02 APPROVED · P03 APPROVED · P04 APPROVED · P05 IN REVIEW — NOT YET PASS · P06 PACKAGED (execution NOT RUN) · R0 package sẵn sàng — chờ PO review tổng**<br>
 > **Product Owner:** Người sở hữu dự án GON trong cuộc trao đổi phê duyệt.<br>
 > **Gate 0 được PO duyệt:** 22/10/2026 tại commit `5482dac`<br>
 > **P01 được PO duyệt:** 22/10/2026 tại commit `9a09fa2`, gồm toàn bộ `D-P01-01`…`D-P01-14`<br>
@@ -21,7 +21,7 @@
 | P04 | Vertical Slice Build | **APPROVED** | Đã được PO duyệt ngày 22/10/2026 cho PR #13/head `76eac20`/merge `ef594de` |
 | P05 | NFR & Well-Architected Review | **IN REVIEW — NOT YET PASS** | Đóng các blocker production và được PO duyệt sau re-review |
 | P06 | Cloud Deployment | **IN PROGRESS — package đã bàn giao, execution/Go-Live NOT RUN** | Thực thi sau P05 APPROVED; Go-Live cần quyết định riêng của PO |
-| R0 | Review / Retrospective | Chưa bắt đầu | Sau mỗi release hoặc khi PO yêu cầu |
+| R0 | Review / Retrospective | **package sẵn sàng — chờ PO review tổng** (theo ủy quyền 24/10/2026) | PO phán quyết P05/P06, sau đó retrospective chính thức sau release đầu tiên |
 
 ## Tài liệu P05 đang review
 
@@ -34,6 +34,10 @@
 7. [P05-R1.2 — Domain Repository Boundaries & Unit of Work](06-nfr/P05-R1.2-DOMAIN-REPOSITORIES-UNIT-OF-WORK.md) — VS1 đã chạy qua PostgreSQL normalized repositories trên PGlite; managed staging/storage/queue vẫn mở
 8. [P05-R1.3 — Durable Jobs & Transactional Outbox](06-nfr/P05-R1.3-DURABLE-JOBS-OUTBOX.md) — PostgreSQL lease/retry/reconciler, outbox publisher primitives và queued Brew đã có bằng chứng PGlite; worker deployment/sink vẫn mở
 9. [P05-R1.4 — Auth Staging Contract & Private Object Storage](06-nfr/P05-R1.4-AUTH-STAGING-OBJECT-STORAGE.md) — Auth.js DB-session/revoke và private storage port/GCS adapter đã có bằng chứng PGlite/fake transport; Google/GCS/staging thật vẫn NOT RUN
+
+## Tài liệu R0 — review tổng
+
+1. [R0 — Final Review Package: biên niên sử + checklist phán quyết một trang](00-process/R0-FINAL-REVIEW-PACKAGE.md) — **tài liệu một-cửa cho buổi review tổng của PO**
 
 ## Tài liệu P06 đang đóng gói
 
