@@ -410,7 +410,11 @@ textarea{min-height:100px;resize:vertical}
    - Phong cách TikTok: feed dọc toàn màn hình, tab bar 5 mục, like/
      comment/share/fork; output sau Brew trở thành card topic trong feed
      và có điểm xu hướng tăng theo tương tác.
-   - Vẫn 100% mock, localStorage, không network call.
+   - Vẫn 100% mock, không network call. Lưu trữ: INDEXEDDB (PO 24/10
+     23:36 — "chuyển sang dùng IndexedDB cho toàn bộ dự án"), fallback
+     localStorage nếu môi trường không có IndexedDB; tự migrate dữ liệu
+     localStorage cũ. Trang Khám phá mang theo dữ liệu từ thanh tìm kiếm
+     (đồng bộ tất cả dữ liệu).
    ===================================================================== */
 
 /* ---------------- Trạng thái ---------------- */
@@ -436,17 +440,80 @@ var DEFAULT_STATE = {
   personalization: true,
   picks: []             // {out,title,persona,depth,t} — persona bộc lộ qua lựa chọn output (PO 24/10)
 };
-function loadState(){
+function mergeState(raw){
+  var out = JSON.parse(JSON.stringify(DEFAULT_STATE)), k;
+  if(raw && typeof raw === "object"){
+    for(k in raw){ if(Object.prototype.hasOwnProperty.call(out,k)) out[k] = raw[k]; }
+  }
+  return out;
+}
+function loadStateLegacy(){
   try{
     var raw = localStorage.getItem(STORAGE_KEY);
-    if(!raw) return JSON.parse(JSON.stringify(DEFAULT_STATE));
-    var s = JSON.parse(raw), out = JSON.parse(JSON.stringify(DEFAULT_STATE)), k;
-    for(k in s){ if(Object.prototype.hasOwnProperty.call(out,k)) out[k] = s[k]; }
-    return out;
+    return raw ? mergeState(JSON.parse(raw)) : JSON.parse(JSON.stringify(DEFAULT_STATE));
   }catch(e){ return JSON.parse(JSON.stringify(DEFAULT_STATE)); }
 }
-function save(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){} }
-var S = loadState();
+/* ---- IndexedDB (PO 24/10 23:36): kho chính của toàn bộ demo; localStorage chỉ còn là fallback + nguồn migrate ---- */
+var IDB_NAME = "gon-standalone-fe-demo-v2", IDB_STORE = "state", IDB_KEY = "main", IDB_DB = null, IDB_FAILED = false;
+function idbAvailable(){ return !IDB_FAILED && !!(window.indexedDB); }
+function idbOpen(cb){
+  if(IDB_DB){ cb(IDB_DB); return; }
+  try{
+    var req = window.indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = function(){ try{ req.result.createObjectStore(IDB_STORE); }catch(e){} };
+    req.onsuccess = function(){ IDB_DB = req.result; cb(IDB_DB); };
+    req.onerror = function(){ IDB_FAILED = true; cb(null); };
+    req.onblocked = function(){ IDB_FAILED = true; cb(null); };
+  }catch(e){ IDB_FAILED = true; cb(null); }
+}
+function idbGet(cb){
+  if(!idbAvailable()){ cb(null); return; }
+  idbOpen(function(db){
+    if(!db){ cb(null); return; }
+    try{
+      var rq = db.transaction(IDB_STORE, "readonly").objectStore(IDB_STORE).get(IDB_KEY);
+      rq.onsuccess = function(){ cb(rq.result || null); };
+      rq.onerror = function(){ cb(null); };
+    }catch(e){ cb(null); }
+  });
+}
+function idbClear(cb){
+  if(!idbAvailable()){ cb && cb(); return; }
+  idbOpen(function(db){
+    if(!db){ cb && cb(); return; }
+    try{
+      var tx = db.transaction(IDB_STORE, "readwrite");
+      tx.objectStore(IDB_STORE).delete(IDB_KEY);
+      tx.oncomplete = function(){ cb && cb(); };
+      tx.onerror = function(){ cb && cb(); };
+    }catch(e){ cb && cb(); }
+  });
+}
+var BOOTED = false; // chặn save() trước khi nạp xong IndexedDB — tránh ghi đè dữ liệu thật bằng state mặc định
+function save(){
+  if(!BOOTED) return;
+  if(idbAvailable()){
+    idbOpen(function(db){
+      if(!db){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){} return; }
+      try{ db.transaction(IDB_STORE, "readwrite").objectStore(IDB_STORE).put(JSON.parse(JSON.stringify(S)), IDB_KEY); }catch(e){}
+    });
+  }else{ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(e){} }
+}
+var S = loadStateLegacy(); // giá trị tức thời; bootApp nạp lại từ IndexedDB rồi render
+function bootApp(){
+  if(!idbAvailable()){ S = loadStateLegacy(); BOOTED = true; render(); return; }
+  idbGet(function(stored){
+    if(stored){ S = mergeState(stored); BOOTED = true; }
+    else{
+      var legacy = null;
+      try{ legacy = localStorage.getItem(STORAGE_KEY); }catch(e){}
+      S = legacy ? mergeState(JSON.parse(legacy)) : JSON.parse(JSON.stringify(DEFAULT_STATE));
+      BOOTED = true;
+      if(legacy) save(); // migrate dữ liệu localStorage cũ vào IndexedDB một lần
+    }
+    render();
+  });
+}
 
 function lifetimeXp(){ return S.xpLedger.reduce(function(a,e){ return a + e.amount; },0); }
 function level(){ return Math.floor(lifetimeXp()/100); }
@@ -658,6 +725,9 @@ function render(){
   ftbs.querySelectorAll(".ftab").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-t") === FEED_TAB); });
   // Thanh tìm kiếm trên: các tab chính, trừ Brew và Khám phá (trang Khám phá có ô tìm riêng)
   document.getElementById("topsearch").classList.toggle("on", !!(TAB_ROUTES[route] && route !== "brew" && route !== "discover"));
+  // PO 24/10 23:36: đồng bộ tất cả dữ liệu tìm kiếm — thanh tìm trên mang theo query cuối
+  var tsIn = document.getElementById("topsearch-input");
+  if(tsIn && document.activeElement !== tsIn){ tsIn.value = LAST_QUERY || ""; }
   document.getElementById("banner-state").textContent = S.started ? (S.account && S.account.anon ? "Ẩn danh · " + S.account.uuid.slice(0,8) : "Demo") : "Chưa đăng nhập";
   window.scrollTo(0,0);
 }
@@ -762,7 +832,7 @@ ROUTES.discover = function(){
       '<button class="btn gold" type="button" data-act="go-brew">🧪 Brew Your Topic</button>');
   return '<div class="page"><div class="page-head"><h1>🔍 Khám phá</h1><span class="chip">gợi ý theo xu hướng</span></div>' +
     '<div class="search-hero">' +
-      '<div class="search-row"><input type="search" id="uni-input" placeholder="Tìm hoặc dán link/file/ảnh… (vd: tư duy phản biện)" aria-label="Đầu vào học tập">' +
+      '<div class="search-row"><input type="search" id="uni-input" placeholder="Tìm hoặc dán link/file/ảnh… (vd: tư duy phản biện)" aria-label="Đầu vào học tập" value="' + esc(LAST_QUERY) + '">' +
       '<button class="btn primary" type="button" data-act="uni-search">Tìm</button></div>' +
       '<div class="attach-row">' +
         '<button class="attach-btn" type="button" data-act="attach" data-type="file">📄 Tệp</button>' +
@@ -1138,7 +1208,7 @@ function exportData(){
   toast("⬇ Đã xuất dữ liệu demo");
 }
 function deleteData(){
-  openModal('<h3>Xoá dữ liệu demo?</h3><p>Xoá localStorage: XP, huy hiệu, lịch sử… (mock của luồng production "xoá tài khoản & dữ liệu")</p>' +
+  openModal('<h3>Xoá dữ liệu demo?</h3><p>Xoá IndexedDB (và localStorage cũ nếu có): XP, huy hiệu, lịch sử… (mock của luồng production "xoá tài khoản & dữ liệu")</p>' +
     '<div class="row"><button class="btn danger" type="button" data-act="delete-confirm">Xoá ngay</button><button class="btn ghost" type="button" onclick="closeModal()">Huỷ</button></div>');
 }
 
@@ -1274,7 +1344,7 @@ document.addEventListener("click", function(e){
   if(act === "anon-help"){
     openModal('<h3>🌿 Hồ sơ ẩn danh là gì?</h3>' +
       '<p>Mỗi thiết bị được cấp một <b>UUID duy nhất</b>. Hồ sơ, cấp độ và tiến trình lưu ngay trên thiết bị — <b>không cần email hay mật khẩu</b>.</p>' +
-      '<p class="small muted">Bạn có thể nâng cấp lên tài khoản thật (Google) bất cứ lúc nào để đồng bộ đa thiết bị. Trong demo này mọi thứ nằm trong localStorage.</p>' +
+      '<p class="small muted">Bạn có thể nâng cấp lên tài khoản thật (Google) bất cứ lúc nào để đồng bộ đa thiết bị. Trong demo này mọi thứ nằm trong IndexedDB trên thiết bị (PO 24/10: IndexedDB cho toàn bộ dự án).</p>' +
       '<div class="row"><button class="btn primary" type="button" onclick="closeModal()">Đã hiểu</button></div>');
     return;
   }
@@ -1357,11 +1427,11 @@ document.addEventListener("click", function(e){
   if(act === "share-cert" || act === "download-cert" || act === "export-data"){ exportData(); return; }
   if(act === "delete-data"){ deleteData(); return; }
   if(act === "delete-confirm"){
-    localStorage.removeItem(STORAGE_KEY);
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
     S = JSON.parse(JSON.stringify(DEFAULT_STATE));
     PENDING_ATTACHES = []; LAST_QUERY = ""; GAME_ANSWERS = []; GAME_SUBMITTED = false; FEED_TAB = "hot";
-    closeModal(); nav("login"); render();
-    toast("🗑 Đã xoá dữ liệu demo");
+    var afterWipe = function(){ closeModal(); nav("login"); render(); toast("🗑 Đã xoá dữ liệu demo (IndexedDB + localStorage)"); };
+    if(idbAvailable()){ idbClear(afterWipe); } else { afterWipe(); }
     return;
   }
   if(act === "reset-demo"){
@@ -1398,7 +1468,7 @@ function esc(s){
 }
 
 if(!location.hash) location.hash = "#/login";
-render();
+bootApp(); // nạp state từ IndexedDB (async) rồi render lần đầu
 </script>
 </body>
 </html>
