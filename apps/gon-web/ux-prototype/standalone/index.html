@@ -113,9 +113,11 @@ button{cursor:pointer;border:0;background:none;color:inherit}
   background:rgba(40,185,216,.1);border:1px solid rgba(40,185,216,.35);color:#8fdcf0;font-size:.72rem;font-family:ui-monospace,monospace}
 
 /* ============ Feed (TikTok) ============ */
-.feed-tabs{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;gap:8px;justify-content:center;align-items:center;padding:10px}
-.feed-tab{padding:7px 16px;border-radius:99px;color:rgba(255,255,255,.6);font-weight:700;font-size:.86rem}
-.feed-tab.active{color:#fff;background:rgba(255,255,255,.13)}
+#feedtabs{display:none;flex:0 0 auto;justify-content:center;align-items:center;gap:30px;padding:12px 20px 0;border-bottom:1px solid var(--line)}
+#feedtabs.on{display:flex}
+.ftab{position:relative;padding:6px 2px 10px;color:var(--muted);font-weight:700;font-size:.98rem;background:transparent}
+.ftab.active{color:#fff}
+.ftab.active::after{content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:2px;width:46px;height:3px;border-radius:99px;background:linear-gradient(90deg,var(--emerald),var(--cyan))}
 #feed-scroll{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none}
 #feed-scroll::-webkit-scrollbar{display:none}
 .fcard{position:relative;height:100%;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;
@@ -378,6 +380,10 @@ textarea{min-height:100px;resize:vertical}
     <div class="sb-footer">DEMO · dữ liệu mô phỏng 100%<br>không gọi backend</div>
   </aside>
   <div id="main-col">
+    <div id="feedtabs" aria-label="Chế độ Bảng tin">
+      <button type="button" class="ftab" data-act="feedtab" data-t="hot">🔥 Đang Hot</button>
+      <button type="button" class="ftab" data-act="feedtab" data-t="you">🎯 Dành cho bạn</button>
+    </div>
     <div id="topsearch" role="search" class="">
       <span class="ts-icon" aria-hidden="true">🔍</span>
       <input id="topsearch-input" type="search" placeholder="Tìm chủ đề, dán link / file / ảnh… (vd: tư duy phản biện)" aria-label="Tìm trong GON">
@@ -639,8 +645,12 @@ function render(){
   sb.style.display = (route === "login") ? "none" : "";
   document.querySelectorAll(".sb-item").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-nav")===route); });
   renderSbHot();
-  // Thanh tìm kiếm trên: chỉ hiện ở các tab chính (trừ Brew)
-  document.getElementById("topsearch").classList.toggle("on", !!(TAB_ROUTES[route] && route !== "brew"));
+  // Tab Bảng tin (Đang Hot / Dành cho bạn): trên cùng, trên cả thanh tìm kiếm — kiểu TikTok
+  var ftbs = document.getElementById("feedtabs");
+  ftbs.classList.toggle("on", route === "feed");
+  ftbs.querySelectorAll(".ftab").forEach(function(b){ b.classList.toggle("active", b.getAttribute("data-t") === FEED_TAB); });
+  // Thanh tìm kiếm trên: các tab chính, trừ Brew và Khám phá (trang Khám phá có ô tìm riêng)
+  document.getElementById("topsearch").classList.toggle("on", !!(TAB_ROUTES[route] && route !== "brew" && route !== "discover"));
   document.getElementById("banner-state").textContent = S.started ? (S.account && S.account.anon ? "Ẩn danh · " + S.account.uuid.slice(0,8) : "Demo") : "Chưa đăng nhập";
   window.scrollTo(0,0);
 }
@@ -682,8 +692,6 @@ ROUTES.feed = function(){
     var heat = trend >= 85 ? "🔥🔥🔥" : trend >= 60 ? "🔥🔥" : "🔥";
     return '<section class="fcard" data-card="' + c.id + '" style="background:linear-gradient(160deg,' + cardColor(c.id) + ')">' +
       '<div class="fc-bg" aria-hidden="true">' + c.em + '</div><div class="fc-veil"></div>' +
-      '<div class="feed-tabs"><button type="button" class="feed-tab' + (FEED_TAB==="hot"?" active":"") + '" data-act="feedtab" data-t="hot">🔥 Đang Hot</button>' +
-      '<button type="button" class="feed-tab' + (FEED_TAB==="you"?" active":"") + '" data-act="feedtab" data-t="you">🎯 Dành cho bạn</button></div>' +
       '<div class="fc-info">' +
         '<div class="fc-author"><span class="av" aria-hidden="true">' + initialsOf(c.author) + '</span>@' + esc(c.author) +
           ' <span class="lv">Lv.' + c.authorLv + '</span>' + (c.mine ? '<span class="fc-mine">OUTPUT CỦA BẠN</span>' : '') + '</div>' +

@@ -59,7 +59,8 @@ Prototype V2 hiện có tại [`../index.html`](../index.html) được giữ ng
 **Phiên bản v2.1 (thêm menu trái + thanh tìm kiếm trên kiểu TikTok desktop, theo chỉ thị PO):** [`standalone/index.html`](standalone/index.html) — **một tệp duy nhất, không dependency, không backend**, tổ chức lại toàn bộ theo phong cách TikTok:
 
 - **Menu bên trái (sidebar, kiểu TikTok desktop):** brand GON + 8 mục điều hướng (Bảng tin · Khám phá · Brew · Hành trình · Arena · POAP · Hồ sơ · Sơ đồ xác nhận), khối **"Chủ đề nổi bật"** gợi ý theo xu hướng (click là tìm), footer demo. Desktop ≥900px: sidebar thay tab bar dưới; mobile: giữ tab bar 5 mục, sidebar ẩn.
-- **Thanh tìm kiếm trên cùng (persistent, kiểu TikTok):** ô tìm pill + nút "Tìm", hiện ở các tab chính (ẩn ở Brew/login/sub-screen); Enter hoặc bấm nút → chuyển Khám phá + chạy verdict; mọi route khi chưa đăng nhập đều redirect về login (guard E2E).
+- **Thanh tìm kiếm trên cùng (persistent, kiểu TikTok):** ô tìm pill + nút "Tìm", hiện ở các tab chính (ẩn ở Brew, **Khám phá** — trang này có ô tìm riêng — và login/sub-screen); Enter hoặc bấm nút → chuyển Khám phá + chạy verdict; mọi route khi chưa đăng nhập đều redirect về login (guard E2E).
+- **v2.2 (góp ý PO 24/10 tối muộn):** tab **🔥 Đang Hot / 🎯 Dành cho bạn** chuyển lên **trên cùng, trên cả thanh tìm kiếm** (thanh tab kiểu TikTok, active có thanh chỉ báo gradient) vì phần tìm kiếm là dùng chung; **xoá thanh tìm kiếm trên cùng ở trang Khám phá** (bị dư so với ô tìm trong trang).
 
 - **Bỏ cổng 18+ hoàn toàn** (quyết định PO: dự án không quan tâm user có ≥18 tuổi hay không — production docs/code còn sót 18+ sẽ cần slice dọn riêng).
 - **Đăng nhập ẩn danh UUID** ("🌿 Bắt đầu với ẩn danh" — không cần tài khoản, tiến trình lưu trên thiết bị, có thể nâng cấp lên Google sau; tham khảo `ai-doctor-admin` `LoginPage.jsx`) hoặc Google (mock).
