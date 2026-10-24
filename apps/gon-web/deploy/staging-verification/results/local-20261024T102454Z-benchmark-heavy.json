@@ -1,0 +1,95 @@
+{
+  "baseUrl": "http://127.0.0.1:3000",
+  "environment": "local Next.js dev server + memory store + deterministic adapters",
+  "setup": {
+    "projectId": "prj_mvm960jjZAZGi7ZTF4lexM2x",
+    "initialSearchVerdict": "missing",
+    "brew": {
+      "httpStatus": 202,
+      "jobStatus": "succeeded",
+      "elapsed_ms": 174.341,
+      "samples": 1
+    }
+  },
+  "sequential": {
+    "GET /": {
+      "count": 20,
+      "statuses": {
+        "200": 20
+      },
+      "mean_ms": 30.295,
+      "p50_ms": 27.688,
+      "p95_ms": 42.561,
+      "max_ms": 42.812,
+      "wall_ms": 607.933,
+      "requests_per_second": 32.898
+    },
+    "GET /v1/me/bootstrap": {
+      "count": 80,
+      "statuses": {
+        "200": 80
+      },
+      "mean_ms": 13.845,
+      "p50_ms": 10.959,
+      "p95_ms": 26.178,
+      "max_ms": 56.499,
+      "wall_ms": 1113.787,
+      "requests_per_second": 71.827
+    },
+    "GET /v1/projects?limit=30": {
+      "count": 80,
+      "statuses": {
+        "200": 80
+      },
+      "mean_ms": 11.912,
+      "p50_ms": 10.06,
+      "p95_ms": 22.226,
+      "max_ms": 28.186,
+      "wall_ms": 958.652,
+      "requests_per_second": 83.451
+    },
+    "GET /v1/projects/{id}/workspace": {
+      "count": 80,
+      "statuses": {
+        "200": 80
+      },
+      "mean_ms": 13.654,
+      "p50_ms": 10.767,
+      "p95_ms": 25.727,
+      "max_ms": 68.211,
+      "wall_ms": 1099.774,
+      "requests_per_second": 72.742
+    },
+    "POST /v1/projects/{id}/search-attempts": {
+      "count": 20,
+      "statuses": {
+        "202": 20
+      },
+      "mean_ms": 21.22,
+      "p50_ms": 19.827,
+      "p95_ms": 30.771,
+      "max_ms": 34.17,
+      "wall_ms": 426.775,
+      "requests_per_second": 46.863
+    }
+  },
+  "concurrent": {
+    "GET /v1/me/bootstrap": {
+      "count": 150,
+      "statuses": {
+        "200": 150
+      },
+      "mean_ms": 393.319,
+      "p50_ms": 402.769,
+      "p95_ms": 505.271,
+      "max_ms": 523.268,
+      "wall_ms": 3147.471,
+      "requests_per_second": 47.657
+    }
+  },
+  "limitations": [
+    "Next.js dev mode, one local process, one synthetic user/project",
+    "memory store and deterministic local embedding/Brew only",
+    "no PostgreSQL, Gemini/ADK, Cloud Run, queue, network latency or browser rendering"
+  ]
+}

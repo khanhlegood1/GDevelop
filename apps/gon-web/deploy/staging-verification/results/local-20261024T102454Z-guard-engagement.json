@@ -1,0 +1,9 @@
+{
+  "total_requests": 400,
+  "status_counts": {
+    "401": 120,
+    "429": 280
+  },
+  "rate_limited_with_retry_after": 280,
+  "engaged": true
+}
