@@ -42,6 +42,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(!document.querySelector(".checkline"), "no consent checkboxes (18+ gate removed)");
   ok(text().includes("Tiếp tục với Google"), "Google option present");
 
+  console.log("== Boot: login guard ==");
+  await goHash("#/feed");
+  ok(text().includes("Bắt đầu với ẩn danh"), "not-logged-in: any route redirects to login");
+  ok(document.getElementById("sidebar").style.display === "none", "sidebar hidden on login");
+  ok(!document.getElementById("topsearch").classList.contains("on"), "top search hidden on login");
+
   console.log("== F1: anonymous login ==");
   click(q('[data-act="anon-help"]'));
   ok(document.getElementById("modal-overlay").classList.contains("show"), "anonymous help modal opens");
@@ -52,6 +58,26 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(text().includes("điểm xu hướng"), "trend score shown on cards");
   const uuid = JSON.parse(window.localStorage.getItem("gon-standalone-fe-demo-v2")).account.uuid;
   ok(/^u-/.test(uuid), "anonymous UUID profile created: " + uuid);
+
+  console.log("== Layout: left sidebar + top search bar (TikTok desktop) ==");
+  ok(document.getElementById("sidebar").style.display !== "none", "left sidebar visible after login");
+  ok(document.getElementById("sidebar").textContent.includes("Bảng tin"), "sidebar nav items present");
+  ok(document.querySelectorAll(".sb-item").length >= 7, "sidebar has >=7 menu items");
+  ok(document.getElementById("sb-hot").children.length >= 3, "sidebar suggested topics rendered");
+  ok(document.getElementById("topsearch").classList.contains("on"), "top search bar shown on feed");
+  document.getElementById("topsearch-input").value = "tư duy phản biện";
+  await clk(q('[data-act="topsearch"]'));
+  ok(window.location.hash === "#/discover", "top search navigates to discover");
+  ok(text().includes("Tìm thấy module khớp"), "top search runs verdict FOUND");
+  document.getElementById("topsearch-input").value = "chủ đề mới lạ";
+  document.getElementById("topsearch-input").dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  await sleep(80);
+  ok(text().includes("Chưa ai Brew chủ đề này"), "Enter key in top search works");
+  await clk(q(".sb-hot-item"));
+  ok(window.location.hash === "#/discover", "sidebar suggested topic navigates to discover");
+  await clk(document.getElementById("sb-feed"));
+  ok(window.location.hash === "#/feed", "sidebar nav back to feed");
+  ok(document.querySelector(".sb-item.active").id === "sb-feed", "sidebar active state syncs");
 
   console.log("== F2: feed interactions (like/comment/share) ==");
   await clk(q('[data-act="like"][data-card="c2"]'));

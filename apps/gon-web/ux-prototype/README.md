@@ -56,7 +56,10 @@ Prototype V2 hiện có tại [`../index.html`](../index.html) được giữ ng
 
 ## Standalone Front-End Confirmation Demo (24/10/2026)
 
-**Phiên bản v2 (TikTok-style, theo chỉ thị PO 24/10 tối):** [`standalone/index.html`](standalone/index.html) — **một tệp duy nhất, không dependency, không backend**, tổ chức lại toàn bộ theo phong cách TikTok:
+**Phiên bản v2.1 (thêm menu trái + thanh tìm kiếm trên kiểu TikTok desktop, theo chỉ thị PO):** [`standalone/index.html`](standalone/index.html) — **một tệp duy nhất, không dependency, không backend**, tổ chức lại toàn bộ theo phong cách TikTok:
+
+- **Menu bên trái (sidebar, kiểu TikTok desktop):** brand GON + 8 mục điều hướng (Bảng tin · Khám phá · Brew · Hành trình · Arena · POAP · Hồ sơ · Sơ đồ xác nhận), khối **"Chủ đề nổi bật"** gợi ý theo xu hướng (click là tìm), footer demo. Desktop ≥900px: sidebar thay tab bar dưới; mobile: giữ tab bar 5 mục, sidebar ẩn.
+- **Thanh tìm kiếm trên cùng (persistent, kiểu TikTok):** ô tìm pill + nút "Tìm", hiện ở các tab chính (ẩn ở Brew/login/sub-screen); Enter hoặc bấm nút → chuyển Khám phá + chạy verdict; mọi route khi chưa đăng nhập đều redirect về login (guard E2E).
 
 - **Bỏ cổng 18+ hoàn toàn** (quyết định PO: dự án không quan tâm user có ≥18 tuổi hay không — production docs/code còn sót 18+ sẽ cần slice dọn riêng).
 - **Đăng nhập ẩn danh UUID** ("🌿 Bắt đầu với ẩn danh" — không cần tài khoản, tiến trình lưu trên thiết bị, có thể nâng cấp lên Google sau; tham khảo `ai-doctor-admin` `LoginPage.jsx`) hoặc Google (mock).
