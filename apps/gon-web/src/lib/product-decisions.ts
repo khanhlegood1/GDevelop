@@ -93,3 +93,23 @@ export function dominantPersona(picks: ReadonlyArray<OutputPick>): OutputPersona
   }
   return best;
 }
+
+/**
+ * QUYẾT ĐỊNH 24/10/2026 (23:36, kèm screenshot) — INDEXEDDB CHO TOÀN BỘ DỰ ÁN:
+ * "Trang Khám phá: phải mang dữ liệu từ thanh tìm kiếm qua cho đồng bộ
+ *  tất cả dữ liệu. Chuyển sang dùng IndexedDB cho toàn bộ dự án này.
+ *  Ghi vào tất cả tài liệu + code chính."
+ * (nguyên văn PO — xem docs/00-process/PO-DECISION-STORAGE-INDEXEDDB-2026-10-24.md)
+ *
+ * Adapter production: src/lib/browser-storage.ts
+ * (IndexedDB là kho chính; localStorage chỉ còn fallback + nguồn migrate.)
+ */
+export const INDEXEDDB_STORAGE_DECISION = {
+  id: "PO-2026-10-24-STORAGE-INDEXEDDB",
+  date: "2026-10-24",
+  source: "Product Owner (GON) — 24/10/2026 23:36, kèm screenshot",
+  decisionDoc: "docs/00-process/PO-DECISION-STORAGE-INDEXEDDB-2026-10-24.md",
+  productionAdapter: "src/lib/browser-storage.ts",
+  clientStorage: "IndexedDB (thay cho localStorage) cho toàn bộ dự án",
+  searchSync: "Trang Khám phá mang theo dữ liệu từ thanh tìm kiếm — đồng bộ tất cả dữ liệu (query hai chiều giữa top search và ô tìm trong trang)",
+} as const;

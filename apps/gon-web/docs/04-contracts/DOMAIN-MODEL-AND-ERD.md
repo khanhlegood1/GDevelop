@@ -2,6 +2,8 @@
 
 > 🔁 **Cập nhật PO — 24/10/2026 (tối muộn) — quyết định sản phẩm mới:** Persona đầu ra (🔬 PhD / Nghiên cứu · 🎬 KOL / Sáng tạo · 🎈 Giải trí · 🚀 Nâng cao) và các Độ sâu **không hiện ra cho user chọn** — mặc định **chạy tất cả các tổ hợp**, xuất nhiều output như feed TikTok. Output user chọn chính là Persona đầu ra của họ, đồng thời là tín hiệu **Arena** và **dấu chân đẳng cấp**. **Màn hình Brew và màn hình Arena đã được gộp vào chung màn hình Khám phá.** Nội dung dưới đây giữ nguyên làm tư liệu nền; chi tiết & trạng thái triển khai: [`PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md`](../00-process/PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md). Không thay đổi hợp đồng P03 đã chốt — nếu việc triển khai cần đụng contract thì đi qua quy trình thay đổi P03.
 
+> 🗄️ **Cập nhật PO — 24/10/2026 (23:36) — IndexedDB cho toàn bộ dự án:** toàn bộ dữ liệu phía client chuyển sang **IndexedDB** (localStorage chỉ còn fallback + nguồn migrate một lần); trang **Khám phá mang theo dữ liệu từ thanh tìm kiếm** (đồng bộ tất cả dữ liệu, hai chiều). Chi tiết: [`PO-DECISION-STORAGE-INDEXEDDB-2026-10-24.md`](../00-process/PO-DECISION-STORAGE-INDEXEDDB-2026-10-24.md) — code chính: `src/lib/browser-storage.ts`.
+
 > **Trạng thái:** APPROVED tại P03 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục tiêu:** Xác định dữ liệu nào tồn tại, thuộc về ai, thay đổi ra sao và bất biến nào database/API phải bảo vệ. Tên entity là contract logic; ORM ở P04 có thể map sang bảng vật lý snake_case.
 

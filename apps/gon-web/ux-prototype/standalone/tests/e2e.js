@@ -1,14 +1,29 @@
 "use strict";
 /* E2E smoke test cho GON standalone FE demo v2 — TikTok-style (jsdom, không network).
- * Chạy:  mkdir /tmp/gontest && cd /tmp/gontest && npm init -y && npm i jsdom
+ * Chạy:  mkdir /tmp/gontest && cd /tmp/gontest && npm init -y && npm i jsdom fake-indexeddb
  *        node apps/gon-web/ux-prototype/standalone/tests/e2e.js
- * Kết quả kỳ vọng: tất cả PASS (toàn bộ F1–F11). */
+ * Kết quả kỳ vọng: tất cả PASS (toàn bộ F1–F11).
+ * Lưu trữ: demo dùng IndexedDB — test inject fake-indexeddb vào window trước khi script chạy. */
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
 const path = require("path");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const dom = new JSDOM(html, { url: "http://localhost:4173/", runScripts: "dangerously", pretendToBeVisual: true });
+let fakeIndexedDB = null, fakeIDBKeyRange = null;
+try {
+  const f = require("fake-indexeddb");
+  fakeIndexedDB = f.indexedDB || f;
+  fakeIDBKeyRange = f.IDBKeyRange || null;
+} catch (e) { /* thiếu fake-indexeddb → demo tự fallback localStorage */ }
+const dom = new JSDOM(html, {
+  url: "http://localhost:4173/", runScripts: "dangerously", pretendToBeVisual: true,
+  beforeParse(w) {
+    if (fakeIndexedDB) {
+      w.indexedDB = fakeIndexedDB;
+      if (fakeIDBKeyRange) w.IDBKeyRange = fakeIDBKeyRange;
+    }
+  },
+});
 const { window } = dom;
 const { document } = window;
 
@@ -34,9 +49,36 @@ async function goHash(h) {
   await sleep(50);
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(cond, ms) {
+  const end = Date.now() + (ms || 2500);
+  while (Date.now() < end) { if (cond()) return true; await sleep(25); }
+  return !!cond();
+}
+function readState(win) {
+  win = win || window;
+  return new Promise((resolve) => {
+    if (!win.indexedDB) { resolve(null); return; }
+    const req = win.indexedDB.open("gon-standalone-fe-demo-v2", 1);
+    req.onupgradeneeded = () => { try { req.result.createObjectStore("state"); } catch (e) {} };
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const rq = db.transaction("state", "readonly").objectStore("state").get("main");
+        rq.onsuccess = () => resolve(rq.result || null);
+        rq.onerror = () => resolve(null);
+      } catch (e) { resolve(null); }
+    };
+    req.onerror = () => resolve(null);
+  });
+}
 
 (async () => {
-  console.log("== Boot ==");
+  console.log("== Boot (IndexedDB async) ==");
+  ok(await waitFor(() => {
+    const v = document.getElementById("view");
+    return v && v.textContent && v.textContent.includes("GON");
+  }), "app boots: state loaded from IndexedDB, first render done");
+  ok(!!window.indexedDB, "IndexedDB injected (fake-indexeddb)");
   ok(text().includes("GON"), "S01 login renders");
   ok(text().includes("Bắt đầu với ẩn danh"), "anonymous button present");
   ok(!document.querySelector(".checkline"), "no consent checkboxes (18+ gate removed)");
@@ -57,8 +99,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(window.location.hash === "#/feed", "anon login → #/feed");
   ok(document.querySelectorAll(".fcard").length >= 6, "feed has >=6 topic cards");
   ok(text().includes("điểm xu hướng"), "trend score shown on cards");
-  const uuid = JSON.parse(window.localStorage.getItem("gon-standalone-fe-demo-v2")).account.uuid;
-  ok(/^u-/.test(uuid), "anonymous UUID profile created: " + uuid);
+  const st0 = await readState();
+  ok(st0 && /^u-/.test(st0.account.uuid), "anonymous UUID profile created in IndexedDB: " + (st0 ? st0.account.uuid : "null"));
+  ok(window.localStorage.getItem("gon-standalone-fe-demo-v2") === null, "state persisted in IndexedDB, not localStorage");
 
   console.log("== Layout: left sidebar + top search bar (TikTok desktop) ==");
   ok(document.getElementById("sidebar").style.display !== "none", "left sidebar visible after login");
@@ -76,14 +119,19 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(!document.getElementById("topsearch").classList.contains("on"), "top search hidden on Discover (redundant there)");
   ok(!document.getElementById("feedtabs").classList.contains("on"), "feed tabs hidden off feed");
   ok(text().includes("Tìm thấy module khớp"), "top search runs verdict FOUND");
+  ok(document.getElementById("uni-input").value === "tư duy phản biện", "query carried from top search bar into Discover input (sync)");
   document.getElementById("topsearch-input").value = "chủ đề mới lạ";
   document.getElementById("topsearch-input").dispatchEvent(new window.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
   await sleep(80);
   ok(text().includes("Chưa ai Brew chủ đề này"), "Enter key in top search works");
+  ok(document.getElementById("uni-input").value === "chủ đề mới lạ", "Discover input synced with last query");
+  const hotTopic = q(".sb-hot-item").getAttribute("data-topic");
   await clk(q(".sb-hot-item"));
   ok(window.location.hash === "#/discover", "sidebar suggested topic navigates to discover");
+  ok(document.getElementById("uni-input").value === hotTopic, "suggested topic prefills Discover search (data carried over)");
   await clk(document.getElementById("sb-feed"));
   ok(window.location.hash === "#/feed", "sidebar nav back to feed");
+  ok(document.getElementById("topsearch-input").value === hotTopic, "top search bar synced with last query (both ways)");
   ok(document.querySelector(".sb-item.active").id === "sb-feed", "sidebar active state syncs");
 
   console.log("== F2: feed interactions (like/comment/share) ==");
@@ -175,7 +223,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await goHash("#/feed");
   const forkBtn = q('.fcard[data-card^="b"] [data-act="fork-card"]');
   await clk(forkBtn);
-  ok(JSON.parse(window.localStorage.getItem("gon-standalone-fe-demo-v2")).forks.length >= 1, "fork recorded");
+  ok((await readState()).forks.length >= 1, "fork recorded (IndexedDB)");
 
   console.log("== F9: arena (merged into Discover) + persona reveal ==");
   await goHash("#/arena");
@@ -191,7 +239,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(q('[data-act="pick-output"][data-o="' + pickOid + '"]') === null, "picked output marked chosen (persona reveal)");
   const kolBtn = q('[data-act="pick-output"][data-p="kol"]');
   if (kolBtn) await clk(kolBtn);
-  ok(JSON.parse(window.localStorage.getItem("gon-standalone-fe-demo-v2")).picks.length >= 2, "persona picks recorded (>=2)");
+  ok((await readState()).picks.length >= 2, "persona picks recorded in IndexedDB (>=2)");
 
   console.log("== F10: own output trending >=40 ==");
   await goHash("#/feed");
@@ -204,8 +252,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   window.closeModal();
   await clk(q('.fcard[data-card="b0"] [data-act="card-learn"]'));
   ok(window.location.hash === "#/module", "learning own output boosts trend");
-  const st = JSON.parse(window.localStorage.getItem("gon-standalone-fe-demo-v2"));
-  ok(st.brewed[0].trend >= 40, "own output trend >= 40 (got " + st.brewed[0].trend + ")");
+  const st = await readState();
+  ok(st.brewed[0].trend >= 40, "own output trend >= 40 in IndexedDB (got " + st.brewed[0].trend + ")");
 
   console.log("== F11: POAP + privacy ==");
   await goHash("#/proof");
@@ -228,7 +276,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   ok(/Lv\.\d+/.test(hdr), "journey shows level");
 
   console.log("== S14: map ==");
-  const stx = JSON.parse(window.localStorage.getItem("gon-standalone-fe-demo-v2"));
+  const stx = await readState();
   const undone = [];
   if (!stx.started) undone.push("F1");
   if (!(Object.keys(stx.likes).length>0 || Object.keys(stx.comments).length>0)) undone.push("F2");
@@ -250,6 +298,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   console.log("== no 18+ remnants (UI text only) ==");
   const ui = document.getElementById("view").textContent + " " + (document.querySelector(".demo-banner") || {textContent:""}).textContent + " " + (document.getElementById("tabbar").textContent);
   ok(!ui.includes("18+") && !ui.includes("đủ 18 tuổi"), "no 18+ gate text in UI");
+
+  console.log("== IndexedDB persistence across reload ==");
+  const dom2 = new JSDOM(html, {
+    url: "http://localhost:4173/", runScripts: "dangerously", pretendToBeVisual: true,
+    beforeParse(w) {
+      if (fakeIndexedDB) {
+        w.indexedDB = fakeIndexedDB;
+        if (fakeIDBKeyRange) w.IDBKeyRange = fakeIDBKeyRange;
+      }
+    },
+  });
+  const doc2 = dom2.window.document;
+  ok(await waitFor(() => {
+    const v = doc2.getElementById("view");
+    return v && v.textContent && v.textContent.includes("Tiếp tục với tiến trình đã có");
+  }, 2500), "after reload: progress restored from IndexedDB (resume button shows)");
+  const st2 = await readState(dom2.window);
+  ok(st2 && st2.started === true && st2.brewed.length > 0, "reloaded state intact from IndexedDB (started + brewed)");
 
   console.log("\nRESULT: " + pass + " passed, " + fail + " failed");
   process.exit(fail === 0 ? 0 : 1);

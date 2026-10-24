@@ -2,6 +2,8 @@
 
 > 🔁 **Cập nhật PO — 24/10/2026 (tối muộn) — quyết định sản phẩm mới:** Persona đầu ra và Độ sâu **không hiện ra cho user chọn** — mặc định **chạy tất cả các tổ hợp**, xuất nhiều output như feed TikTok; output user chọn chính là Persona của họ, tín hiệu **Arena** và **dấu chân đẳng cấp**. **Màn hình Brew và Arena đã gộp vào màn hình Khám phá.** Chi tiết: [`PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md`](docs/00-process/PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md) — đã ghi vào code chính tại `src/lib/product-decisions.ts`.
 
+> 🗄️ **Cập nhật PO — 24/10/2026 (23:36) — IndexedDB cho toàn bộ dự án:** toàn bộ dữ liệu phía client chuyển sang **IndexedDB** (localStorage chỉ còn fallback + nguồn migrate một lần); trang **Khám phá mang theo dữ liệu từ thanh tìm kiếm** (đồng bộ tất cả dữ liệu, hai chiều). Chi tiết: [`PO-DECISION-STORAGE-INDEXEDDB-2026-10-24.md`](docs/00-process/PO-DECISION-STORAGE-INDEXEDDB-2026-10-24.md) — code chính: `src/lib/browser-storage.ts`.
+
 > **P04 VS1 increment đã được PO duyệt:** mã Next.js/TypeScript nằm trong [`src/`](src/README.md), PostgreSQL migrations trong [`db/`](db/README.md) và Python ADK harness tại [`../gon-adk/`](../gon-adk/README.md). Baseline/bằng chứng P04 nằm tại [`docs/05-build/README.md`](docs/05-build/README.md); gate hiện tại là [`P05 NFR & Well-Architected Review`](docs/06-nfr/README.md) — **IN REVIEW, NOT YET PASS**. Phần dưới mô tả prototype tĩnh lịch sử ở thư mục này, không phải production deployment.
 
 Prototype chạy ngay, không cần build hay API key. Nó biến ý tưởng của GON thành một hành trình tương tác:
