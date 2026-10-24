@@ -142,6 +142,8 @@ button{cursor:pointer;border:0;background:none;color:inherit}
 .rail-btn{display:flex;flex-direction:column;gap:2px;align-items:center;color:#fff;font-size:.68rem;font-weight:700}
 .rail-btn .em{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:1.3rem}
 .rail-btn.liked .em{background:var(--crimson-soft);animation:pop .3s}
+.rail-btn.loved .em{background:rgba(124,92,255,.4);animation:pop .3s}
+.rail-btn.locked{opacity:.5}
 @keyframes pop{50%{transform:scale(1.25)}}
 .rail-av{width:46px;height:46px;border-radius:50%;background:var(--violet);border:2px solid #fff;display:grid;place-items:center;font-size:.72rem;font-weight:800;margin-bottom:6px}
 .rail-disc{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2b2b3b,#000);display:grid;place-items:center;
@@ -449,7 +451,10 @@ var DEFAULT_STATE = {
   comments: {},         // cardId -> [{who, text}]
   shares: 0,
   personalization: true,
-  picks: []             // {out,title,persona,depth,t} — persona bộc lộ qua lựa chọn output (PO 24/10)
+  picks: [],            // {out,title,persona,depth,t} — persona bộc lộ qua lựa chọn output (PO 24/10)
+  loves: {},            // cardId -> {topic,t} — 💜 "Đã hiểu thật" (chỉ mở sau checkpoint của card đó)
+  learnedCards: {},     // cardId -> 1 (đã qua checkpoint — mở khoá 💜)
+  remixes: []           // {from,fromAuthor,topic,persona,depth,t} — output phái sinh có ghi công nguồn
 };
 function mergeState(raw){
   var out = JSON.parse(JSON.stringify(DEFAULT_STATE)), k;
@@ -685,6 +690,12 @@ function feedCards(){
       author:S.account ? S.account.name : "Bạn", authorLv:level(), tags:["#brew","#gon"],
       base:b.trend, boost:0, fmt:"web", sound:"nhạc nền: Fresh Brew", target:"module", mine:true});
   });
+  var REMIX_FMT = {phd:"web", kol:"video", fun:"game", adv:"infographic"};
+  S.remixes.forEach(function(r, i){
+    cards.push({id:"r"+i, em:"🎨", topic:r.topic, desc:"Remix từ " + r.fromAuthor + " · " + PERSONAS[r.persona].em + " " + PERSONAS[r.persona].label + " · " + DEPTHS[r.depth].label + " — tương tác để tăng nhiệt độ.",
+      author:S.account ? S.account.name : "Bạn", authorLv:level(), tags:["#remix","#gon"],
+      base:12, boost:0, fmt:REMIX_FMT[r.persona] || "web", sound:"nhạc nền: Remix Culture", target:"module", mine:true, remixOf:r.fromAuthor});
+  });
   return cards;
 }
 function trendOf(c){ return c.base + c.boost + (S.comments[c.id] ? S.comments[c.id].length*5 : 0) + (S.likes[c.id]?3:0); }
@@ -775,6 +786,7 @@ ROUTES.feed = function(){
   else { cards.sort(function(a,b){ return trendOf(b)-trendOf(a); }); }
   return '<div id="feed-scroll">' + cards.map(function(c){
     var liked = !!S.likes[c.id];
+    var loved = !!S.loves[c.id], loveOpen = !!S.learnedCards[c.id];
     var cmts = S.comments[c.id] || [];
     var trend = trendOf(c);
     var heat = trend >= 85 ? "🔥🔥🔥" : trend >= 60 ? "🔥🔥" : "🔥";
@@ -794,7 +806,9 @@ ROUTES.feed = function(){
         '<span class="rail-av" aria-hidden="true">' + initialsOf(c.author) + '</span>' +
         '<button type="button" class="rail-btn' + (liked?" liked":"") + '" data-act="like" data-card="' + c.id + '" aria-label="Thả tim"><span class="em">' + (liked?"❤️":"🤍") + '</span>' + likeCount(c.id) + '</button>' +
         '<button type="button" class="rail-btn" data-act="comment" data-card="' + c.id + '" aria-label="Bình luận"><span class="em">💬</span>' + (cmts.length + mockComments(c.id).length) + '</button>' +
+        '<button type="button" class="rail-btn' + (loved?" loved":"") + (loveOpen?"":" locked") + '" data-act="love" data-card="' + c.id + '" aria-label="Đã hiểu thật (mở sau checkpoint)"><span class="em">' + (loveOpen?"💜":"🔒") + '</span>' + loveCount(c.id) + '</button>' +
         '<button type="button" class="rail-btn" data-act="share" data-card="' + c.id + '" aria-label="Chia sẻ"><span class="em">↗️</span>' + (S.shares + 12) + '</button>' +
+        '<button type="button" class="rail-btn" data-act="remix" data-card="' + c.id + '" aria-label="Remix output này theo tổ hợp của bạn"><span class="em">🎨</span>Remix</button>' +
         '<button type="button" class="rail-btn" data-act="fork-card" data-card="' + c.id + '" aria-label="Fork hành trình"><span class="em">🍴</span>Fork</button>' +
         '<span class="rail-disc" aria-hidden="true">🎵</span>' +
       '</div>' +
@@ -809,6 +823,7 @@ function cardColor(id){
 }
 function initialsOf(name){ return name.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase(); }
 function likeCount(id){ return 120 + (S.likes[id]?1:0) + ((id.charCodeAt(1)||3) % 900); }
+function loveCount(id){ return 18 + (S.loves[id]?1:0) + ((id.charCodeAt(1)||3) % 40); }
 function mockComments(id){
   var pool = [
     {who:"@minhanh", text:"Mục 2 thay đổi cách tôi đọc báo luôn 😮"},
@@ -820,7 +835,7 @@ function mockComments(id){
 }
 
 /* ---------------- S03 · Khám phá ---------------- */
-var LAST_QUERY = "";
+var LAST_QUERY = "", PENDING_LEARN_CARD = null; // card đang học (để mở khoá 💜 "đã hiểu thật" sau checkpoint)
 function searchVerdict(q){
   var n = q.toLowerCase();
   if(!n.trim()) return "clarify";
@@ -1002,7 +1017,9 @@ function submitCheck(){
   var v = ta.value.trim();
   if(ta.dataset.pasted === "1"){ document.getElementById("paste-warn").classList.add("show"); return; }
   if(v.length < 80){ openModal('<h3>Chưa đủ</h3><p>Cần tối thiểu 80 ký tự (hiện ' + v.length + ').</p><div class="row"><button class="btn primary" type="button" onclick="closeModal()">OK</button></div>'); return; }
-  S.checks.push({q:"weak-argument", len:v.length, passed:true}); save();
+  S.checks.push({q:"weak-argument", len:v.length, passed:true});
+  if(PENDING_LEARN_CARD){ S.learnedCards[PENDING_LEARN_CARD] = 1; PENDING_LEARN_CARD = null; toast("💜 Đã mở khoá reaction \"Đã hiểu thật\" cho output này"); }
+  save();
   document.getElementById("check-ok").classList.add("show");
   document.getElementById("paste-warn").classList.remove("show");
   grantBadge("first_proof"); addXp(30, "Vượt checkpoint hiểu thật");
@@ -1146,13 +1163,15 @@ ROUTES.proof = function(){
   S.checks.forEach(function(){ events.push({em:"🛡️", label:"Checkpoint hiểu thật đạt (không dán)", t:Date.now()}); });
   S.votes.forEach(function(v){ events.push({em:"⚔️", label:"Vote Arena: "+v.choice.toUpperCase(), t:v.t}); });
   S.picks.forEach(function(p){ events.push({em:"👣", label:"Chọn output: \""+p.title+"\" → "+PERSONAS[p.persona].em+" "+PERSONAS[p.persona].label+" ("+DEPTHS[p.depth].label+")", t:p.t}); });
+  S.remixes.forEach(function(r){ events.push({em:"🎨", label:"Remix: "+r.topic+" ("+PERSONAS[r.persona].em+" "+PERSONAS[r.persona].label+") từ "+r.fromAuthor, t:r.t}); });
+  Object.keys(S.loves).forEach(function(k){ var lv = S.loves[k]; events.push({em:"💜", label:"Đã hiểu thật: "+(lv.topic||k), t:lv.t}); });
   S.forks.forEach(function(f){ events.push({em:"🍴", label:"Fork: "+f.topic, t:f.t}); });
   if(S.gameBest!==null) events.push({em:"🎮", label:"Mini-game: "+S.gameBest+"/3", t:Date.now()});
   events.sort(function(a,b){ return b.t-a.t; });
   return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="journey" aria-label="Quay lại">←</button><h1>🏅 Proof of Learning</h1></div>' +
     '<div class="grid2">' +
       '<div class="card"><h3>🕘 Dòng thời gian</h3>' + (events.length
-        ? '<ul class="timeline">' + events.slice(0,14).map(function(e){ return '<li><div>' + e.em + " " + e.label + '</div><div class="t-meta">' + new Date(e.t).toLocaleString("vi-VN") + '</div></li>'; }).join("") + '</ul>'
+        ? '<ul class="timeline">' + events.slice(0,30).map(function(e){ return '<li><div>' + e.em + " " + e.label + '</div><div class="t-meta">' + new Date(e.t).toLocaleString("vi-VN") + '</div></li>'; }).join("") + '</ul>'
         : '<p class="muted small">Chưa có hoạt động.</p>') + '</div>' +
       '<div class="card"><h3>Huy hiệu <span class="small muted">(' + S.badges.length + '/' + Object.keys(BADGES).length + ')</span></h3>' +
         '<div class="badge-grid">' + Object.keys(BADGES).map(function(id){
@@ -1312,7 +1331,8 @@ var FLOWS = [
   {id:"F9",name:"Arena vote (trong Khám phá) → mở nhãn model",go:"discover",need:"voted"},
   {id:"F10",name:"Output của bạn lên ≥40 điểm xu hướng",go:"feed",need:"trending"},
   {id:"F11",name:"POAP + quyền riêng tư (xuất/xoá)",go:"profile",need:"privacy"},
-  {id:"F12",name:"Leaderboard (kiểu arena.ai): vote Arena → xếp hạng model + thứ hạng người học",go:"leaderboard",need:"lbviewed"}
+  {id:"F12",name:"Leaderboard (kiểu arena.ai): vote Arena → xếp hạng model + thứ hạng người học",go:"leaderboard",need:"lbviewed"},
+  {id:"F13",name:"Remix output (persona reveal) + 💜 Đã hiểu thật (gated sau checkpoint)",go:"feed",need:"remixed"}
 ];
 function flowDone(f){
   switch(f.need){
@@ -1328,13 +1348,14 @@ function flowDone(f){
     case "trending": return S.brewed.some(function(b){ return b.trend>=40; });
     case "privacy": return S.visited.indexOf("profile")!==-1;
     case "lbviewed": return S.visited.indexOf("leaderboard")!==-1;
+    case "remixed": return S.remixes.length>0;
   }
   return false;
 }
 ROUTES.map = function(){
   var doneFlows = FLOWS.filter(flowDone).length;
   return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="profile" aria-label="Quay lại">←</button><h1>📋 Sơ đồ xác nhận FE</h1></div>' +
-    '<div class="card"><p class="small muted">Bấm lần lượt F1→F12 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
+    '<div class="card"><p class="small muted">Bấm lần lượt F1→F13 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
     '<div class="brew-visual" style="margin-top:10px"><i style="width:' + Math.round(doneFlows/FLOWS.length*100) + '%"></i></div>' +
     '<p class="small muted" style="margin-top:6px">Screens ' + S.visited.length + '/' + SCREENS.length + ' · Flows ' + doneFlows + '/' + FLOWS.length + ' · XP ' + lifetimeXp() + '</p></div>' +
     '<div class="card"><h3>Luồng chính</h3>' + FLOWS.map(function(f){
@@ -1438,6 +1459,42 @@ document.addEventListener("click", function(e){
       '<div class="row"><button class="btn primary" type="button" onclick="closeModal()">Đã hiểu</button></div>');
     return;
   }
+  if(act === "love"){
+    var lid = actEl.getAttribute("data-card");
+    if(!S.learnedCards[lid]){ toast("💜 Chưa mở khoá — hãy vượt checkpoint \"hiểu thật\" của output này trước (chống reaction ảo)"); return; }
+    if(S.loves[lid]){ toast("Bạn đã thả 💜 cho output này rồi"); return; }
+    var lcard = feedCards().filter(function(c){ return c.id===lid; })[0];
+    S.loves[lid] = {topic: lcard ? lcard.topic : "", t:Date.now()};
+    save(); boostCard(lid, 5, "được 💜 đã hiểu thật"); addXp(2, "Đã hiểu thật");
+    return;
+  }
+  if(act === "remix"){
+    var rid = actEl.getAttribute("data-card");
+    var rcard = feedCards().filter(function(c){ return c.id===rid; })[0];
+    if(!rcard) return;
+    openSheet('<div class="sheet-handle"></div>' +
+      '<h3 style="margin:0 0 8px">🎨 Remix "' + esc(rcard.topic) + '"</h3>' +
+      '<p class="small muted">Chọn tổ hợp CỦA BẠN — mọi tổ hợp persona × độ sâu đều được sinh sẵn (quyết định PO 24/10). Lựa chọn này cũng là <b>persona bộc lộ</b> (dấu chân đẳng cấp) và tăng xu hướng cho output gốc của @' + esc(rcard.author) + '.</p>' +
+      '<div class="row" style="margin-top:10px;flex-wrap:wrap">' + allCombos().map(function(cc){
+        return '<button class="btn sm ghost" type="button" data-act="remix-pick" data-card="' + rid + '" data-p="' + cc.persona + '" data-d="' + cc.depth + '">' + PERSONAS[cc.persona].em + " " + PERSONAS[cc.persona].label + " · " + DEPTHS[cc.depth].em + " " + DEPTHS[cc.depth].label + '</button>';
+      }).join("") + '</div>');
+    return;
+  }
+  if(act === "remix-pick"){
+    var xid = actEl.getAttribute("data-card");
+    var xcard = feedCards().filter(function(c){ return c.id===xid; })[0];
+    var xper = actEl.getAttribute("data-p"), xdep = actEl.getAttribute("data-d");
+    if(xcard){
+      S.remixes.push({from:xid, fromAuthor:(xcard.remixOf ? xcard.remixOf : "@" + xcard.author), topic:xcard.topic, persona:xper, depth:xdep, t:Date.now()});
+      S.picks.push({out:"remix-" + xid + "-" + (S.remixes.length-1), title:xcard.topic, persona:xper, depth:xdep, t:Date.now()});
+      save(); closeSheet();
+      boostCard(xid, 6, "được remix");
+      addXp(15, "Remix sáng tạo");
+      toast("🎨 Đã remix theo " + PERSONAS[xper].em + " " + PERSONAS[xper].label + " · " + DEPTHS[xdep].label + " — persona ghi vào dấu chân đẳng cấp");
+      render();
+    }
+    return;
+  }
   if(act === "fork-card"){
     var cid = actEl.getAttribute("data-card");
     var card = feedCards().filter(function(c){ return c.id===cid; })[0];
@@ -1446,6 +1503,7 @@ document.addEventListener("click", function(e){
   }
   if(act === "card-learn"){
     var learnId = actEl.getAttribute("data-card");
+    PENDING_LEARN_CARD = learnId; // vượt checkpoint của module này sẽ mở 💜 cho card ấy
     var learnCard = feedCards().filter(function(c){ return c.id===learnId; })[0];
     if(learnCard && learnCard.target === "module"){ boostCard(learnId, 12, "có người học"); nav("module"); }
     else if(learnCard){ LAST_QUERY = learnCard.topic; trackInput("text", learnCard.topic); BREW_STATE = {phase:"form"}; nav("brew"); }

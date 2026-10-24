@@ -113,3 +113,28 @@ export const INDEXEDDB_STORAGE_DECISION = {
   clientStorage: "IndexedDB (thay cho localStorage) cho toàn bộ dự án",
   searchSync: "Trang Khám phá mang theo dữ liệu từ thanh tìm kiếm — đồng bộ tất cả dữ liệu (query hai chiều giữa top search và ô tìm trong trang)",
 } as const;
+
+/**
+ * QUYẾT ĐỊNH 24/10/2026 (tối) — BỘ HÀNH ĐỘNG XÃ HỘI (Fork · Remix · Like · Love · Share):
+ * PO chọn phương án "Đầy đủ": Remix + 💜 "Đã hiểu thật" (gated sau checkpoint)
+ * + bộ 6 hành động + trọng số tách bạch. Quy tắc cốt lõi:
+ * Like/Love = phản ứng · Share = phân phối · Remix = sáng tạo phái sinh trên
+ * NỘI DUNG (chọn tổ hợp persona × độ sâu của mình) · Fork = mang về cả
+ * HÀNH TRÌNH để tự chủ (GitHub-like).
+ * Chi tiết: docs/00-process/PO-DECISION-SOCIAL-ACTIONS-2026-10-24.md
+ */
+export const SOCIAL_ACTIONS_DECISION = {
+  id: "PO-2026-10-24-SOCIAL-ACTIONS",
+  date: "2026-10-24",
+  source: "Product Owner (GON) — hỏi phân biệt Fork/Remix/Like/Love/Share, chọn phương án Đầy đủ",
+  decisionDoc: "docs/00-process/PO-DECISION-SOCIAL-ACTIONS-2026-10-24.md",
+  actions: {
+    like: { trend: 3, xp: 0, meaning: "quý thích nhẹ (không cộng XP — chống farm)" },
+    comment: { trend: 6, xp: "small", meaning: "thảo luận" },
+    love: { trend: 5, xp: 2, meaning: '💜 "Đã hiểu thật" — CHỈ MỞ sau khi vượt checkpoint của output đó (gated reaction)' },
+    share: { trend: 4, xp: "small", meaning: "phân phối — đem tên mình ra bảo đảm" },
+    remix: { trend: 6, xp: 15, meaning: "output phái sinh theo tổ hợp persona × độ sâu CỦA BẠN (persona reveal); ghi công tác giả gốc" },
+    fork: { trend: 8, xp: 20, meaning: "copy cả hành trình/module về làm của mình (GitHub-like)" },
+  },
+  learn: { trend: 12, meaning: "học từ output = tín hiệu mạnh nhất của nền tảng học" },
+} as const;
