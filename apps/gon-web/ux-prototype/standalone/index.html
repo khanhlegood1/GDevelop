@@ -268,6 +268,16 @@ textarea{min-height:100px;resize:vertical}
 .level-ring .inner{position:relative;text-align:center}
 .level-ring .inner b{display:block;font-size:1.8rem}
 .mastery-row{display:flex;gap:12px;align-items:center;margin-bottom:11px}
+/* Leaderboard (kiểu arena.ai — PO 24/10 23:54) */
+.lb-tabs{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.lb-tab{padding:8px 16px;border:1px solid var(--line);border-radius:99px;color:#cfd9ec;font-weight:700;font-size:.86rem}
+.lb-tab.active{background:linear-gradient(135deg,var(--gold),#ff9d00);color:#231a00;border-color:transparent}
+.lb-row{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+.lb-row.me{border-color:var(--gold);background:rgba(255,197,49,.08)}
+.lb-rank{width:46px;text-align:center;font-weight:800;font-size:1.05rem;flex:0 0 auto}
+.lb-meta{flex:1;min-width:0}
+.lb-meta h4{margin:0;font-size:.95rem}
+.lb-num{font-weight:800;color:var(--gold)}
 .mastery-row .bar{flex:1;height:9px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
 .mastery-row .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet))}
 .xp-table{width:100%;border-collapse:collapse;font-size:.82rem}
@@ -365,6 +375,7 @@ textarea{min-height:100px;resize:vertical}
       <button type="button" class="sb-item" data-nav="discover" id="sb-discover"><span class="em" aria-hidden="true">🔍</span><span>Khám phá</span></button>
       <button type="button" class="sb-item" data-nav="journey" id="sb-journey"><span class="em" aria-hidden="true">🏆</span><span>Hành trình</span></button>
       <button type="button" class="sb-item" data-nav="proof" id="sb-proof"><span class="em" aria-hidden="true">🏅</span><span>POAP</span></button>
+      <button type="button" class="sb-item" data-nav="leaderboard" id="sb-leaderboard"><span class="em" aria-hidden="true">🥇</span><span>Leaderboard</span></button>
       <button type="button" class="sb-item" data-nav="profile" id="sb-profile"><span class="em" aria-hidden="true">👤</span><span>Hồ sơ</span></button>
       <button type="button" class="sb-item" data-nav="map" id="sb-map"><span class="em" aria-hidden="true">📋</span><span>Sơ đồ xác nhận</span></button>
     </nav>
@@ -1072,6 +1083,7 @@ ROUTES.journey = function(){
       '<p class="small mono">level = floor(LifetimeXP/100) — uncapped · Forever mở ở Lv.35+</p>' +
       '<p class="small">👣 Dấu chân đẳng cấp: ' + footprintText() + '</p>' +
       '<div class="row" style="margin-top:8px"><button class="btn sm ghost" type="button" data-nav="discover">⚔️ Arena (trong Khám phá)</button>' +
+      '<button class="btn sm ghost" type="button" data-nav="leaderboard">🥇 Leaderboard</button>' +
       '<button class="btn sm ghost" type="button" data-nav="proof">🏅 POAP</button></div></div>' +
     '</div>' +
     '<div class="card"><h3>Mastery (tách khỏi Level)</h3>' +
@@ -1160,6 +1172,64 @@ function inputEm(t){ return {text:"📝",file:"📄",image:"🖼️",youtube:"�
 function inputLabel(t){ return {text:"Văn bản",file:"Tệp",image:"Ảnh",youtube:"YouTube",facebook:"Facebook",web:"Website"}[t]||t; }
 function verdictVi(v){ return {found:"có sẵn",related:"liên quan",missing:"chưa có",clarify:"cần làm rõ",blocked:"bị chặn"}[v]||v; }
 
+/* ---------------- S15 · Leaderboard (kiểu arena.ai — PO 24/10 23:54) ---------------- */
+var LB_TAB = "model"; // model | learner
+var LB_MODELS = [
+  {name:"ADK · gemini", elo:1287, votes:412, win:61, fmt:"🎬 Video"},
+  {name:"ADK · scholar-mode", elo:1264, votes:377, win:58, fmt:"🌐 Web"},
+  {name:"GDevelop render", elo:1241, votes:350, win:55, fmt:"🕹️ Game"},
+  {name:"ADK · veo-style", elo:1209, votes:298, win:52, fmt:"🎬 Video"},
+  {name:"ADK · checker-pass", elo:1176, votes:262, win:49, fmt:"🌐 Web"},
+  {name:"ADK · imagen-style", elo:1141, votes:231, win:45, fmt:"🖼️ Ảnh"},
+  {name:"ADK · task-gen", elo:1118, votes:205, win:43, fmt:"✅ Easy-task"},
+  {name:"ADK · fast-mode", elo:1092, votes:184, win:40, fmt:"🌐 Web"}
+];
+var LB_LEARNERS = [
+  {name:"GON Team", xp:9930, note:"Forever era"},
+  {name:"Lan Chi", xp:5312, note:"giữ nhịp mỗi ngày"},
+  {name:"Minh Anh", xp:4287, note:"trending maker"},
+  {name:"Quốc Bảo", xp:2754, note:"fork hơi nhiều"},
+  {name:"Duy", xp:1893, note:"mới lên sóng"}
+];
+function lbModelRows(){
+  var rows = LB_MODELS.slice();
+  var p = ARENA_PAIR;
+  rows.push({name:p.a.model, elo:1200+Math.round(p.community.a*1.5), votes:812, win:p.community.a, fmt:"⚔️ Arena", arena:true, mine:S.votes.some(function(v){ return v.choice==="a"; })});
+  rows.push({name:p.b.model, elo:1200+Math.round(p.community.b*1.5), votes:812, win:p.community.b, fmt:"⚔️ Arena", arena:true, mine:S.votes.some(function(v){ return v.choice==="b"; })});
+  rows.sort(function(a,b){ return b.elo-a.elo; });
+  return rows;
+}
+ROUTES.leaderboard = function(){
+  var medals = ["🥇","🥈","🥉"], body = "";
+  if(LB_TAB === "model"){
+    body = '<p class="small muted">Xếp hạng <b>model / pipeline sinh output</b> theo điểm Arena (Elo mô phỏng) từ bình chọn cộng đồng — bình chọn 2 output ẩn danh trong Khám phá để góp phần xếp hạng (tính năng kiểu arena.ai áp dụng vào GON).</p>' +
+      lbModelRows().map(function(m,i){
+        return '<div class="lb-row' + (m.mine?" me":"") + '"><span class="lb-rank">' + (i<3?medals[i]:"#"+(i+1)) + '</span>' +
+          '<div class="lb-meta"><h4>' + esc(m.name) + (m.arena?' <span class="tag info">đang đấu trong Khám phá</span>':"") + '</h4>' +
+          '<p class="small muted" style="margin:2px 0 0">' + m.fmt + ' · ' + m.votes + ' lượt vote</p></div>' +
+          '<div style="text-align:right"><b class="lb-num">' + m.elo + '</b><p class="small muted" style="margin:0">Elo · thắng ' + m.win + '%</p>' +
+          (m.mine?'<span class="tag ok">🗳 vote của bạn</span>':"") + '</div></div>';
+      }).join("");
+  } else {
+    var me = {name:S.account?S.account.name:"Bạn", xp:lifetimeXp(), me:true, note:"dấu chân đẳng cấp: " + footprintText()};
+    var rows = LB_LEARNERS.concat([me]).sort(function(a,b){ return b.xp-a.xp; });
+    body = '<p class="small muted">Bảng xếp hạng <b>người học theo Lifetime XP</b> — level = floor(XP/100), uncapped. Mỗi hoạt động học thật (checkpoint, game, fork, vote, persona reveal…) đều tăng XP.</p>' +
+      rows.map(function(r,i){
+        var lv = Math.floor(r.xp/100);
+        return '<div class="lb-row' + (r.me?" me":"") + '"><span class="lb-rank">' + (i<3?medals[i]:"#"+(i+1)) + '</span>' +
+          '<div class="lb-meta"><h4>' + esc(r.name) + (r.me?' <span class="tag ok">👉 BẠN</span>':"") + '</h4>' +
+          '<p class="small muted" style="margin:2px 0 0">' + esc(r.note||"") + '</p></div>' +
+          '<div style="text-align:right"><b class="lb-num">' + r.xp.toLocaleString("vi-VN") + '</b><p class="small muted" style="margin:0">XP · Lv.' + lv + '</p></div></div>';
+      }).join("");
+  }
+  return '<div class="page"><div class="page-head"><h1>🥇 Leaderboard</h1><span class="chip">kiểu arena.ai</span></div>' +
+    '<div class="card">' +
+      '<div class="lb-tabs">' +
+        '<button type="button" class="lb-tab' + (LB_TAB==="model"?" active":"") + '" data-act="lb-tab" data-t="model">🤖 Model sinh output</button>' +
+        '<button type="button" class="lb-tab' + (LB_TAB==="learner"?" active":"") + '" data-act="lb-tab" data-t="learner">👤 Người học</button>' +
+      '</div>' + body + '</div></div>';
+};
+
 /* ---------------- S13 · Hồ sơ ---------------- */
 ROUTES.profile = function(){
   var acc = S.account || {name:"Khách", email:null, anon:true, uuid:"—"};
@@ -1227,7 +1297,8 @@ var SCREENS = [
   {id:"arena",num:"S11",label:"Arena — ĐÃ GỘP vào Khám phá (PO 24/10)"},
   {id:"proof",num:"S12",label:"POAP / Proof of Learning"},
   {id:"profile",num:"S13",label:"Hồ sơ & quyền riêng tư"},
-  {id:"map",num:"S14",label:"Sơ đồ xác nhận FE"}
+  {id:"map",num:"S14",label:"Sơ đồ xác nhận FE"},
+  {id:"leaderboard",num:"S15",label:"Leaderboard kiểu arena.ai — model & người học"}
 ];
 var FLOWS = [
   {id:"F1",name:"Đăng nhập ẩn danh (không cần tài khoản)",go:"login",need:"started"},
@@ -1240,7 +1311,8 @@ var FLOWS = [
   {id:"F8",name:"Fork hành trình (từ feed hoặc liên quan)",go:"related",need:"forked"},
   {id:"F9",name:"Arena vote (trong Khám phá) → mở nhãn model",go:"discover",need:"voted"},
   {id:"F10",name:"Output của bạn lên ≥40 điểm xu hướng",go:"feed",need:"trending"},
-  {id:"F11",name:"POAP + quyền riêng tư (xuất/xoá)",go:"profile",need:"privacy"}
+  {id:"F11",name:"POAP + quyền riêng tư (xuất/xoá)",go:"profile",need:"privacy"},
+  {id:"F12",name:"Leaderboard (kiểu arena.ai): vote Arena → xếp hạng model + thứ hạng người học",go:"leaderboard",need:"lbviewed"}
 ];
 function flowDone(f){
   switch(f.need){
@@ -1255,13 +1327,14 @@ function flowDone(f){
     case "voted": return S.votes.length>0;
     case "trending": return S.brewed.some(function(b){ return b.trend>=40; });
     case "privacy": return S.visited.indexOf("profile")!==-1;
+    case "lbviewed": return S.visited.indexOf("leaderboard")!==-1;
   }
   return false;
 }
 ROUTES.map = function(){
   var doneFlows = FLOWS.filter(flowDone).length;
   return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="profile" aria-label="Quay lại">←</button><h1>📋 Sơ đồ xác nhận FE</h1></div>' +
-    '<div class="card"><p class="small muted">Bấm lần lượt F1→F11 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
+    '<div class="card"><p class="small muted">Bấm lần lượt F1→F12 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
     '<div class="brew-visual" style="margin-top:10px"><i style="width:' + Math.round(doneFlows/FLOWS.length*100) + '%"></i></div>' +
     '<p class="small muted" style="margin-top:6px">Screens ' + S.visited.length + '/' + SCREENS.length + ' · Flows ' + doneFlows + '/' + FLOWS.length + ' · XP ' + lifetimeXp() + '</p></div>' +
     '<div class="card"><h3>Luồng chính</h3>' + FLOWS.map(function(f){
@@ -1270,7 +1343,7 @@ ROUTES.map = function(){
         (done?'<span class="tag ok">✓</span>':'<span class="tag warn">chưa</span>') +
         '<button class="btn sm ghost" type="button" data-nav="' + f.go + '">Đi →</button></div>';
     }).join("") + '</div>' +
-    '<div class="card"><h3>14 màn hình</h3><div class="grid3">' + SCREENS.map(function(s){
+    '<div class="card"><h3>' + SCREENS.length + ' màn hình</h3><div class="grid3">' + SCREENS.map(function(s){
       var done = S.visited.indexOf(s.id)!==-1;
       return '<div class="journey-card" style="padding:10px"><b>' + s.num + "</b> · " + s.label +
         '<div style="margin-top:4px">' + (done?'<span class="tag ok">đã xem</span>':'<span class="tag info">chưa</span>') + '</div>' +
@@ -1399,6 +1472,7 @@ document.addEventListener("click", function(e){
     LAST_QUERY = topic; BREW_STATE = {phase:"form"}; nav("discover"); return;
   }
   if(act === "topsearch"){ submitTopSearch(); return; }
+  if(act === "lb-tab"){ LB_TAB = actEl.getAttribute("data-t") || "model"; render(); return; }
   if(act === "report-ack"){ toast("🚦 Đã ghi nhận"); return; }
   if(act === "pick-output"){
     var pid = actEl.getAttribute("data-p"), did = actEl.getAttribute("data-d"), oid = actEl.getAttribute("data-o");
