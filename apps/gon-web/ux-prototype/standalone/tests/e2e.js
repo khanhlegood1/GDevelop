@@ -106,8 +106,10 @@ function readState(win) {
   console.log("== Layout: left sidebar + top search bar (TikTok desktop) ==");
   ok(document.getElementById("sidebar").style.display !== "none", "left sidebar visible after login");
   ok(document.getElementById("sidebar").textContent.includes("Bảng tin"), "sidebar nav items present");
-  ok(document.querySelectorAll(".sb-item").length === 6, "sidebar has 6 menu items (Brew & Arena merged into Discover)");
+  ok(document.querySelectorAll(".sb-item").length === 7, "sidebar has 7 menu items (Brew & Arena merged, Leaderboard added)");
   ok(!document.getElementById("sb-brew") && !document.getElementById("sb-arena"), "no separate Brew/Arena nav items");
+  ok(!!document.getElementById("sb-leaderboard"), "Leaderboard menu item present");
+  ok(!!(document.getElementById("sb-leaderboard").compareDocumentPosition(document.getElementById("sb-profile")) & window.Node.DOCUMENT_POSITION_FOLLOWING), "Leaderboard sits above Hồ sơ in the menu");
   ok(document.getElementById("sb-hot").children.length >= 3, "sidebar suggested topics rendered");
   ok(document.getElementById("feedtabs").classList.contains("on"), "Hot/For-You tabs shown at top on feed");
   ok(q("#feedtabs .ftab.active").getAttribute("data-t") === "hot", "feed tab defaults to Hot");
@@ -275,6 +277,18 @@ function readState(win) {
   const hdr = text();
   ok(/Lv\.\d+/.test(hdr), "journey shows level");
 
+  console.log("== F12: leaderboard (arena.ai-style) ==");
+  await clk(document.getElementById("sb-leaderboard"));
+  ok(window.location.hash === "#/leaderboard", "sidebar opens #/leaderboard");
+  ok(text().includes("Model sinh output"), "model leaderboard tab renders");
+  ok(document.querySelectorAll(".lb-row").length >= 10, ">=10 model rows ranked by Elo");
+  ok(text().includes("🥇") && text().includes("🥈") && text().includes("🥉"), "top-3 medals shown");
+  ok(text().includes("đang đấu trong Khám phá"), "Arena combatants listed (community-ranked)");
+  ok(text().includes("vote của bạn"), "user's Arena vote reflected on the leaderboard");
+  await clk(q('[data-act="lb-tab"][data-t="learner"]'));
+  ok(text().includes("Người học") && text().includes("👉 BẠN"), "learner tab: current user highlighted");
+  ok(/Lv\.\d+/.test(text()), "learner rows show uncapped levels");
+
   console.log("== S14: map ==");
   const stx = await readState();
   const undone = [];
@@ -289,11 +303,12 @@ function readState(win) {
   if (!(stx.votes.length>0)) undone.push("F9");
   if (!stx.brewed.some((b)=>b.trend>=40)) undone.push("F10");
   if (stx.visited.indexOf("profile")===-1) undone.push("F11");
+  if (stx.visited.indexOf("leaderboard")===-1) undone.push("F12");
   console.log("  (debug) undone flows:", undone.join(",") || "none");
   await goHash("#/map");
   const doneFlows = Array.from(document.querySelectorAll(".flow-item .tag.ok")).length;
-  ok(doneFlows === 11, "flows done on map (got " + doneFlows + "/11)");
-  ok(text().includes("14 màn hình"), "screen checklist renders");
+  ok(doneFlows === 12, "flows done on map (got " + doneFlows + "/12)");
+  ok(text().includes("15 màn hình"), "screen checklist renders (15 screens)");
 
   console.log("== no 18+ remnants (UI text only) ==");
   const ui = document.getElementById("view").textContent + " " + (document.querySelector(".demo-banner") || {textContent:""}).textContent + " " + (document.getElementById("tabbar").textContent);
