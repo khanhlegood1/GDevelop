@@ -56,14 +56,20 @@ Prototype V2 hiện có tại [`../index.html`](../index.html) được giữ ng
 
 ## Standalone Front-End Confirmation Demo (24/10/2026)
 
-[`standalone/index.html`](standalone/index.html) — **một tệp duy nhất, không dependency, không backend**: toàn bộ 14 màn hình (S01–S14) và 11 luồng chính (F1–F11) của GON để PO xác nhận Front End, bao gồm cả tính năng V2.1:
+**Phiên bản v2 (TikTok-style, theo chỉ thị PO 24/10 tối):** [`standalone/index.html`](standalone/index.html) — **một tệp duy nhất, không dependency, không backend**, tổ chức lại toàn bộ theo phong cách TikTok:
 
-- S01 Chào mừng & 18+ → Google (mock) · S02 Input phổ quát + Trending TikTok-style + gợi ý theo footprint (bật/tắt được) · S03 Tìm kiếm 5 trạng thái (có sẵn / liên quan / chưa có → Brew / cần làm rõ / **bị chặn**) + **12 đầu ra xếp theo 4 persona** (PhD/KOL/Giải trí/Nâng cao) · S04 Brew pipeline 4 bước · S05 Module 5 mục · S06 Học tương tác + **checkpoint chống copy-paste** (phát hiện paste, từ chối) · S07 **6 định dạng GDevelop** (web/infographic/video/ảnh/game/easy-task) · S08 Mini-game · S09 Tiến bộ — `level = floor(LifetimeXP/100)` **uncapped**, Mastery tách khỏi Level, Forever ở Lv.35+ · S10 Liên quan + **Fork kiểu GitHub** · S11 **Arena** (vote rồi mới mở nhãn model) · S12 **Proof of Learning/POAP** (timeline đầu vào, huy hiệu, chứng nhận, chia sẻ mock) · S13 Hồ sơ & quyền riêng tư (xuất JSON, xoá dữ liệu, personalization) · S14 **Sơ đồ xác nhận** (checklist F1–F11 tự tick).
+- **Bỏ cổng 18+ hoàn toàn** (quyết định PO: dự án không quan tâm user có ≥18 tuổi hay không — production docs/code còn sót 18+ sẽ cần slice dọn riêng).
+- **Đăng nhập ẩn danh UUID** ("🌿 Bắt đầu với ẩn danh" — không cần tài khoản, tiến trình lưu trên thiết bị, có thể nâng cấp lên Google sau; tham khảo `ai-doctor-admin` `LoginPage.jsx`) hoặc Google (mock).
+- **Bảng tin (feed dọc toàn màn hình, scroll-snap như TikTok):** card topic với tâm ❤️/💬/↗/🍴 ở rail phải + đĩa nhạc xu hướng; **tab "🔥 Đang Hot" / "🎯 Dành cho bạn"**; **output sau Brew trở thành card topic "OUTPUT CỦA BẠN"** trong feed với điểm xu hướng tăng theo tương tác (like +3, comment +6, share +4, fork +8, học +12) — đủ tương tác là lên xu hướng (badge 🔥 tại ≥40 điểm).
+- **Tab bar 5 mục:** 🏠 Bảng tin · 🔍 Khám phá · ➕ Brew · 🏆 Hành trình · 👤 Hồ sơ.
+- **Khám phá:** input phổ quát (6 loại đầu vào) + bảng xu hướng hot + 5 trạng thái kết quả + 12 đầu ra xếp theo 4 persona.
+- Giữ nguyên các luồng lõi: Brew pipeline 4 bước, học tương tác + **checkpoint chống copy-paste**, 6 định dạng GDevelop, mini-game, cấp suốt đời `floor(LifetimeXP/100)` uncapped, Fork kiểu GitHub, Arena vote, POAP, quyền riêng tư (xuất JSON/xoá).
+- **S14 Sơ đồ xác nhận** (từ Hồ sơ): 11 flow F1–F11 tự tick — F10 = "Output của bạn lên ≥40 điểm xu hướng".
 
-Trạng thái lưu `localStorage` (có nút reset/xuất). Mở trực tiếp bằng trình duyệt hoặc:
+Trạng thái lưu `localStorage` (key `gon-standalone-fe-demo-v2`, có nút reset/xuất). Mở trực tiếp bằng trình duyệt hoặc:
 
 ```bash
 python3 -m http.server 4173 --bind 0.0.0.0 --directory apps/gon-web/ux-prototype/standalone
 ```
 
-Kiểm chứng: `node --check` script nhúng + E2E jsdom **40/40 pass, 11/11 flow hoàn tất** ([`standalone/tests/e2e.js`](standalone/tests/e2e.js), cần `npm i jsdom`). Một bug thật đã được E2E bắt và sửa trước khi bàn giao: điều hướng cùng-route không render lại (đổi định dạng/mục học/truy vấn). Vẫn là **mock 100%** — không thay thế P03 contract, không phải production frontend.
+Kiểm chứng: `node --check` script nhúng + E2E jsdom **48/48 pass, 11/11 flow hoàn tất** ([`standalone/tests/e2e.js`](standalone/tests/e2e.js), cần `npm i jsdom`). E2E bắt và sửa **2 bug thật** trước khi bàn giao: (1) quên ghi lịch sử tìm kiếm vào state (mất event timeline POAP + flow F3), (2) thiếu ghi nhận tương tác social. Vẫn là **mock 100%** — không thay thế P03 contract, không phải production frontend.
