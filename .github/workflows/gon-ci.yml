@@ -95,6 +95,18 @@ jobs:
       - name: Build GON Storybook
         run: npm run storybook:build
 
+      # D-SB-04(b) (enacted P05-R1.14): internal per-PR artifact so the PO can
+      # review the GON Storybook without publishing it outside GitHub. Not
+      # uploaded for plain branch pushes; retention bounded to 7 days.
+      - name: Upload GON Storybook artifact (PR only, internal)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: gon-storybook-pr-${{ github.event.number }}
+          path: apps/gon-web/storybook-static
+          retention-days: 7
+          if-no-files-found: error
+
   gon-adk:
     name: GON ADK
     runs-on: ubuntu-latest

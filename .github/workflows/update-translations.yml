@@ -14,6 +14,11 @@ on:
 
 jobs:
   update-translations:
+    # GON fork note (P05-R1.14): this job downloads from the upstream Crowdin
+    # project and needs CROWDIN_PROJECT_ID/CROWDIN_PERSONAL_TOKEN. The fork
+    # does not have them (the download step was the only failing one on master
+    # pushes), so skip the whole job instead of failing every master push.
+    if: ${{ secrets.CROWDIN_PROJECT_ID != '' && secrets.CROWDIN_PERSONAL_TOKEN != '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

@@ -3,7 +3,8 @@
 > **Mục đích:** Ghi nhận Storybook là gì trong dự án này, nó ảnh hưởng những phần nào, và tập hợp các quyết định PO cần chốt **sau khi GON lên production** để sửa core GDevelop cho phù hợp.<br>
 > **Người ghi:** Agent GON trên `arena/04f82c2a-gdevelop`, 23/10/2026.<br>
 > **Neo dữ liệu:** PR #19, head `3a5af0faaa1ceab90d69d370c093e25f032e79a2` (2 commit `587f6e4` Storybook GON + `3a5af0f` WIP R1.5 scaffolding).<br>
-> **Ranh giới:** Tài liệu này **không** thay đổi trạng thái P05 (**IN REVIEW — NOT YET PASS**), không phải bằng chứng production/staging, không quyết định P06 hay Go-Live. Mọi mục `D-SB-*` là **đề xuất chờ PO quyết định**, không phải quyết định đã ban hành.
+> **Cập nhật 24/10/2026 (R1.14):** theo ủy quyền liên tục của PO, `D-SB-01`–`D-SB-06` được duyệt trong ủy quyền; **`D-SB-01(a)`, `D-SB-02`, `D-SB-04(b)`, `D-SB-06` đã thực thi trong [P05-R1.14](../06-nfr/P05-R1.14-STORYBOOK-CI-D-SB-ENACTMENT.md)** (kèm root cause CI đã truy được: fork thiếu secrets AWS/Crowdin của upstream, không phải code hỏng). `D-SB-03`, `D-SB-05` và option (b)/(c) của `D-SB-01` vẫn để dành cho slice GDevelop-core sau production.<br>
+> **Ranh giới:** Tài liệu này **không** thay đổi trạng thái P05 (**IN REVIEW — NOT YET PASS**), không phải bằng chứng production/staging, không quyết định P06 hay Go-Live.
 
 ---
 
@@ -66,6 +67,12 @@ Bằng chứng grep `.next` sau `npm run build` ngày 23/10/2026: **không** tì
 
 **Hiện trạng:** `build-storybook.yml` chạy trên mọi push; `newIDE/app` dùng Storybook 7.4.6 + CRA preset + Node 16, fail lặp lại từ PR #15 đến PR #19. Job này không liên quan code GON.
 
+> **✅ Đã thực thi 24/10/2026 (R1.14, option (a) + guard secrets):** workflow
+> được path-filter theo `newIDE/**`, `Core/**`, `GDJS/**`, workflow; các bước
+> publish AWS có điều kiện secrets. Root cause truy được: fail tại bước
+> **Configure AWS Credentials** (fork thiếu secrets upstream — build chưa từng
+> chạy tới). Xem [P05-R1.14 evidence](../06-nfr/P05-R1.14-STORYBOOK-CI-D-SB-ENACTMENT.md).
+
 | Option | Phạm vi sửa | Ưu/nhược |
 |---|---|---|
 | (a) **Path-filter workflow** `build-storybook.yml` chỉ chạy khi chạm `newIDE/**`, `Core/**`, `GDJS/**`, workflow | Chỉ sửa YAML CI, **không sửa core** | Hết UNSTABLE cho PR GON ngay; không sửa được Storybook IDE đang hỏng |
@@ -77,6 +84,8 @@ Bằng chứng grep `.next` sau `npm run build` ngày 23/10/2026: **không** tì
 ### D-SB-02 — Một Storybook chung hay hai Storybook tách biệt
 
 **Khuyến nghị: GIỮ TÁCH.** Stack khác nhau (Next 16/React 19/TS vs CRA/Flow), major khác nhau (10 vs 7), đối tượng khác nhau (GON product UX vs GDevelop IDE components), **không share component nào**. Gộp = phải sửa core GDevelop lớn, lợi ích thấp. Nếu cần "một cửa", có thể để hai job cùng xuất link trong PR thay vì gộp codebase.
+
+> **✅ Đã thực thi 24/10/2026 (R1.14):** giữ nguyên tách; không thay đổi.
 
 ### D-SB-03 — Nếu PO vẫn muốn sửa core GDevelop "cho hợp lý với Storybook"
 
@@ -93,6 +102,9 @@ Các touchpoint **thực sự nằm trong core GDevelop** (mọi thay đổi c�
 
 **Hiện trạng:** chỉ chạy local/CI build, không publish. Options: (a) giữ local như nay; (b) upload artifact GitHub Actions nội bộ mỗi PR; (c) S3/Chromatic riêng cho GON. **Khuyến nghị:** (b) trước khi cân nhắc (c), tránh lộ stories/metadata khi chưa cần.
 
+> **✅ Đã thực thi 24/10/2026 (R1.14, option (b)):** job `GON Storybook` upload
+> artifact `gon-storybook-pr-<n>` (PR-only, retention 7 ngày, nội bộ GitHub).
+
 ### D-SB-05 — Tách component trong `Vs1App` (thuộc GON web, không phải core GDevelop)
 
 Design System stories hiện là **pattern specimens** vì `Vs1App` là component nguyên khối. Nếu PO muốn Design System thành component library thật (controls/autodocs đúng nghĩa), cần refactor UI core của GON web (Button/Field/Badge/Panel/... thành component riêng). Đây là việc của GON web, tách khỏi quyết định core GDevelop.
@@ -100,6 +112,10 @@ Design System stories hiện là **pattern specimens** vì `Vs1App` là componen
 ### D-SB-06 — Chính sách typecheck stories và dev-server binding
 
 **Khuyến nghị:** giữ stories trong `npm run typecheck` (bắt vỡ hợp đồng DTO sớm); chuẩn hoá host binding — `0.0.0.0` chỉ khi chạy trong sandbox preview, mặc định localhost cho developer; CI tiếp tục build offline.
+
+> **✅ Đã thực thi 24/10/2026 (R1.14):** `storybook`/`storybook:smoke` mặc định
+> localhost; thêm `storybook:preview` (`--host 0.0.0.0`) cho sandbox; stories
+> vẫn trong typecheck; CI vẫn build offline.
 
 ## 6. Ranh giới của bản ghi này
 
