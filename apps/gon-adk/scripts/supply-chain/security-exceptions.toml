@@ -1,0 +1,30 @@
+# Governed security exceptions — GON ADK supply chain (P05-R1.12).
+#
+# A bare `--ignore-vuln` in CI is FORBIDDEN. Every ignored advisory must be
+# recorded here with compensating controls and an expiry date.
+# `check-exceptions.py` fails CI when:
+#   * an audited vulnerability has no exception here, or
+#   * an exception is EXPIRED (past `expires` — re-evaluate now), or
+#   * an exception is STALE (the advisory no longer appears — the fix landed;
+#     delete this entry and upgrade the pin).
+#
+# Fields: id, package, affected, fix_versions, severity, upstream_blocker,
+# compensating_controls (list of strings), accepted_risk, expires (YYYY-MM-DD).
+
+schema_version = 1
+
+[[exceptions]]
+id = "CVE-2026-114603"
+package = "opentelemetry-api"
+affected = ">=1.0,<=1.45.0"
+fix_versions = ["1.45.1"]
+severity = "Medium — availability only (ReDoS/CPU DoS in TraceState.from_header on crafted tracestate headers; no data exposure, no code execution per maintainer advisory)"
+upstream_blocker = "google-adk 2.13.0 (latest release 24/10/2026) pins opentelemetry-api>=1.39,<=1.44 while the fix is 1.45.1. google-adk 2.12.0 pinned <=1.42.1; 2.13.0 was adopted in R1.12 to move as close to the fix as upstream allows. Re-check on every new google-adk release."
+compensating_controls = [
+  "Vulnerable code path not mounted: the locked graph has no opentelemetry-instrumentation-* packages and gon_adk code never configures W3C trace-context propagators/middleware, so TraceState.from_header() is not reached on any request path (verified in the 79-package lock).",
+  "uvicorn==0.54.0 without [standard] extras runs the h11 parser, which rejects request headers above 16 KiB — the DoS needs 8-100 KiB crafted tracestate headers to matter, so the payload is capped at the server.",
+  "Edge layer (deploy/edge-rate-limit, R1.10) enforces per-IP rate limits; the deploy runbook requires LB/gateway header-size caps (P06 checklist).",
+  "Impact is availability-only per the maintainer advisory (no confidentiality/integrity impact).",
+]
+accepted_risk = "At the h11 16 KiB header cap one crafted request can burn up to ~0.25s CPU (advisory measurements: ~0.07s at 8 KiB, ~0.25s at 16 KiB); repeats are rate-limited at the edge. Residual availability risk accepted until upstream widens the opentelemetry-api cap."
+expires = 2027-01-31

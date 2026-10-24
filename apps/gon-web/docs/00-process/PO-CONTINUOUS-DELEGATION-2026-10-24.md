@@ -44,7 +44,7 @@
 | R1.9 | Assess-attempt AI + AI evaluation | Tích hợp `assess_attempt` qua AI provider port + `ai_runs`, eval harness | **xong** — [evidence](../06-nfr/P05-R1.9-ASSESS-ATTEMPT-AI.md) (eval harness → R1.15/P05-R2) |
 | R1.10 | Abuse/cost distributed controls | Rate-limit per-IP/edge module, token bucket, budget alert hooks, idempotent flood guard | **xong** — [evidence](../06-nfr/P05-R1.10-ABUSE-COST-DISTRIBUTED-CONTROLS.md) (edge module `deploy/edge-rate-limit/` NOT RUN chờ hạ tầng) |
 | R1.11 | Observability + backup/restore/DR | Metrics/logs có cấu trúc, readiness sâu, backup/restore scripts, DR runbook | **xong** — [evidence](../06-nfr/P05-R1.11-OBSERVABILITY-BACKUP-DR.md) (backup/DR drill NOT RUN chờ hạ tầng thật) |
-| R1.12 | Supply-chain & quality gates | Python locks + SBOM, đóng `CVE-2026-114603`, coverage gate, npm audit pin | chờ |
+| R1.12 | Supply-chain & quality gates | Python locks + SBOM, đóng `CVE-2026-114603`, coverage gate, npm audit pin | **xong** — [evidence](../06-nfr/P05-R1.12-SUPPLY-CHAIN-QUALITY-GATES.md) (google-adk 2.13.0 + governed exception có expiry 2027-01-31; SBOM publishing NOT RUN chờ ops) |
 | R1.13 | Tàn dư hiệu năng/kiến trúc | `indexModuleVersion` ra ngoài UoW, targeted pagination còn lại | chờ |
 | R1.14 | Storybook CI xanh (thực thi `D-SB-01`) | Sửa build storybook GDevelop-core tối thiểu để CI xanh | chờ |
 | R1.15 | Staging verification package + P05 re-review | DAST/load probe local, gói evidence tổng, trình PO duyệt P05 | chờ |
