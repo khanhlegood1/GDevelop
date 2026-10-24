@@ -1,5 +1,7 @@
 # P01 Traceability Matrix
 
+> 🔁 **Cập nhật PO — 24/10/2026 (tối muộn) — quyết định sản phẩm mới:** Persona đầu ra (🔬 PhD / Nghiên cứu · 🎬 KOL / Sáng tạo · 🎈 Giải trí · 🚀 Nâng cao) và các Độ sâu **không hiện ra cho user chọn** — mặc định **chạy tất cả các tổ hợp**, xuất nhiều output như feed TikTok. Output user chọn chính là Persona đầu ra của họ, đồng thời là tín hiệu **Arena** và **dấu chân đẳng cấp**. **Màn hình Brew và màn hình Arena đã được gộp vào chung màn hình Khám phá.** Nội dung dưới đây giữ nguyên làm tư liệu nền; chi tiết & trạng thái triển khai: [`PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md`](../00-process/PO-DECISION-UNIFIED-DISCOVER-2026-10-24.md).
+
 > **Artifact:** P01-TRACE<br>
 > **Trạng thái:** APPROVED tại P01 — Product Owner đã duyệt ngày 22/10/2026<br>
 > **Mục đích:** nối tính năng Gate 0 (`GON-Fxx`) → requirement P01 (`REQ-*`) → user story (`US-*`) → BDD → gate triển khai. Khi P02/P03/P04 bắt đầu, các cột màn hình/API/schema/test/PR sẽ được bổ sung thay vì tạo ID mới tùy tiện.
