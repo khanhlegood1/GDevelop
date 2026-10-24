@@ -138,3 +138,24 @@ export const SOCIAL_ACTIONS_DECISION = {
   },
   learn: { trend: 12, meaning: "học từ output = tín hiệu mạnh nhất của nền tảng học" },
 } as const;
+
+/**
+ * QUYẾT ĐỊNH 24/10/2026 (tối muộn) — ÁP DỤNG MÔ HÌNH arena.ai VÀO GON:
+ * PO chọn phương án "Đầy đủ": 4 lựa chọn vote (A · B · Hoà · Cả hai chưa đạt),
+ * "Đấu cặp khác" (pool cặp, 1 vote mỗi cặp), ±Elo hiển thị sau vote,
+ * Leaderboard chuyên mục (định dạng + persona) và mũi tên xu hướng thứ hạng.
+ * Nền tảng: Gate 0 — FastChat (Apache-2.0). Đặc sản GON: đấu output học tập
+ * 6 định dạng; vote đồng thời là tín hiệu bộc lộ persona.
+ * Chi tiết: docs/00-process/PO-DECISION-ARENA-AI-PATTERN-2026-10-24.md
+ */
+export const ARENA_PATTERN_DECISION = {
+  id: "PO-2026-10-24-ARENA-AI-PATTERN",
+  date: "2026-10-24",
+  source: "Product Owner (GON) — 'làm giống arena.ai áp dụng vào GON ntn?', chọn Đầy đủ",
+  decisionDoc: "docs/00-process/PO-DECISION-ARENA-AI-PATTERN-2026-10-24.md",
+  battleOptions: ["a", "b", "tie", "bothbad"] as const,
+  oneVotePerBattle: true,
+  eloDeltaMock: { a: { a: 8, b: -5 }, b: { a: -5, b: 8 }, tie: { a: 1, b: 1 }, bothbad: { a: -4, b: -4 } },
+  leaderboardCategories: ["all", "web", "video", "game", "infographic", "image", "easy_task"],
+  rankMovementWindowDays: 7,
+} as const;
