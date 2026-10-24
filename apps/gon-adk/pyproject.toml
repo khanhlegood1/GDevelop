@@ -11,7 +11,11 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = [
   "fastapi==0.141.1",
-  "google-adk==2.12.0",
+  # R1.12: 2.13.0 widens the opentelemetry-api cap to <=1.44 (2.12.0 capped
+  # <=1.42.1). The CVE-2026-114603 fix (1.45.1) is still above upstream's cap;
+  # see scripts/supply-chain/security-exceptions.toml for the governed
+  # exception + auto-close tripwire.
+  "google-adk==2.13.0",
   "jsonschema==4.26.0",
   "pydantic==2.14.1",
   "uvicorn==0.54.0",
@@ -21,6 +25,10 @@ dependencies = [
 dev = [
   "httpx==0.28.1",
   "pytest==9.1.1",
+  # CI supply-chain tooling — pinned here so requirements.lock covers
+  # everything the GON ADK CI job installs (R1.12).
+  "bandit==1.9.4",
+  "pip-audit==2.10.1",
 ]
 
 [project.scripts]
