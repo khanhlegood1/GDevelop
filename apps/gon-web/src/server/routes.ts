@@ -245,6 +245,11 @@ async function handleV1Inner(
           const result = await service.createRankingSnapshot(actor, projectId, await readJsonBody(request));
           return jsonData(result.data, result.status, requestId);
         }
+        if (method === "POST" && segments.length === 3 && segments[2] === "arena-matches") {
+          assertMutation(request);
+          const result = await service.createArenaMatch(actor, projectId, await readJsonBody(request));
+          return jsonData(result.data, result.status, requestId);
+        }
       }
     }
 
@@ -259,6 +264,18 @@ async function handleV1Inner(
         const response = new NextResponse(null, { status: 204 });
         response.headers.set("X-Request-Id", requestId);
         return response;
+      }
+    }
+
+    if (segments[0] === "arena-matches" && segments[1]) {
+      const matchId = segments[1];
+      if (method === "GET" && segments.length === 2) {
+        return jsonData(await service.getArenaMatch(actor, matchId), 200, requestId);
+      }
+      if (method === "POST" && segments.length === 3 && segments[2] === "votes") {
+        assertMutation(request);
+        const result = await service.createArenaVote(actor, matchId, await readJsonBody(request));
+        return jsonData(result.data, result.status, requestId);
       }
     }
 

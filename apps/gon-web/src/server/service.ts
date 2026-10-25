@@ -79,6 +79,8 @@ import {
   type AssessmentResult,
   type AttemptRecord,
   type BranchCommitRecord,
+  type ArenaMatchRecord,
+  type ArenaVoteRecord,
   type CandidateRecord,
   type CandidateSetRecord,
   type ChunkRecord,
@@ -3168,6 +3170,147 @@ class GonServiceCore {
     };
   }
 
+  createArenaMatch(actor: Actor, projectId: string, bodyValue: unknown): CommandResult<JsonRecord> {
+    this.requireActiveUser(actor);
+    const project = this.requireOwnedProject(actor, projectId);
+    const body = ensureRecord(bodyValue);
+    const candidateSet = this.latestCandidateSet(project.id);
+    if (!candidateSet) {
+      throw conflict("CANDIDATE_SET_NOT_READY", "Chưa có Output Candidate", "Hãy chạy Search hoặc Brew để tạo CandidateSet trước khi mở trận đấu Arena.");
+    }
+    const rawIds = body.candidateIds;
+    if (
+      !Array.isArray(rawIds) ||
+      rawIds.length !== 2 ||
+      rawIds.some((id) => typeof id !== "string" || id.length < 3 || id.length > 128)
+    ) {
+      throw validationError("candidateIds phải gồm đúng 2 id output.");
+    }
+    const slotACandidateId = rawIds[0] as string;
+    const slotBCandidateId = rawIds[1] as string;
+    if (slotACandidateId === slotBCandidateId) {
+      throw validationError("Hai output trong một trận đấu phải khác nhau.");
+    }
+    const poolIds = new Set(
+      [...this.repositories.candidates.values()]
+        .filter((candidate) => candidate.candidateSetId === candidateSet.id)
+        .map((candidate) => candidate.id),
+    );
+    if (!poolIds.has(slotACandidateId) || !poolIds.has(slotBCandidateId)) {
+      throw validationError("Output không thuộc CandidateSet hiện tại của project.");
+    }
+    const rankingSnapshotId =
+      typeof body.rankingSnapshotId === "string" && body.rankingSnapshotId.length > 0 && body.rankingSnapshotId.length <= 128
+        ? body.rankingSnapshotId
+        : null;
+    const nowIso = this.now();
+    const match: ArenaMatchRecord = {
+      id: createId("arena"),
+      projectId: project.id,
+      userId: actor.userId,
+      slotACandidateId,
+      slotBCandidateId,
+      status: "open",
+      rankingSnapshotId,
+      expiresAt: new Date(Date.parse(nowIso) + 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: nowIso,
+    };
+    this.repositories.arenaMatches.set(match.id, match);
+    return { data: this.arenaMatchDto(match), status: 201 };
+  }
+
+  getArenaMatch(actor: Actor, matchId: string): JsonRecord {
+    this.requireActiveUser(actor);
+    return this.arenaMatchDto(this.requireOwnedArenaMatch(actor, matchId));
+  }
+
+  createArenaVote(actor: Actor, matchId: string, bodyValue: unknown): CommandResult<JsonRecord> {
+    this.requireActiveUser(actor);
+    const match = this.requireOwnedArenaMatch(actor, matchId);
+    const body = ensureRecord(bodyValue);
+    const choice = body.choice;
+    if (
+      typeof choice !== "string" ||
+      !["left_better", "right_better", "tie", "both_bad", "merge"].includes(choice)
+    ) {
+      throw validationError("choice phải là một trong left_better | right_better | tie | both_bad | merge.");
+    }
+    const alreadyCast = [...this.repositories.arenaVotes.values()].some(
+      (vote) => vote.matchId === match.id && vote.userId === actor.userId,
+    );
+    if (alreadyCast) {
+      throw conflict("ARENA_VOTE_ALREADY_CAST", "Mỗi trận đấu chỉ một vote mỗi người", "Trận đấu Arena này đã nhận vote của bạn.");
+    }
+    if (match.status !== "open") {
+      throw conflict("ARENA_MATCH_NOT_OPEN", "Trận đấu đã đóng", "Trận đấu Arena này đã có vote hoặc đã bị huỷ.");
+    }
+    const vote: ArenaVoteRecord = {
+      id: createId("vote"),
+      matchId: match.id,
+      userId: actor.userId,
+      choice: choice as ArenaVoteRecord["choice"],
+      createdAt: this.now(),
+    };
+    this.repositories.arenaVotes.set(vote.id, vote);
+    match.status = "voted";
+    this.repositories.arenaMatches.set(match.id, match);
+    const explanationCodes =
+      choice === "left_better" || choice === "right_better"
+        ? ["high_relevance", "fits_learning_mode"]
+        : choice === "merge"
+          ? ["partial_fit", "matches_learning_history"]
+          : ["partially_cited_sources"];
+    return {
+      data: {
+        match: this.arenaMatchDto(match),
+        vote: { id: vote.id, choice: vote.choice, createdAt: vote.createdAt },
+        personalRankingExplanationCodes: explanationCodes,
+        // Merge thật (ghép 2 output thành một) cần Brew job riêng — VS sau.
+        mergedCandidateId: null,
+        mergeJobId: null,
+      },
+      status: 201,
+    };
+  }
+
+  private requireOwnedArenaMatch(actor: Actor, matchId: string): ArenaMatchRecord {
+    const match = this.repositories.arenaMatches.get(matchId);
+    if (!match) {
+      throw notFound("Không tìm thấy trận đấu Arena.");
+    }
+    if (match.userId !== actor.userId) {
+      throw forbidden("ARENA_MATCH_FORBIDDEN", "Trận đấu Arena không thuộc về bạn", "Chỉ chủ trận đấu mới xem và vote được.");
+    }
+    return match;
+  }
+
+  private arenaSlotDto(candidate: CandidateRecord | null): JsonRecord {
+    return {
+      summary: candidate?.title ?? "Output ẩn danh",
+      format: candidate?.format ?? "web_lesson",
+      estimatedMinutes: candidate?.estimatedMinutes ?? 5,
+      difficulty: candidate?.difficulty ?? "beginner",
+      ...(candidate?.artifactOutcome ? { artifactOutcome: candidate.artifactOutcome } : {}),
+    };
+  }
+
+  private arenaMatchDto(match: ArenaMatchRecord): JsonRecord {
+    const slotA = this.repositories.candidates.get(match.slotACandidateId) ?? null;
+    const slotB = this.repositories.candidates.get(match.slotBCandidateId) ?? null;
+    const revealed = match.status === "voted" && slotA && slotB;
+    return {
+      id: match.id,
+      projectId: match.projectId,
+      status: match.status,
+      slotA: this.arenaSlotDto(slotA),
+      slotB: this.arenaSlotDto(slotB),
+      revealedCandidates: revealed
+        ? [this.candidateDto(slotA as CandidateRecord, 1, null), this.candidateDto(slotB as CandidateRecord, 2, null)]
+        : null,
+      expiresAt: match.expiresAt,
+    };
+  }
+
   createRankingSnapshot(actor: Actor, projectId: string, bodyValue: unknown): CommandResult<JsonRecord> {
     this.requireActiveUser(actor);
     const project = this.requireOwnedProject(actor, projectId);
@@ -5399,5 +5542,26 @@ export class GonService {
 
   async getReport(actor: Actor, reportId: string): Promise<JsonRecord> {
     return this.run((core) => core.getReport(actor, reportId));
+  }
+
+  /** Apply-2 (P03 /arena-matches): tạo trận đấu, xem trận, vote — theo OpenAPI P03. */
+  async createArenaMatch(
+    actor: Actor,
+    projectId: string,
+    bodyValue: unknown,
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createArenaMatch(actor, projectId, bodyValue));
+  }
+
+  async getArenaMatch(actor: Actor, matchId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getArenaMatch(actor, matchId));
+  }
+
+  async createArenaVote(
+    actor: Actor,
+    matchId: string,
+    bodyValue: unknown,
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createArenaVote(actor, matchId, bodyValue));
   }
 }

@@ -404,6 +404,32 @@ export interface CandidateRecord {
   createdAt: string;
 }
 
+/**
+ * Apply-2 (25/10) — Arena theo hợp đồng P03 `docs/04-contracts/openapi.json`:
+ * POST /projects/{id}/arena-matches · GET /arena-matches/{id} ·
+ * POST /arena-matches/{id}/votes. Slot A/B trỏ candidate của CandidateSet
+ * hiện tại; nhãn candidate chỉ mở (revealedCandidates) sau khi có vote.
+ */
+export interface ArenaMatchRecord {
+  id: string;
+  projectId: string;
+  userId: string;
+  slotACandidateId: string;
+  slotBCandidateId: string;
+  status: "open" | "voted" | "expired" | "cancelled" | "invalidated";
+  rankingSnapshotId: string | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface ArenaVoteRecord {
+  id: string;
+  matchId: string;
+  userId: string;
+  choice: "left_better" | "right_better" | "tie" | "both_bad" | "merge";
+  createdAt: string;
+}
+
 export interface RankingSnapshotRecord {
   id: string;
   userId: string;

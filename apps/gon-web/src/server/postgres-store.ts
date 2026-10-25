@@ -31,6 +31,8 @@ import type {
   ArtifactCoverage,
   ArtifactRecord,
   AssessmentResult,
+  ArenaMatchRecord,
+  ArenaVoteRecord,
   AttemptRecord,
   AttestationRecord,
   AuditRecord,
@@ -1536,6 +1538,38 @@ async function loadRepositories(
 
   for (const row of await queryRows(
     executor,
+    "select * from arena_matches order by created_at",
+  )) {
+    const record: ArenaMatchRecord = {
+      id: asText(row.id),
+      projectId: asText(row.project_id),
+      userId: asText(row.user_id),
+      slotACandidateId: asText(row.slot_a_candidate_id),
+      slotBCandidateId: asText(row.slot_b_candidate_id),
+      status: asText(row.status) as ArenaMatchRecord["status"],
+      rankingSnapshotId: row.ranking_snapshot_id == null ? null : asText(row.ranking_snapshot_id),
+      expiresAt: asIso(row.expires_at),
+      createdAt: asIso(row.created_at),
+    };
+    repositories.arenaMatches.set(record.id, record);
+  }
+
+  for (const row of await queryRows(
+    executor,
+    "select * from arena_votes order by created_at",
+  )) {
+    const record: ArenaVoteRecord = {
+      id: asText(row.id),
+      matchId: asText(row.match_id),
+      userId: asText(row.user_id),
+      choice: asText(row.choice) as ArenaVoteRecord["choice"],
+      createdAt: asIso(row.created_at),
+    };
+    repositories.arenaVotes.set(record.id, record);
+  }
+
+  for (const row of await queryRows(
+    executor,
     "select * from user_personalization order by user_id",
   )) {
     const record: PersonalizationRecord = {
@@ -1595,6 +1629,8 @@ const DURABLE_COLLECTIONS = [
   "candidateSets",
   "candidates",
   "rankingSnapshots",
+  "arenaMatches",
+  "arenaVotes",
   "journeys",
   "branchCommits",
   "attempts",
@@ -3070,6 +3106,35 @@ async function savePersonalization(
   );
 }
 
+async function saveArenaMatch(executor: SqlExecutor, record: ArenaMatchRecord): Promise<void> {
+  await executor.query(
+    `insert into arena_matches (id, project_id, user_id, slot_a_candidate_id, slot_b_candidate_id, status, ranking_snapshot_id, expires_at, created_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8::timestamptz, $9::timestamptz)
+     on conflict (id) do update set
+       status = excluded.status,
+       expires_at = excluded.expires_at`,
+    [
+      record.id,
+      record.projectId,
+      record.userId,
+      record.slotACandidateId,
+      record.slotBCandidateId,
+      record.status,
+      record.rankingSnapshotId,
+      record.expiresAt,
+      record.createdAt,
+    ],
+  );
+}
+
+async function insertArenaVote(executor: SqlExecutor, record: ArenaVoteRecord): Promise<void> {
+  await executor.query(
+    `insert into arena_votes (id, match_id, user_id, choice, created_at)
+     values ($1, $2, $3, $4, $5::timestamptz)`,
+    [record.id, record.matchId, record.userId, record.choice, record.createdAt],
+  );
+}
+
 async function insertFootprintEvent(
   executor: SqlExecutor,
   record: FootprintEventRecord,
@@ -3172,6 +3237,8 @@ async function flushRepositories(
     dataRequests: mapDiff("dataRequests"),
     personalizations: mapDiff("personalizations"),
     footprintEvents: mapDiff("footprintEvents"),
+    arenaMatches: mapDiff("arenaMatches"),
+    arenaVotes: mapDiff("arenaVotes"),
     outboxEvents: diffEntries(
       [...repositories.outboxEvents.values()].map((event) => [event.eventId, event] as const),
       snapshot.get("outboxEvents") ?? new Map(),
@@ -3366,6 +3433,11 @@ async function flushRepositories(
   for (const { record } of diffs.personalizations.updated) {
     await savePersonalization(executor, record);
   }
+
+  // Apply-2 (P03 /arena-matches): match upsert (open -> voted) + append-only votes.
+  for (const { record } of diffs.arenaMatches.inserted) await saveArenaMatch(executor, record);
+  for (const { record } of diffs.arenaMatches.updated) await saveArenaMatch(executor, record);
+  for (const { record } of diffs.arenaVotes.inserted) await insertArenaVote(executor, record);
 
   for (const { record } of diffs.journeys.updated) await updateJourney(executor, record);
   for (const { record } of diffs.journeys.inserted) {

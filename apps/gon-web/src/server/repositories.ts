@@ -45,6 +45,8 @@ import type {
   ProjectRecord,
   ProofRecord,
   QuotaReservationRecord,
+  ArenaMatchRecord,
+  ArenaVoteRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -187,6 +189,11 @@ export interface GonRepositories {
   readonly candidates: RepositoryCollection<string, CandidateRecord>;
   readonly rankingSnapshots: RepositoryCollection<string, RankingSnapshotRecord>;
 
+  /** Apply-2 (P03 /arena-matches): trận đấu Arena giữa 2 output candidate. */
+  readonly arenaMatches: RepositoryCollection<string, ArenaMatchRecord>;
+  /** Apply-2 (P03 /arena-matches): vote Arena — một vote mỗi (match, user). */
+  readonly arenaVotes: RepositoryCollection<string, ArenaVoteRecord>;
+
   readonly journeys: RepositoryCollection<string, JourneyRecord>;
   readonly branchCommits: RepositoryCollection<string, BranchCommitRecord>;
   readonly attempts: RepositoryCollection<string, AttemptRecord>;
@@ -279,6 +286,8 @@ const MAP_COLLECTION_NAMES = [
   "candidateSets",
   "candidates",
   "rankingSnapshots",
+  "arenaMatches",
+  "arenaVotes",
   "journeys",
   "branchCommits",
   "attempts",
@@ -325,6 +334,8 @@ export class InMemoryGonRepositories implements GonRepositories {
   readonly candidateSets = new MapRepositoryCollection<string, CandidateSetRecord>();
   readonly candidates = new MapRepositoryCollection<string, CandidateRecord>();
   readonly rankingSnapshots = new MapRepositoryCollection<string, RankingSnapshotRecord>();
+  readonly arenaMatches = new MapRepositoryCollection<string, ArenaMatchRecord>();
+  readonly arenaVotes = new MapRepositoryCollection<string, ArenaVoteRecord>();
 
   readonly journeys = new MapRepositoryCollection<string, JourneyRecord>();
   readonly branchCommits = new MapRepositoryCollection<string, BranchCommitRecord>();
