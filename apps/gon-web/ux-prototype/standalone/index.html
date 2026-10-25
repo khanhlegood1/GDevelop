@@ -428,6 +428,10 @@ textarea{min-height:100px;resize:vertical}
      localStorage nếu môi trường không có IndexedDB; tự migrate dữ liệu
      localStorage cũ. Trang Khám phá mang theo dữ liệu từ thanh tìm kiếm
      (đồng bộ tất cả dữ liệu).
+   - FE-Confirm-12 (25/10): Journey Agent kiểu Agent Mode (arena.ai) — 1 lệnh
+     cho trọn hành trình học; orchestrator gán ngẫu nhiên kín tên mỗi phiên;
+     5 tín hiệu Agent Arena map sang GON (checkpoint/remix/brew/honesty);
+     tab "Agent (Net Improvement)" thứ 3 trong Leaderboard.
    ===================================================================== */
 
 /* ---------------- Trạng thái ---------------- */
@@ -455,7 +459,8 @@ var DEFAULT_STATE = {
   loves: {},            // cardId -> {topic,t} — 💜 "Đã hiểu thật" (chỉ mở sau checkpoint của card đó)
   arenaBattles: [],     // {pairId,choice,model,t} — 1 vote mỗi cặp đấu (arena.ai-style)
   learnedCards: {},     // cardId -> 1 (đã qua checkpoint — mở khoá 💜)
-  remixes: []           // {from,fromAuthor,topic,persona,depth,t} — output phái sinh có ghi công nguồn
+  remixes: [],          // {from,fromAuthor,topic,persona,depth,t} — output phái sinh có ghi công nguồn
+  agentJourneys: []     // FE-Confirm-12: {topic,orch,recovered,confirmed,t} — phiên Journey Agent (Agent Mode kiểu arena.ai)
 };
 function mergeState(raw){
   var out = JSON.parse(JSON.stringify(DEFAULT_STATE)), k;
@@ -879,7 +884,7 @@ ROUTES.discover = function(){
       '</div>' +
       '<div class="attached" id="attached-list"></div>' +
     '</div>' +
-    (result || "") + brewInlineBlock() + allCombosBlock() + arenaBlock() +
+    (result || "") + brewInlineBlock() + allCombosBlock() + arenaBlock() + agentBlock() +
     '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">🔥 Xu hướng đang hot</h3><span class="small muted">topic được gợi ý theo xu hướng</span></div>' +
       '<div class="hot-list" style="margin-top:12px">' + FEED_SEED.slice().sort(function(a,b){return b.base-a.base;}).map(function(c, i){
         return '<div class="hot-item" role="button" tabindex="0" data-act="rec-go" data-topic="' + esc(c.topic) + '">' +
@@ -1209,6 +1214,105 @@ function doVote(choice){
   save(); grantBadge("arena"); addXp(15,"Bình chọn Arena"); render();
 }
 
+/* ---------------- S16 · Journey Agent — Agent Mode (arena.ai) áp vào GON (FE-Confirm-12) ----------------
+ * 1 lệnh (query + nội dung học) → agent TỰ lập kế hoạch & thực thi trọn hành trình bằng tools,
+ * thay vì user bấm từng bước (đúng tinh thần Agent Mode của arena.ai). Orchestrator gán NGẪU NHIÊN
+ * kín tên mỗi phiên (nguyên tắc mù) — chỉ mở sau khi xong; phản hồi user nuôi 5 tín hiệu
+ * Agent Arena: Confirmed success · Praise vs complaint · Steerability · Recovery · Honesty. */
+var ORCH_POOL = [
+  {name:"ADK · gemini-orchestrator", mv:2, tools:"plan · eval_query · retrieve_768d · gen_payload · gd_render · checkpoint · grant_xp",
+   sig:{success:8, praise:6, steer:9, recovery:2, honesty:11}},
+  {name:"ADK · fast-orchestrator", mv:-1, tools:"plan · eval_query · gen_payload · gd_render · checkpoint",
+   sig:{success:-6, praise:-4, steer:-5, recovery:-8, honesty:3}},
+  {name:"ADK · brew-first-orchestrator", mv:1, tools:"plan · eval_query · brew_module · gen_payload · gd_render · checkpoint",
+   sig:{success:3, praise:2, steer:-2, recovery:12, honesty:5}}
+];
+var AGENT_STEPS = [
+  {ico:"📋", tool:"plan",        t:"Lập kế hoạch hành trình",     d:"1 lệnh → agent tự bẻ hành trình thành các bước (kiểu Agent Mode)"},
+  {ico:"🔎", tool:"eval_query",  t:"Đánh giá truy vấn",           d:"độ mạnh của query + nội dung đã dính kèm"},
+  {ico:"🧪", tool:"brew_module", t:"Brew module (phục hồi)",      d:"query yếu/không khớp → tự sinh module đầy đủ 6 định dạng"},
+  {ico:"✨", tool:"gen_payload", t:"Sinh payload 6 định dạng",    d:"payload CÓ KIỂU (GonGamePayload) — không sinh game code"},
+  {ico:"🕹️", tool:"gd_render",   t:"Render GDJS Runtime",         d:"blueprint quiz-3 → game chơi được, bắn GonLearningEvents"},
+  {ico:"🛡️", tool:"checkpoint",  t:"Gắn checkpoint hiểu thật",     d:"XP chỉ tính khi có learningEvents thật (chống khai man)"},
+  {ico:"🏅", tool:"grant_xp",    t:"Chấm XP + chủ đề liên quan",  d:"level = floor(LifetimeXP/100) — uncapped"}
+];
+var AGENT_STATE = {phase:"idle"}, AGENT_STEP = 0, AGENT_ORCH = null, AGENT_VERDICT = null, AGENT_TIMER = null;
+function agentPp(v){ return (v>=0?"+":"") + v; }
+function agentNi(o){ return Math.round((o.sig.success + o.sig.praise + o.sig.steer + 0.5*o.sig.recovery + o.sig.honesty)/5); }
+function agentSignalRows(){
+  var confirms   = S.agentJourneys.filter(function(j){ return j.confirmed === true; }).length;
+  var complaints = S.agentJourneys.filter(function(j){ return j.confirmed === false; }).length;
+  var praise     = Object.keys(S.likes).length + Object.keys(S.loves).length + Object.keys(S.comments).length;
+  var recoveries = S.brewed.length + S.agentJourneys.filter(function(j){ return j.recovered; }).length;
+  var successN   = S.checks.length + Object.keys(S.learnedCards).length + confirms;
+  return [
+    {em:"✅", name:"Confirmed success",  gon:"💜 Đã hiểu thật — chỉ công nhận qua checkpoint/learningEvents thật", val: successN + " lần"},
+    {em:"🗣️", name:"Praise vs complaint", gon:"tim · bình luận · 💜 và phản hồi 👎 chưa đạt của Journey Agent", val: praise + " khen · " + complaints + " chê"},
+    {em:"🎯", name:"Steerability",       gon:"🎨 Remix — agent chỉnh hướng output theo ý bạn", val: S.remixes.length + " lần"},
+    {em:"🔧", name:"Recovery (×0.5)",    gon:"🧪 Brew — query yếu/không kết quả → tự sinh module đầy đủ", val: recoveries + " lần"},
+    {em:"👻", name:"Honesty",            gon:"khai đã kiểm tra mà không có learningEvents → XP bị chặn (chống tool-hallucination)", val:"0 vụ khai man"}
+  ];
+}
+function agentFeedbackRow(j){
+  if(!j) return "";
+  if(j.confirmed === true)  return '<p class="small" style="margin-top:8px">✅ đã xác nhận (Confirmed success) — tín hiệu của bạn nuôi bảng Agent Leaderboard.</p>';
+  if(j.confirmed === false) return '<p class="small" style="margin-top:8px">👎 đã ghi nhận phản hồi chưa đạt — tín hiệu Praise vs complaint.</p>';
+  return '<div class="row" style="margin-top:10px;flex-wrap:wrap">' +
+    '<button class="btn primary sm" type="button" data-act="agent-confirm" data-v="ok">✅ Hành trình xong tốt</button>' +
+    '<button class="btn ghost sm" type="button" data-act="agent-confirm" data-v="bad">👎 Chưa đạt</button></div>';
+}
+function agentBlock(){
+  var run;
+  if(AGENT_STATE.phase === "running"){
+    run = '<div class="brew-visual" style="margin-top:12px"><i style="width:' + Math.round(AGENT_STEP/AGENT_STEPS.length*100) + '%"></i></div>' +
+      '<div class="pipeline">' + AGENT_STEPS.map(function(s,i){
+        var cls = i < AGENT_STEP ? "done" : (i===AGENT_STEP ? "active" : "");
+        return '<div class="pipe-step ' + cls + '"><span class="st-ico">' + s.ico + '</span><div><b>' + s.t + '</b> <span class="tag info mono">tool: ' + s.tool + '</span><p class="small muted" style="margin:2px 0 0">' + s.d + '</p></div><span class="spinner"></span></div>';
+      }).join("") + '</div>' +
+      '<p class="small muted" style="margin-top:8px">🎭 orchestrator ẩn danh — chỉ mở sau khi hành trình xong (nguyên tắc mù của arena.ai). Mô phỏng agent pipeline — production chạy Google ADK + Gemini thật.</p>';
+  } else if(AGENT_STATE.phase === "done"){
+    var j = S.agentJourneys[S.agentJourneys.length-1];
+    run = '<div class="okbox show">✅ Hành trình hoàn tất! Agent đã tự thực thi trọn lộ trình: đánh giá query → Brew → payload 6 định dạng → GDJS render → checkpoint → XP — bạn không phải bấm từng bước.</div>' +
+      '<div class="row" style="margin-top:10px;flex-wrap:wrap">' +
+        '<span class="tag ok">🏷️ Orchestrator: ' + esc(AGENT_ORCH ? AGENT_ORCH.name : (j ? j.orch : "")) + '</span>' +
+        (AGENT_VERDICT !== "found" ? '<span class="tag warn">🔧 tín hiệu recovery: query yếu → Brew</span>' : '<span class="tag info">✅ query khớp module sẵn có</span>') +
+      '</div>' + agentFeedbackRow(j) +
+      '<div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn gold sm" type="button" data-act="agent-run">🔁 Chạy lại (orchestrator ngẫu nhiên)</button>' +
+      '<button class="btn ghost sm" type="button" data-nav="module">▶ Học module vừa dựng</button>' +
+      '<button class="btn ghost sm" type="button" data-nav="leaderboard">🤖 Bảng Agent</button></div>';
+  } else {
+    run = '<div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-act="agent-run">🚀 Chạy Journey Agent (1 lệnh)</button></div>';
+  }
+  return '<div class="card" id="agent-inline"><div class="row" style="justify-content:space-between"><h3 style="margin:0">🤖 Journey Agent — 1 lệnh, trọn hành trình</h3><span class="small muted">kiểu Agent Mode (arena.ai)</span></div>' +
+    '<p class="small muted" style="margin-top:8px">Một đầu vào duy nhất (truy vấn + nội dung học) — agent <b>tự lập kế hoạch và thực thi cả hành trình</b> bằng tools. Orchestrator được gán <b>ngẫu nhiên kín tên</b> mỗi phiên → phản hồi của bạn trở thành tín hiệu xếp hạng nhân quả (Net Improvement).</p>' +
+    run +
+    '<hr class="sep"><h3 style="margin:0 0 8px">5 tín hiệu Agent Arena → map sang GON</h3>' +
+    '<table class="xp-table"><thead><tr><th>Tín hiệu</th><th>Trong GON là gì</th><th>Số liệu của bạn</th></tr></thead><tbody>' +
+    agentSignalRows().map(function(r){ return '<tr><td><b>' + r.em + " " + r.name + '</b></td><td class="muted">' + r.gon + '</td><td class="amt">' + r.val + '</td></tr>'; }).join("") +
+    '</tbody></table></div>';
+}
+function startAgent(){
+  if(AGENT_STATE.phase === "running") return;
+  var topic = LAST_QUERY || "Chủ đề mới của tôi";
+  AGENT_ORCH = ORCH_POOL[Math.floor(Math.random()*ORCH_POOL.length)];
+  AGENT_STEP = 0;
+  AGENT_VERDICT = searchVerdict(topic);
+  AGENT_STATE = {phase:"running"};
+  render();
+  if(AGENT_TIMER) clearInterval(AGENT_TIMER);
+  AGENT_TIMER = setInterval(function(){
+    AGENT_STEP++;
+    if(AGENT_STEP >= AGENT_STEPS.length){
+      clearInterval(AGENT_TIMER);
+      AGENT_STATE = {phase:"done"};
+      S.agentJourneys.push({topic:topic, orch:AGENT_ORCH.name, recovered:AGENT_VERDICT !== "found", confirmed:null, t:Date.now()});
+      save();
+      addXp(25, "Journey Agent hoàn tất hành trình");
+    }
+    if(CURRENT === "discover") render();
+  }, 800);
+}
+
 /* ---------------- S12 · POAP ---------------- */
 ROUTES.proof = function(){
   var events = [];
@@ -1222,6 +1326,7 @@ ROUTES.proof = function(){
   });
   S.picks.forEach(function(p){ events.push({em:"👣", label:"Chọn output: \""+p.title+"\" → "+PERSONAS[p.persona].em+" "+PERSONAS[p.persona].label+" ("+DEPTHS[p.depth].label+")", t:p.t}); });
   S.remixes.forEach(function(r){ events.push({em:"🎨", label:"Remix: "+r.topic+" ("+PERSONAS[r.persona].em+" "+PERSONAS[r.persona].label+") từ "+r.fromAuthor, t:r.t}); });
+  S.agentJourneys.forEach(function(a){ events.push({em:"🤖", label:"Journey Agent: "+a.topic+" → "+a.orch+(a.recovered?" (🔧 recovery)":"")+(a.confirmed===true?" · ✅ xong":a.confirmed===false?" · 👎 chưa đạt":""), t:a.t}); });
   Object.keys(S.loves).forEach(function(k){ var lv = S.loves[k]; events.push({em:"💜", label:"Đã hiểu thật: "+(lv.topic||k), t:lv.t}); });
   S.forks.forEach(function(f){ events.push({em:"🍴", label:"Fork: "+f.topic, t:f.t}); });
   if(S.gameBest!==null) events.push({em:"🎮", label:"Mini-game: "+S.gameBest+"/3", t:Date.now()});
@@ -1250,7 +1355,7 @@ function inputLabel(t){ return {text:"Văn bản",file:"Tệp",image:"Ảnh",you
 function verdictVi(v){ return {found:"có sẵn",related:"liên quan",missing:"chưa có",clarify:"cần làm rõ",blocked:"bị chặn"}[v]||v; }
 
 /* ---------------- S15 · Leaderboard (kiểu arena.ai — PO 24/10 23:54) ---------------- */
-var LB_TAB = "model"; // model | learner
+var LB_TAB = "model"; // model | learner | agent
 var LB_MODELS = [
   {name:"ADK · gemini", elo:1287, votes:412, win:61, fmt:"🎬 Video", mv:2},
   {name:"ADK · scholar-mode", elo:1264, votes:377, win:58, fmt:"🌐 Web", mv:-1},
@@ -1307,6 +1412,20 @@ ROUTES.leaderboard = function(){
           '<div style="text-align:right"><b class="lb-num">' + m.elo + '</b><p class="small muted" style="margin:0">Elo · thắng ' + m.win + '%</p>' +
           (m.mine?'<span class="tag ok">🗳 vote của bạn</span>':"") + '</div></div>';
       }).join("") + lbPersonaBoard();
+  } else if(LB_TAB === "agent"){
+    var myOrch = S.agentJourneys.length ? S.agentJourneys[S.agentJourneys.length-1].orch : null;
+    var orchRows = ORCH_POOL.map(function(o){
+      return {name:o.name, tools:o.tools, sig:o.sig, ni:agentNi(o), mv:o.mv, mine:myOrch === o.name};
+    }).sort(function(a,b){ return b.ni - a.ni; });
+    body = '<p class="small muted">Bảng <b>Orchestrator của Journey Agent</b> — kiểu <b>Agent Arena</b> của arena.ai: mỗi phiên học được gán <b>ngẫu nhiên</b> một orchestrator kín tên → so sánh nhân quả với orchestrator trung bình. <b>Net Improvement</b> = trung bình có trọng số 5 tín hiệu (recovery ×0.5 như Arena tính bash recovery nửa trọng số); dương = trên mức trung bình, âm = dưới.</p>' +
+      '<table class="xp-table" id="lb-agent-rows" style="margin-top:10px"><thead><tr><th>Orchestrator</th><th>✅ Success</th><th>🗣️ Praise</th><th>🎯 Steer</th><th>🔧 Recovery</th><th>👻 Honesty</th><th>Net</th></tr></thead><tbody>' +
+      orchRows.map(function(r){
+        var mvChip = r.mv > 0 ? "↑" + r.mv : r.mv < 0 ? "↓" + Math.abs(r.mv) : "–";
+        return '<tr' + (r.mine ? ' style="outline:1px solid rgba(18,185,129,.55)"' : "") + '><td><b>' + esc(r.name) + '</b>' + (r.mine ? ' <span class="tag ok">👉 phiên của bạn</span>' : "") + '<br><span class="small muted mono">' + r.tools + '</span></td>' +
+          '<td>' + agentPp(r.sig.success) + '</td><td>' + agentPp(r.sig.praise) + '</td><td>' + agentPp(r.sig.steer) + '</td><td>' + agentPp(r.sig.recovery) + '</td><td>' + agentPp(r.sig.honesty) + '</td>' +
+          '<td class="amt"><b>' + agentPp(r.ni) + '</b> <span class="small muted">' + mvChip + '</span></td></tr>';
+      }).join("") + '</tbody></table>' +
+      '<p class="small muted" style="margin-top:8px">Số liệu cộng đồng mô phỏng (điểm % so với orchestrator trung bình). Phiên của bạn: ' + S.agentJourneys.length + ' hành trình' + (myOrch ? ' · orchestrator cuối: ' + esc(myOrch) : "") + '.</p>';
   } else {
     var me = {name:S.account?S.account.name:"Bạn", xp:lifetimeXp(), me:true, note:"dấu chân đẳng cấp: " + footprintText()};
     var rows = LB_LEARNERS.concat([me]).sort(function(a,b){ return b.xp-a.xp; });
@@ -1324,6 +1443,7 @@ ROUTES.leaderboard = function(){
       '<div class="lb-tabs">' +
         '<button type="button" class="lb-tab' + (LB_TAB==="model"?" active":"") + '" data-act="lb-tab" data-t="model">🤖 Model sinh output</button>' +
         '<button type="button" class="lb-tab' + (LB_TAB==="learner"?" active":"") + '" data-act="lb-tab" data-t="learner">👤 Người học</button>' +
+        '<button type="button" class="lb-tab' + (LB_TAB==="agent"?" active":"") + '" data-act="lb-tab" data-t="agent">🤖 Agent (Net Improvement)</button>' +
       '</div>' + body + '</div></div>';
 };
 
@@ -1410,7 +1530,8 @@ var FLOWS = [
   {id:"F10",name:"Output của bạn lên ≥40 điểm xu hướng",go:"feed",need:"trending"},
   {id:"F11",name:"POAP + quyền riêng tư (xuất/xoá)",go:"profile",need:"privacy"},
   {id:"F12",name:"Leaderboard (kiểu arena.ai): vote Arena → xếp hạng model + thứ hạng người học",go:"leaderboard",need:"lbviewed"},
-  {id:"F13",name:"Remix output (persona reveal) + 💜 Đã hiểu thật (gated sau checkpoint)",go:"feed",need:"remixed"}
+  {id:"F13",name:"Remix output (persona reveal) + 💜 Đã hiểu thật (gated sau checkpoint)",go:"feed",need:"remixed"},
+  {id:"F14",name:"Journey Agent (Agent Mode): 1 lệnh → trọn hành trình + phản hồi 5 tín hiệu",go:"discover",need:"agented"}
 ];
 function flowDone(f){
   switch(f.need){
@@ -1427,13 +1548,14 @@ function flowDone(f){
     case "privacy": return S.visited.indexOf("profile")!==-1;
     case "lbviewed": return S.visited.indexOf("leaderboard")!==-1;
     case "remixed": return S.remixes.length>0;
+    case "agented": return S.agentJourneys.length>0;
   }
   return false;
 }
 ROUTES.map = function(){
   var doneFlows = FLOWS.filter(flowDone).length;
   return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="profile" aria-label="Quay lại">←</button><h1>📋 Sơ đồ xác nhận FE</h1></div>' +
-    '<div class="card"><p class="small muted">Bấm lần lượt F1→F13 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
+    '<div class="card"><p class="small muted">Bấm lần lượt F1→F14 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
     '<div class="brew-visual" style="margin-top:10px"><i style="width:' + Math.round(doneFlows/FLOWS.length*100) + '%"></i></div>' +
     '<p class="small muted" style="margin-top:6px">Screens ' + S.visited.length + '/' + SCREENS.length + ' · Flows ' + doneFlows + '/' + FLOWS.length + ' · XP ' + lifetimeXp() + '</p></div>' +
     '<div class="card"><h3>Luồng chính</h3>' + FLOWS.map(function(f){
@@ -1612,6 +1734,18 @@ document.addEventListener("click", function(e){
   if(act === "lb-fmt"){ LB_FMT = actEl.getAttribute("data-f") || "all"; render(); return; }
   if(act === "arena-next"){ ARENA_IDX = (ARENA_IDX + 1) % ARENA_PAIRS.length; render(); return; }
   if(act === "arena-embed-toggle"){ ARENA_EMBED_MODE = !ARENA_EMBED_MODE; render(); return; }
+  if(act === "agent-run"){ startAgent(); return; }
+  if(act === "agent-confirm"){
+    var avv = actEl.getAttribute("data-v");
+    var jj = S.agentJourneys[S.agentJourneys.length-1];
+    if(!jj || jj.confirmed !== null) return;
+    jj.confirmed = (avv === "ok");
+    save();
+    if(jj.confirmed){ addXp(5, "Confirmed success (Agent Mode)"); }
+    else { toast("👎 Đã ghi nhận phản hồi chưa đạt — tín hiệu Praise vs complaint"); }
+    render();
+    return;
+  }
   if(act === "report-ack"){ toast("🚦 Đã ghi nhận"); return; }
   if(act === "pick-output"){
     var pid = actEl.getAttribute("data-p"), did = actEl.getAttribute("data-d"), oid = actEl.getAttribute("data-o");

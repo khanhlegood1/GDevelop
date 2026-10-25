@@ -208,3 +208,33 @@ export const ARENA_EMBED_SURFACE = {
   productionPath: "FastChat (Gate 0, Apache-2.0) self-host dưới Gradio/HF Space — embeddable qua ?embed=true",
   doNot: ["nhúng arena.ai trực tiếp (bị chặn iframe)", "proxy để lách header (phạm ToS)"],
 } as const;
+
+/**
+ * FE-Confirm-12 (25/10) — AGENT MODE (arena.ai) ÁP VÀO GON — JOURNEY AGENT:
+ * 1 lệnh → agent tự lập kế hoạch & thực thi trọn hành trình học bằng tools
+ * (plan → eval_query → brew_module → gen_payload → gd_render → checkpoint →
+ * grant_xp) thay vì user bấm từng bước. Orchestrator gán ngẫu nhiên kín tên
+ * mỗi phiên (nguyên tắc mù của arena.ai), chỉ mở sau khi xong. 5 tín hiệu
+ * Agent Arena map sang đặc sản GON; Net Improvement có trọng số (recovery ×0.5
+ * như Arena tính bash recovery nửa trọng số).
+ * Chi tiết: docs/00-process/PO-DECISION-AGENT-MODE-2026-10-25.md
+ */
+export const JOURNEY_AGENT_DECISION = {
+  id: "PO-2026-10-25-AGENT-MODE",
+  date: "2026-10-25",
+  source: "Product Owner (GON) — 'Agent Mode của arena.ai làm gì? Chạy pipeline ntn? Nên áp dụng vào GON ra sao?' → duyệt triển khai",
+  decisionDoc: "docs/00-process/PO-DECISION-AGENT-MODE-2026-10-25.md",
+  oneCommand: "1 đầu vào (query + nội dung học) → agent tự thực thi trọn hành trình: đánh giá query → retrieval/Brew → payload 6 định dạng → GDJS render → checkpoint → XP → related topics",
+  tools: ["plan", "eval_query", "brew_module", "gen_payload", "gd_render", "checkpoint", "grant_xp"] as const,
+  blindOrchestrator: "mỗi phiên gán ngẫu nhiên 1 orchestrator kín tên — chỉ mở sau khi hành trình xong",
+  signals: {
+    confirmedSuccess: "💜 Đã hiểu thật — chỉ công nhận qua checkpoint/learningEvents thật",
+    praiseVsComplaint: "tim · bình luận · 💜 và phản hồi 👎 chưa đạt của Journey Agent",
+    steerability: "🎨 Remix — agent chỉnh hướng output theo ý người học",
+    recovery: "🧪 Brew — query yếu/không kết quả → tự sinh module đầy đủ (trọng số ×0.5)",
+    honesty: "👻 chống tool-hallucination — khai 'đã kiểm tra' mà không có learningEvents → XP bị chặn",
+  } as Record<string, string>,
+  netImprovement: "trung bình có trọng số 5 tín hiệu, đối chiếu orchestrator trung bình (randomized trial → so sánh nhân quả)",
+  xpRules: { journeyDone: 25, confirmedSuccess: 5 },
+  productionPath: "Google ADK orchestrator (WSIC) + GDJS learningEvents về /api/v1 (P03) làm confirmed success; không bash tự do cho learner; arena nền FastChat (Gate 0)",
+} as const;
