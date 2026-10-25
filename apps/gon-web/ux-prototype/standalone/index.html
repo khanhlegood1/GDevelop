@@ -1080,8 +1080,34 @@ ROUTES.game = function(){
     }).join("") +
     (GAME_SUBMITTED ? '<div class="' + (GAME_SCORE>=2?"okbox show":"warnbox show") + '">' + (GAME_SCORE>=2 ? "✅ Hoàn thành — " + GAME_SCORE + "/3 đúng." : "Chưa đạt (" + GAME_SCORE + "/3) — cần ≥2.") + '</div>' : "") +
     '<div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-act="game-submit">Nộp bài</button>' +
-    '<button class="btn ghost" type="button" data-act="game-reset">Làm lại</button></div></div></div>';
+    '<button class="btn ghost" type="button" data-act="game-reset">Làm lại</button>' +
+    '<button class="btn gold" type="button" data-act="gd-blueprint">🧩 Xem blueprint GDevelop</button></div></div></div>';
 };
+/* GON Game Blueprint (PO 24/10 — GDevelop source áp vào GON):
+   LLM sinh THAM SỐ (payload có kiểu), KHÔNG sinh game code — payload được validate
+   rồi nhồi vào template GDevelop (project JSON) và render bằng GDJS Runtime (MIT). */
+var GD_BLUEPRINTS = ["quiz-3", "sort-bins", "match-pairs", "flashcard-run", "fact-opinion-swipe", "escape-review"];
+function gdBlueprintPayload(){
+  return {
+    blueprint: "quiz-3",
+    topic: "Nhận diện ngụy biện",
+    engine: "GDJS Runtime (GDevelop, MIT)",
+    locale: "vi",
+    passThreshold: 2,
+    learningEvents: ["answer", "finish"],
+    questions: GAME_QUESTIONS.map(function(q){
+      return { prompt: q.q, options: q.opts, correctIndex: q.correct };
+    })
+  };
+}
+function showGdBlueprint(){
+  var payload = gdBlueprintPayload();
+  openSheet('<div class="sheet-handle"></div>' +
+    '<h3 style="margin:0 0 8px">🧩 GON Game Blueprint — "quiz-3"</h3>' +
+    '<p class="small muted">Nguyên tắc: <b>ADK/Gemini sinh payload có kiểu</b> (tham số bên dưới), không sinh game code. Payload được validate rồi nhồi vào template GDevelop (project JSON) và <b>render bằng GDJS Runtime</b> trong output screen — game bắn <b>GonLearningEvents</b> (đúng/sai/hoàn thành) về GON để tính checkpoint + XP. Bộ blueprint: ' + GD_BLUEPRINTS.join(" · ") + '.</p>' +
+    '<pre style="margin-top:10px;padding:12px;border:1px solid var(--line);border-radius:12px;background:#0b1226;color:#9fe8c9;font-size:.72rem;overflow:auto;max-height:44vh">' + esc(JSON.stringify(payload, null, 2)) + '</pre>' +
+    '<p class="small muted" style="margin-top:8px">Production: contract có kiểu tại <b>src/lib/game-blueprint.ts</b> · quyết định: docs/00-process/PO-DECISION-GDEVELOP-INTEGRATION-2026-10-24.md</p>');
+}
 function submitGame(){
   GAME_ANSWERS = [];
   for(var qi=0;qi<GAME_QUESTIONS.length;qi++){
@@ -1600,6 +1626,7 @@ document.addEventListener("click", function(e){
     return;
   }
   if(act === "game-submit"){ submitGame(); return; }
+  if(act === "gd-blueprint"){ showGdBlueprint(); return; }
   if(act === "game-reset"){ GAME_ANSWERS=[]; GAME_SUBMITTED=false; GAME_SCORE=0; render(); return; }
   if(act === "fork"){ doFork(actEl.getAttribute("data-topic"), actEl.getAttribute("data-from")); return; }
   if(act === "vote"){ doVote(actEl.getAttribute("data-choice")); return; }

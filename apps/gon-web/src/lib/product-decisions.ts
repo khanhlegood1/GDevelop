@@ -159,3 +159,24 @@ export const ARENA_PATTERN_DECISION = {
   leaderboardCategories: ["all", "web", "video", "game", "infographic", "image", "easy_task"],
   rankMovementWindowDays: 7,
 } as const;
+
+/**
+ * QUYẾT ĐỊNH 24/10/2026 (tối muộn) — GDEVELOP SOURCE ÁP VÀO GON:
+ * Dùng GDJS Runtime + project JSON + Extensions của GDevelop (MIT) để render
+ * định dạng Game (+ Easy-task). Nguyên tắc vàng: LLM/ADK sinh THAM SỐ có kiểu
+ * (GonGamePayload), KHÔNG sinh game code — validate rồi nhồi vào template,
+ * render bằng GDJS Runtime, game bắn GonLearningEvents về GON. Tránh newIDE
+ * (172MB editor) và toolchain Core/C++ trong pipeline GON.
+ * Contract: src/lib/game-blueprint.ts · Demo: nút "🧩 Xem blueprint GDevelop".
+ */
+export const GDEVELOP_INTEGRATION_DECISION = {
+  id: "PO-2026-10-24-GDEVELOP-INTEGRATION",
+  date: "2026-10-24",
+  source: "Product Owner (GON) — 'Còn GDevelop source code thì áp dụng vào GON thế nào cho tốt?', chọn Đầy đủ",
+  decisionDoc: "docs/00-process/PO-DECISION-GDEVELOP-INTEGRATION-2026-10-24.md",
+  contract: "src/lib/game-blueprint.ts",
+  useParts: ["GDJS/Runtime (engine JS)", "project JSON format", "Extensions (GonLearningEvents)"],
+  avoidParts: ["newIDE (editor)", "Core/C++ emscripten toolchain"],
+  goldenRule: "LLM sinh payload có kiểu (tham số), không sinh game code",
+  learningEventsTo: "/api/v1 (P03) — checkpoint + XP từ kết quả chơi thật",
+} as const;
