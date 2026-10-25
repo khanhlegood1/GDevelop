@@ -147,24 +147,22 @@ export const SignedOutNeedsConfiguration: Story = {
   },
 };
 
-export const Onboarding18Plus: Story = {
-  name: "03 · Onboarding 18+ và consent",
+export const OnboardingNoAgeGate: Story = {
+  name: "03 · Onboarding (invite + footprint — không còn cổng 18+)",
   decorators: [withGonApi("onboarding")],
   parameters: {
     docs: {
       description: {
         story:
-          "Invite, 18+ self-attestation và lựa chọn footprint. Storybook ghi rõ self-attestation không phải xác minh giấy tờ.",
+          "PO đảo ngược định vị 18+ ngày 24/10: dự án không quan tâm độ tuổi — checkbox tự xác nhận đã bị gỡ. Payload attestation giữ nguyên fields theo contract P03.",
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await canvas.findByRole("heading", { name: /Hoàn tất điều kiện vào Private Alpha/i });
-    await userEvent.click(canvas.getByLabelText(/Tôi tự xác nhận mình đã đủ 18 tuổi/i));
-    await userEvent.click(canvas.getByLabelText(/Tôi chấp nhận điều khoản Private Alpha/i));
-    await userEvent.click(canvas.getByRole("button", { name: /Kích hoạt tài khoản/i }));
-    await canvas.findByRole("heading", { name: /Bạn muốn học điều gì hôm nay/i });
+    await canvas.findByText(/Không còn cổng độ tuổi/i);
+    await canvas.getByRole("button", { name: /Kích hoạt tài khoản/i });
   },
 };
 

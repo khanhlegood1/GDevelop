@@ -67,7 +67,7 @@
 
 1. **Port demo → source chính**: các bề mặt mới (KOL ngách, Side-by-side, nâng cấp Google) vào `apps/gon-web/src` theo đúng contract trong `src/lib/product-decisions.ts` + `game-blueprint.ts`.
 2. **GDJS Runtime thật + extension GonLearningEvents thật** (tách khỏi demo 1 file — theo quyết định GDevelop mục "giai đoạn sau").
-3. **Production de-18+ sweep** (PO đảo ngược 24/10; demo đã sạch, source chính còn artifact — sẽ ghi riêng từng chỗ sửa, không âm thầm đổi docs P01 đã duyệt).
+3. ~~Production de-18+ sweep~~ **✅ ĐÃ XONG trong Apply-1** (PO đảo ngược 24/10; Vs1App đã gỡ cổng độ tuổi, contract P03 giữ nguyên — ghi tại [`PO-DECISION-APPLY-PHASE-1-2026-10-25.md`](PO-DECISION-APPLY-PHASE-1-2026-10-25.md)).
 4. Artifact embeds (P04) · VS2–VS5 · Storybook D-SB-02…06 · P05 verdict + P06 Go-Live (final call PO).
 
 ## 6. Liên kết chéo
