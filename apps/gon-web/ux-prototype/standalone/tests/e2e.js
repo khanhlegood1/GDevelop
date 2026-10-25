@@ -2,7 +2,7 @@
 /* E2E smoke test cho GON standalone FE demo v2 — TikTok-style (jsdom, không network).
  * Chạy:  mkdir /tmp/gontest && cd /tmp/gontest && npm init -y && npm i jsdom fake-indexeddb
  *        node apps/gon-web/ux-prototype/standalone/tests/e2e.js
- * Kết quả kỳ vọng: tất cả PASS (toàn bộ F1–F11).
+ * Kết quả kỳ vọng: tất cả PASS (toàn bộ F1–F14).
  * Lưu trữ: demo dùng IndexedDB — test inject fake-indexeddb vào window trước khi script chạy. */
 const { JSDOM } = require("jsdom");
 const fs = require("fs");
@@ -320,6 +320,28 @@ function readState(win) {
   await clk(loveOpen2);
   ok(!!(await readState()).loves["c1"], "gated Love recorded after genuine learning");
 
+  console.log("== F14: Journey Agent (Agent Mode — 1 lệnh, trọn hành trình) ==");
+  await goHash("#/discover");
+  ok(text().includes("Journey Agent — 1 lệnh, trọn hành trình"), "agent block present in Discover (Agent Mode)");
+  ok(["Confirmed success","Praise vs complaint","Steerability","Recovery","Honesty"].every((t) => text().includes(t)), "5 Agent Arena signals mapped to GON features");
+  document.getElementById("uni-input").value = "chủ đề mới lạ";
+  await clk(q('[data-act="uni-search"]'));
+  await clk(q('[data-act="agent-run"]'));
+  ok(text().includes("orchestrator ẩn danh"), "orchestrator blinded during the run (arena.ai principle)");
+  ok(document.querySelectorAll("#agent-inline .pipe-step").length === 7, "7 pipeline steps (plan → … → grant_xp)");
+  ok(text().includes("tool: plan"), "tool-call tags shown per step (agent trace)");
+  await sleep(7000);
+  ok(text().includes("Hành trình hoàn tất"), "journey completes autonomously (1 command)");
+  ok(/Orchestrator: ADK · (gemini|fast|brew-first)-orchestrator/.test(text()), "orchestrator revealed only after completion");
+  ok(text().includes("tín hiệu recovery"), "weak query → Brew flagged as recovery signal");
+  const stA = await readState();
+  ok(stA.agentJourneys.length === 1, "journey recorded in IndexedDB");
+  ok(stA.agentJourneys[0].recovered === true && /ADK · /.test(stA.agentJourneys[0].orch), "journey entry has orchestrator + recovery flag");
+  ok(stA.xpLedger.some((e) => e.reason.includes("Journey Agent hoàn tất hành trình")), "+25 XP for completed agent journey");
+  await clk(q('[data-act="agent-confirm"][data-v="ok"]'));
+  ok(text().includes("đã xác nhận (Confirmed success)"), "confirm-success feedback recorded in UI");
+  ok((await readState()).agentJourneys[0].confirmed === true, "confirmed success persisted (IndexedDB)");
+
   console.log("== F11: POAP + privacy ==");
   await goHash("#/proof");
   ok(text().includes("Dòng thời gian"), "POAP timeline renders");
@@ -327,6 +349,7 @@ function readState(win) {
   ok(text().includes("Chọn output:"), "persona picks in POAP timeline");
   ok(text().includes("Remix:"), "remix events in POAP timeline");
   ok(text().includes("Đã hiểu thật:"), "gated-love events in POAP timeline");
+  ok(text().includes("Journey Agent:"), "agent journeys in POAP timeline");
   ok(document.querySelectorAll(".badge.unlocked").length >= 6, "badges unlocked (" + document.querySelectorAll(".badge.unlocked").length + ")");
   await goHash("#/profile");
   ok(text().includes("Tài khoản ẩn danh"), "profile shows anonymous identity");
@@ -360,6 +383,11 @@ function readState(win) {
   await clk(q('[data-act="lb-tab"][data-t="learner"]'));
   ok(text().includes("Người học") && text().includes("👉 BẠN"), "learner tab: current user highlighted");
   ok(/Lv\.\d+/.test(text()), "learner rows show uncapped levels");
+  await clk(q('[data-act="lb-tab"][data-t="agent"]'));
+  ok(text().includes("Net Improvement"), "agent tab: Net Improvement board (causal, randomized orchestrator)");
+  ok(document.querySelectorAll("#lb-agent-rows tbody tr").length === 3, "3 orchestrators ranked by Net Improvement");
+  ok(text().includes("phiên của bạn"), "own session orchestrator highlighted on agent board");
+  ok(text().includes("×0.5"), "recovery half-weight explained (bash-recovery analog)");
 
   console.log("== S14: map ==");
   const stx = await readState();
@@ -377,10 +405,11 @@ function readState(win) {
   if (stx.visited.indexOf("profile")===-1) undone.push("F11");
   if (stx.visited.indexOf("leaderboard")===-1) undone.push("F12");
   if (!(stx.remixes && stx.remixes.length>0)) undone.push("F13");
+  if (!(stx.agentJourneys && stx.agentJourneys.length>0)) undone.push("F14");
   console.log("  (debug) undone flows:", undone.join(",") || "none");
   await goHash("#/map");
   const doneFlows = Array.from(document.querySelectorAll(".flow-item .tag.ok")).length;
-  ok(doneFlows === 13, "flows done on map (got " + doneFlows + "/13)");
+  ok(doneFlows === 14, "flows done on map (got " + doneFlows + "/14)");
   ok(text().includes("15 màn hình"), "screen checklist renders (15 screens)");
 
   console.log("== no 18+ remnants (UI text only) ==");
