@@ -31,6 +31,8 @@ const requiredTables = [
   "candidate_sets",
   "output_candidates",
   "ranking_snapshots",
+  "arena_matches",
+  "arena_votes",
   "journeys",
   "branch_commits",
   "learning_attempts",

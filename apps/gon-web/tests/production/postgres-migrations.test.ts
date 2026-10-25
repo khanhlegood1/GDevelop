@@ -14,8 +14,8 @@ const sql = migrationFiles
 
 describe("PostgreSQL migration contract (static, not executed)", () => {
   it("uses ordered unique SQL-first migration files", () => {
-    expect(migrationFiles).toHaveLength(10);
-    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(10);
+    expect(migrationFiles).toHaveLength(11);
+    expect(new Set(migrationFiles.map((file) => file.slice(0, 4))).size).toBe(11);
     for (const file of migrationFiles) {
       expect(file).toMatch(/^\d{4}_[a-z0-9_]+\.sql$/i);
     }

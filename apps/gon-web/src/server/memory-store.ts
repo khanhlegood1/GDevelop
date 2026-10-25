@@ -35,6 +35,8 @@ import type {
   ProjectRecord,
   ProofRecord,
   QuotaReservationRecord,
+  ArenaMatchRecord,
+  ArenaVoteRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -188,6 +190,15 @@ export class MemoryGonStore implements GonStore {
 
   get rankingSnapshots(): Map<string, RankingSnapshotRecord> {
     return (this.repositories.rankingSnapshots as MapRepositoryCollection<string, RankingSnapshotRecord>).map;
+  }
+
+  /** Apply-2 (P03 /arena-matches): trận đấu + vote Arena. */
+  get arenaMatches(): Map<string, ArenaMatchRecord> {
+    return (this.repositories.arenaMatches as MapRepositoryCollection<string, ArenaMatchRecord>).map;
+  }
+
+  get arenaVotes(): Map<string, ArenaVoteRecord> {
+    return (this.repositories.arenaVotes as MapRepositoryCollection<string, ArenaVoteRecord>).map;
   }
 
   get journeys(): Map<string, JourneyRecord> {

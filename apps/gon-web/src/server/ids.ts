@@ -12,6 +12,7 @@ export type IdPrefix =
   | "cand"
   | "rank"
   | "arena"
+  | "vote"
   | "jrn"
   | "att"
   | "proof"
