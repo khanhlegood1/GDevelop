@@ -106,8 +106,10 @@ function readState(win) {
   console.log("== Layout: left sidebar + top search bar (TikTok desktop) ==");
   ok(document.getElementById("sidebar").style.display !== "none", "left sidebar visible after login");
   ok(document.getElementById("sidebar").textContent.includes("Bảng tin"), "sidebar nav items present");
-  ok(document.querySelectorAll(".sb-item").length === 7, "sidebar has 7 menu items (Brew & Arena merged, Leaderboard added)");
-  ok(!document.getElementById("sb-brew") && !document.getElementById("sb-arena"), "no separate Brew/Arena nav items");
+  ok(document.querySelectorAll(".sb-item").length === 8, "sidebar has 8 menu items (Arena menu added before Leaderboard)");
+  ok(!document.getElementById("sb-brew"), "no separate Brew nav item (Brew stays merged into Khám phá)");
+  ok(!!document.getElementById("sb-arena"), "Arena menu item present (FE-Confirm-13)");
+  ok(!!(document.getElementById("sb-arena").compareDocumentPosition(document.getElementById("sb-leaderboard")) & window.Node.DOCUMENT_POSITION_FOLLOWING), "Arena sits ABOVE Leaderboard in the menu");
   ok(!!document.getElementById("sb-leaderboard"), "Leaderboard menu item present");
   ok(!!(document.getElementById("sb-leaderboard").compareDocumentPosition(document.getElementById("sb-profile")) & window.Node.DOCUMENT_POSITION_FOLLOWING), "Leaderboard sits above Hồ sơ in the menu");
   ok(document.getElementById("sb-hot").children.length >= 3, "sidebar suggested topics rendered");
@@ -236,10 +238,10 @@ function readState(win) {
   await clk(forkBtn);
   ok((await readState()).forks.length >= 1, "fork recorded (IndexedDB)");
 
-  console.log("== F9: arena (merged into Discover) + persona reveal ==");
-  await goHash("#/arena");
+  console.log("== F9: arena battle (inline trong Khám phá) + persona reveal ==");
+  await goHash("#/discover");
   await sleep(80);
-  ok(window.location.hash === "#/discover", "#/arena redirects to Discover (merged)");
+  ok(window.location.hash === "#/discover", "inline arena battle lives inside Discover");
   ok(text().includes("VS"), "arena renders inside Discover");
   ok(document.querySelectorAll('#arena-inline [data-act="vote"]').length === 4, "4 vote options: A · B · Hoà · Cả hai chưa đạt (arena.ai style)");
   await clk(q('[data-act="vote"][data-choice="a"]'));
@@ -272,6 +274,24 @@ function readState(win) {
   const kolBtn = q('[data-act="pick-output"][data-p="kol"]');
   if (kolBtn) await clk(kolBtn);
   ok((await readState()).picks.length >= 2, "persona picks recorded in IndexedDB (>=2)");
+
+  console.log("== S11: Arena menu screen — FastChat embed (FE-Confirm-13) ==");
+  await clk(document.getElementById("sb-arena"));
+  ok(window.location.hash === "#/arena", "Arena menu opens #/arena (dedicated screen, no redirect)");
+  const fcFrame = q("#arena-fastchat-frame");
+  ok(fcFrame !== null, "FastChat arena iframe mounts on the Arena screen");
+  ok(fcFrame.getAttribute("src") === "arena-embed.html?embed=1", "iframe src = arena-embed.html?embed=1 (same-origin, Gradio-style)");
+  ok(text().includes("FastChat"), "FastChat embed surface labelled");
+  ok(text().includes("?embed=true"), "production formula shown (self-host FastChat Gradio/HF Space)");
+  ok(text().includes("postMessage"), "postMessage vote path explained");
+  const votesBefore = (await readState()).votes.length;
+  window.dispatchEvent(new window.MessageEvent("message", { data: { app: "gon-arena-embed", type: "vote", pairId: 1, choice: "b", model: "Model B — pipeline khác", t: Date.now() } }));
+  await sleep(90);
+  const stV = await readState();
+  ok(stV.votes.length === votesBefore + 1, "vote from embedded arena lands in S.votes (postMessage listener)");
+  ok(stV.votes[stV.votes.length - 1].via === "embed" && stV.votes[stV.votes.length - 1].choice === "b", "embed vote tagged via=embed, choice b");
+  ok(stV.xpLedger.some((e) => e.reason.includes("Vote Arena (embed)")), "+15 XP awarded for embed vote");
+  ok(text().includes("Model B — pipeline khác"), "arena screen lists the embed vote (live update after render)");
 
   console.log("== F10: own output trending >=40 ==");
   await goHash("#/feed");

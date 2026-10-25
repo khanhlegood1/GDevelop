@@ -188,6 +188,11 @@ export const GDEVELOP_INTEGRATION_DECISION = {
  * Hướng chốt: embed thứ CHO PHÉP embed — GON arena riêng cùng origin
  * (standalone/arena-embed.html, ?embed=1 kiểu Gradio) + postMessage;
  * production: tự host FastChat (Gate 0) dạng Gradio/HF Space (?embed=true).
+ *
+ * FE-Confirm-13 (25/10) — MÀN HÌNH ARENA RIÊNG: PO chỉ thị "tạo menu arena
+ * trước menu Leaderboard để nhúng iframe arena fastchat vào web stand alone"
+ * → menu "⚔️ Arena" (trước Leaderboard) + route #/arena nhúng iframe cùng
+ * origin; production nhúng FastChat self-host (?embed=true).
  */
 export const ARENA_EMBED_SURFACE = {
   id: "PO-2026-10-24-ARENA-EMBED",
@@ -205,6 +210,11 @@ export const ARENA_EMBED_SURFACE = {
     t: "number (epoch ms)",
   } as Record<string, string>,
   embedderPath: "iframe same-origin trong khối Arena của Khám phá + window message listener",
+  dedicatedScreen: "#/arena — menu '⚔️ Arena' đặt TRƯỚC Leaderboard (FE-Confirm-13), iframe #arena-fastchat-frame + bảng vote qua embed cập nhật live",
+  fastChatEmbed: {
+    demo: "iframe same-origin arena-embed.html?embed=1 (stand-in offline cho FastChat self-host)",
+    production: "https://<fastchat-space>.hf.space/?embed=true — FastChat (Gate 0, Apache-2.0) tự host dưới Gradio/HF Space",
+  } as Record<string, string>,
   productionPath: "FastChat (Gate 0, Apache-2.0) self-host dưới Gradio/HF Space — embeddable qua ?embed=true",
   doNot: ["nhúng arena.ai trực tiếp (bị chặn iframe)", "proxy để lách header (phạm ToS)"],
 } as const;
