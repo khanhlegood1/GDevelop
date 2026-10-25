@@ -377,6 +377,7 @@ textarea{min-height:100px;resize:vertical}
       <button type="button" class="sb-item" data-nav="discover" id="sb-discover"><span class="em" aria-hidden="true">🔍</span><span>Khám phá</span></button>
       <button type="button" class="sb-item" data-nav="journey" id="sb-journey"><span class="em" aria-hidden="true">🏆</span><span>Hành trình</span></button>
       <button type="button" class="sb-item" data-nav="proof" id="sb-proof"><span class="em" aria-hidden="true">🏅</span><span>POAP</span></button>
+      <button type="button" class="sb-item" data-nav="arena" id="sb-arena"><span class="em" aria-hidden="true">⚔️</span><span>Arena</span></button>
       <button type="button" class="sb-item" data-nav="leaderboard" id="sb-leaderboard"><span class="em" aria-hidden="true">🥇</span><span>Leaderboard</span></button>
       <button type="button" class="sb-item" data-nav="profile" id="sb-profile"><span class="em" aria-hidden="true">👤</span><span>Hồ sơ</span></button>
       <button type="button" class="sb-item" data-nav="map" id="sb-map"><span class="em" aria-hidden="true">📋</span><span>Sơ đồ xác nhận</span></button>
@@ -432,6 +433,10 @@ textarea{min-height:100px;resize:vertical}
      cho trọn hành trình học; orchestrator gán ngẫu nhiên kín tên mỗi phiên;
      5 tín hiệu Agent Arena map sang GON (checkpoint/remix/brew/honesty);
      tab "Agent (Net Improvement)" thứ 3 trong Leaderboard.
+   - FE-Confirm-13 (25/10): Arena có MÀN HÌNH RIÊNG — menu "⚔️ Arena" đứng
+     TRƯỚC Leaderboard; nhúng iframe arena cùng origin (arena-embed.html?
+     embed=1 — stand-in demo cho FastChat self-host / Gradio ?embed=true);
+     vote trong khung về trang chính qua postMessage, bảng vote cập nhật live.
    ===================================================================== */
 
 /* ---------------- Trạng thái ---------------- */
@@ -740,7 +745,7 @@ function render(){
   var route = (location.hash || "#/login").replace(/^#\//,"") || "login";
   if(!ROUTES[route]) route = "login";
   if(!S.started && route !== "login") route = "login"; // chưa đăng nhập: mọi route đều về login
-  if(route === "brew" || route === "arena"){ // PO 24/10 (muộn): Brew & Arena đã GỘP vào Khám phá
+  if(route === "brew"){ // PO 24/10 (muộn): Brew GỘP vào Khám phá (Arena có màn hình riêng từ FE-Confirm-13, PO 25/10)
     route = "discover";
     if(location.hash !== "#/discover"){ location.hash = "#/discover"; }
   }
@@ -1140,7 +1145,7 @@ ROUTES.journey = function(){
       '<p class="small muted">' + xp.toLocaleString("vi-VN") + ' Lifetime XP · còn ' + (100-pct) + ' XP tới Lv.' + (lv+1) + '</p>' +
       '<p class="small mono">level = floor(LifetimeXP/100) — uncapped · Forever mở ở Lv.35+</p>' +
       '<p class="small">👣 Dấu chân đẳng cấp: ' + footprintText() + '</p>' +
-      '<div class="row" style="margin-top:8px"><button class="btn sm ghost" type="button" data-nav="discover">⚔️ Arena (trong Khám phá)</button>' +
+      '<div class="row" style="margin-top:8px"><button class="btn sm ghost" type="button" data-nav="arena">⚔️ Arena (FastChat embed)</button>' +
       '<button class="btn sm ghost" type="button" data-nav="leaderboard">🥇 Leaderboard</button>' +
       '<button class="btn sm ghost" type="button" data-nav="proof">🏅 POAP</button></div></div>' +
     '</div>' +
@@ -1204,7 +1209,28 @@ function arenaBlock(){
         '<button class="btn ghost sm" type="button" data-act="arena-embed-toggle">📺 Chế độ embed (iframe)</button></div>' +
         '<p class="small muted" style="margin-top:10px">Hai đầu ra ẩn danh — nhãn model chỉ mở sau khi vote (kiểu arena.ai). Vote của bạn là tín hiệu Arena + bộc lộ persona; chọn output trong feed phía trên cũng là tín hiệu Arena.</p>') + '</div>';
 }
-ROUTES.arena = function(){ return ROUTES.discover(); }; // redirect: Arena đã gộp vào Khám phá
+/* S11 (FE-Confirm-13, PO 25/10): Arena có MÀN HÌNH RIÊNG — menu đứng trước Leaderboard,
+ * nhúng iframe arena cùng origin (stand-in cho FastChat self-host — Gate 0, Apache-2.0,
+ * Gradio/HF Space ?embed=true). Vote trong khung về trang chính qua postMessage (FE-Confirm-11). */
+ROUTES.arena = function(){
+  var embedVotes = S.votes.filter(function(v){ return v.via === "embed"; });
+  return '<div class="page"><div class="page-head"><h1>⚔️ Arena</h1><span class="chip">FastChat embed · cùng origin</span></div>' +
+    '<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">📺 Đấu trường FastChat (embed)</h3>' +
+      '<a class="btn sm ghost" href="arena-embed.html" target="_blank" rel="noopener">↗ Mở tab mới</a></div>' +
+      '<iframe id="arena-fastchat-frame" src="arena-embed.html?embed=1" title="GON Arena — FastChat-style embed (cùng origin)" style="width:100%;height:560px;border:1px solid var(--line);border-radius:14px;background:#0b1226;margin-top:12px"></iframe>' +
+      '<p class="small muted" style="margin-top:10px">📺 <b>Embed thật cùng origin</b> (kiểu Gradio <span class="mono">?embed=true</span>): khung trên là <span class="mono">arena-embed.html?embed=1</span> của GON — stand-in demo cho <b>FastChat self-host</b> (demo offline, không gọi mạng). Vote trong khung gửi về trang chính qua <span class="mono">postMessage</span> → ghi <span class="mono">S.votes</span> (IndexedDB) + <b>+15 XP</b>.</p>' +
+      '<div class="callout" style="margin-top:10px">🏭 <b>Production:</b> tự host <b>FastChat</b> (Gate 0, Apache-2.0 — multi-model battle + vote có sẵn) dưới dạng Gradio/HF Space rồi nhúng: <span class="mono">&lt;iframe src="https://&lt;fastchat-space&gt;.hf.space/?embed=true"&gt;&lt;/iframe&gt;</span>. KHÔNG nhúng arena.ai/lmarena trực tiếp — bị chặn iframe (X-Frame-Options/CSP) và phạm ToS.</div>' +
+    '</div>' +
+    '<div class="card"><h3>🗳 Vote qua embed <span class="small muted">(' + embedVotes.length + ')</span></h3>' + (embedVotes.length
+      ? '<table class="xp-table"><thead><tr><th>Lúc</th><th>Lựa chọn</th><th>Model</th></tr></thead><tbody>' + embedVotes.slice().reverse().map(function(v){
+          var cv = {a:"A",b:"B",tie:"Hoà",bothbad:"Cả hai chưa đạt"}[v.choice] || v.choice;
+          return '<tr><td class="muted">' + new Date(v.t).toLocaleTimeString("vi-VN") + '</td><td><b>' + cv + '</b></td><td class="muted">' + esc(v.model || "—") + '</td></tr>';
+        }).join("") + '</tbody></table>'
+      : '<p class="muted small">Chưa có — vote ngay trong khung FastChat phía trên.</p>') +
+      '<hr class="sep"><div class="row"><button class="btn sm ghost" type="button" data-nav="discover">⚔️ Battle inline trong Khám phá</button>' +
+      '<button class="btn sm ghost" type="button" data-nav="leaderboard">🥇 Leaderboard</button></div></div>' +
+  '</div>';
+};
 function doVote(choice){
   if(S.arenaBattles.some(function(b){ return b.pairId === ARENA_IDX; })) return; // 1 vote mỗi cặp
   var pair = ARENA_PAIRS[ARENA_IDX];
@@ -1511,7 +1537,7 @@ var SCREENS = [
   {id:"game",num:"S08",label:"Mini-game / easy-task"},
   {id:"journey",num:"S09",label:"Hành trình — cấp suốt đời"},
   {id:"related",num:"S10",label:"Liên quan + Fork"},
-  {id:"arena",num:"S11",label:"Arena — ĐÃ GỘP vào Khám phá (PO 24/10)"},
+  {id:"arena",num:"S11",label:"Arena — màn hình riêng: embed FastChat cùng origin (PO 25/10)"},
   {id:"proof",num:"S12",label:"POAP / Proof of Learning"},
   {id:"profile",num:"S13",label:"Hồ sơ & quyền riêng tư"},
   {id:"map",num:"S14",label:"Sơ đồ xác nhận FE"},
@@ -1817,6 +1843,7 @@ window.addEventListener("message", function(e){
   S.votes.push({choice:d.choice, model:d.model || null, t:Date.now(), via:"embed"});
   save(); addXp(15, "Vote Arena (embed)");
   toast("📺 Vote từ Arena embed: " + cv + (d.model ? " — " + d.model : "") + " · +15 XP");
+  if(CURRENT === "arena") render(); // FE-Confirm-13: cập nhật live bảng vote qua embed trên màn Arena
 });
 
 function esc(s){

@@ -52,3 +52,14 @@ Triển khai (v2.9):
 - **`ux-prototype/standalone/arena-embed.html`** — trang arena nhúng được của GON (1 tệp, không dependency, same-origin): 4 lựa chọn vote, 1 vote/cặp, ±Elo sau vote, "Đấu cặp khác", hỗ trợ **`?embed=1`** (kiểu Gradio embed mode — gọn, không chrome thừa).
 - **Demo chính:** nút **"📺 Chế độ embed (iframe)"** trong khối Arena → thay battle inline bằng `<iframe src="arena-embed.html?embed=1">` cùng origin; vote trong khung gửi về trang chính qua **`postMessage`** (`{app:"gon-arena-embed", type:"vote", pairId, choice, model, t}`) → ghi vào `S.votes` (IndexedDB) + **+15 XP** + toast.
 - **Production:** đường "đấu trường thật" = tự host **FastChat (Gate 0, Apache-2.0)** dưới dạng **Gradio/HF Space** (Gradio sinh ra để embed, có `?embed=true`) hoặc GON arena cùng origin — đúng hợp đồng postMessage ở trên. **Không** nhúng arena.ai trực tiếp; không proxy để lách header (phạm ý đồ site + ToS).
+
+## 6. Màn hình Arena riêng — menu trước Leaderboard (FE-Confirm-13, PO 25/10)
+
+PO chỉ thị: *"tạo menu arena trước menu Leaderboard để nhúng iframe arena fastchat vào web stand alone"* → Arena có lại **màn hình riêng** (menu "⚔️ Arena" trong sidebar, đứng **ngay trước Leaderboard**), while:
+
+- **Khối Arena inline trong Khám phá được GIỮ NGUYÊN** (battle 4 vote ±Elo + nút "📺 Chế độ embed (iframe)" của FE-Confirm-11) — không phá quyết định Unified Discover cho luồng tìm kiếm.
+- **Màn `#/arena` mới:** `<iframe id="arena-fastchat-frame" src="arena-embed.html?embed=1">` cùng origin (560px) + nút "↗ Mở tab mới" — stand-in demo offline cho **FastChat self-host**; callout ghi công thức production `<iframe src="https://<fastchat-space>.hf.space/?embed=true">` và cảnh báo không nhúng arena.ai/lmarena trực tiếp.
+- **Vote 2 chiều không đổi:** listener postMessage (FE-Confirm-11) giờ còn re-render khi đang ở `#/arena` → bảng "🗳 Vote qua embed" (lựa chọn · model · lúc) cập nhật live; mỗi vote +15 XP, tag `via:"embed"` trong `S.votes`.
+- Nút "⚔️ Arena" trên màn Hành trình trỏ tới `#/arena`; nhãn S11 trong Sơ đồ xác nhận FE cập nhật; sidebar lên **8 mục** (Brew vẫn gộp trong Khám phá).
+- Code chính: `ARENA_EMBED_SURFACE.dedicatedScreen` + `.fastChatEmbed` trong `src/lib/product-decisions.ts`.
+- E2E: sidebar 8 mục + vị trí Arena trên Leaderboard, `#/arena` không còn redirect, iframe src đúng, postMessage → `S.votes`/XP/live-update (10 assertion mới).
