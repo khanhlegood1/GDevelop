@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GON Arena (embed)</title>
+<!--
+  GON Arena — EMBEDDABLE BATTLE SURFACE (FE-Confirm-11, PO 24/10 tối muộn)
+  =====================================================================
+  PO chốt hướng "embed THẬT một arena" = thứ CHO PHÉP embed, cùng origin:
+  - Trang này là bản arena nhúng được của GON (kiểu Gradio ?embed=true):
+    1 tệp, không dependency, chạy same-origin trong <iframe> của demo.
+  - Vote trong khung được gửi về trang chính bằng postMessage
+    ({app:"gon-arena-embed", type:"vote", choice, model, t}) —
+    production: FastChat (Gate 0, Apache-2.0) tự host dưới dạng
+    Gradio/HF Space cũng nhúng được theo đúng cách này (?embed=true).
+  - Không nhúng arena.ai trực tiếp: site đó chặn iframe (X-Frame-Options/
+    CSP) + reCAPTCHA + cross-origin chỉ nhìn được (xem PO-DECISION-ARENA-
+    AI-PATTERN-2026-10-24.md, mục embed).
+-->
+<style>
+  :root{
+    --bg:#0b1226; --mid:#101b33; --mid-2:#172541; --line:#22355c;
+    --txt:#e8eefc; --muted:#8a94a6; --emerald:#12b981; --gold:#ffc531;
+    --crimson:#d22630; --cyan:#28b9d8; --violet:#7c5cff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:radial-gradient(1200px 600px at 70% -10%,#14224a 0%,var(--bg) 55%);
+    color:var(--txt);min-height:100vh;display:flex;justify-content:center;padding:14px}
+  #app{width:100%;max-width:760px}
+  .head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+  .head b{font-size:1rem}
+  .head .mini{color:var(--muted);font-size:.72rem}
+  .card{border:1px solid var(--line);border-radius:14px;background:var(--mid);padding:14px}
+  .topic{margin:0 0 10px;color:var(--muted);font-size:.8rem}
+  .stage{display:flex;gap:10px;align-items:stretch}
+  .side{flex:1;border:1px solid var(--line);border-radius:12px;background:var(--mid-2);padding:12px;text-align:center}
+  .side.chosen{border-color:var(--emerald);box-shadow:0 0 0 1px var(--emerald)}
+  .side .em{font-size:1.6rem;display:block;margin-bottom:4px}
+  .side h4{margin:0 0 4px;font-size:.9rem}
+  .side p{margin:0;color:var(--muted);font-size:.72rem}
+  .vs{align-self:center;font-weight:800;color:var(--gold);padding:0 2px}
+  .reveal{margin-top:8px;font-size:.74rem;color:var(--cyan);font-weight:700}
+  .chip{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:99px;font-size:.68rem;font-weight:700}
+  .chip.ok{background:rgba(18,185,129,.16);color:var(--emerald)}
+  .chip.warn{background:rgba(210,38,48,.16);color:#ff8a90}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .btn{border:0;border-radius:10px;padding:9px 14px;font-weight:700;font-size:.8rem;cursor:pointer;
+    background:var(--mid-2);color:var(--txt);border:1px solid var(--line)}
+  .btn.primary{background:linear-gradient(135deg,var(--emerald),#0d9668);color:#04241a;border-color:transparent}
+  .btn.gold{background:var(--gold);color:#3d2b00;border-color:transparent}
+  .split{display:flex;height:22px;border-radius:99px;overflow:hidden;margin-top:12px;font-size:.68rem;font-weight:800}
+  .split .a{background:rgba(18,185,129,.35);display:flex;align-items:center;justify-content:center;color:#b8f5de}
+  .split .b{background:rgba(124,92,255,.35);display:flex;align-items:center;justify-content:center;color:#ded4ff}
+  .foot{margin-top:10px;color:var(--muted);font-size:.68rem;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+var PAIRS = [
+  {topic:"5 bước phân tích lập luận",
+   a:{em:"📊",title:"Infographic: 5 bước phân tích",model:"Model A — Gemini qua Google ADK"},
+   b:{em:"🎬",title:"Video 6 phút: 7 bias",model:"Model B — pipeline khác"}, community:{a:58,b:42}},
+  {topic:"7 bias nhận thức",
+   a:{em:"🌐",title:"Bài đọc 8 phút: bias là gì",model:"Model C — ADK · fast-mode"},
+   b:{em:"🕹️",title:"Mini-game: né bias",model:"Model D — GDevelop render"}, community:{a:44,b:56}},
+  {topic:"fact / opinion / claim",
+   a:{em:"✅",title:"Easy-task: soát 1 tin giả",model:"Model E — ADK · task-gen"},
+   b:{em:"🖼️",title:"Bộ ảnh: 6 phép loại suy sai",model:"Model F — ADK · imagen-style"}, community:{a:61,b:39}}
+];
+var ELO = {a:{a:8,b:-5}, b:{a:-5,b:8}, tie:{a:1,b:1}, bothbad:{a:-4,b:-4}};
+var IDX = 0, VOTES = {}; // pairId -> choice (phiên embed, không lưu — vote gửi về parent)
+var EMBED = /[?&]embed=1/.test(location.search);
+function esc(s){ return String(s).replace(/[&<>"']/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function sendVote(choice){
+  if(!(window.parent && window.parent !== window)) return; // mở trực tiếp: không có parent
+  try{
+    window.parent.postMessage({app:"gon-arena-embed", type:"vote", pairId:IDX, choice:choice,
+      model:(choice==="a"||choice==="b") ? PAIRS[IDX][choice].model : null, t:Date.now()}, "*");
+  }catch(e){}
+}
+function vote(choice){
+  if(VOTES[IDX]) return; // 1 vote mỗi cặp
+  VOTES[IDX] = choice;
+  sendVote(choice);
+  render();
+}
+function next(){ IDX = (IDX + 1) % PAIRS.length; render(); }
+function render(){
+  var p = PAIRS[IDX], voted = VOTES[IDX] || null, delta = voted ? ELO[voted] : null;
+  function side(key){
+    var c = p[key], chosen = voted === key;
+    return '<div class="side' + (chosen?" chosen":"") + '"><span class="em">' + c.em + '</span>' +
+      '<h4>' + esc(c.title) + '</h4><p>Cùng giải thích "' + esc(p.topic) + '"</p>' +
+      (voted ? '<div class="reveal">🏷️ ' + esc(c.model) + (chosen?' · <b>lựa chọn của bạn</b>':"") + '</div>' +
+              '<span class="chip ' + (delta[key]>=0?"ok":"warn") + '">📈 Elo ' + (delta[key]>=0?"+":"") + delta[key] + '</span>'
+             : '<div style="margin-top:8px"><button class="btn primary" type="button" data-v="' + key + '">Chọn ' + key.toUpperCase() + '</button></div>') +
+      '</div>';
+  }
+  document.getElementById("app").innerHTML =
+    '<div class="head"><b>⚔️ GON Arena</b><span class="mini">' + (EMBED ? "embed mode · cùng origin" : "bản nhúng độc lập") + ' · cặp ' + (IDX+1) + '/' + PAIRS.length + '</span></div>' +
+    '<div class="card"><p class="topic">Hai output ẩn danh — nhãn model chỉ mở sau khi vote (kiểu arena.ai)</p>' +
+      '<div class="stage">' + side("a") + '<div class="vs">VS</div>' + side("b") + '</div>' +
+      (voted
+        ? '<div class="split"><div class="a" style="width:' + p.community.a + '%">' + p.community.a + '%</div><div class="b" style="width:' + p.community.b + '%">' + p.community.b + '%</div></div>' +
+          '<div class="row"><button class="btn gold" type="button" data-v="next">⚔️ Đấu cặp khác</button></div>'
+        : '<div class="row">' +
+          '<button class="btn" type="button" data-v="tie">🤝 Hoà — cả hai đều tốt</button>' +
+          '<button class="btn" type="button" data-v="bothbad">👎 Cả hai chưa đạt</button>' +
+          '<button class="btn gold" type="button" data-v="next">⚔️ Đấu cặp khác</button></div>') +
+    '</div>' +
+    '<p class="foot">GON · demo mô phỏng · vote gửi về trang chính qua postMessage · production: FastChat (Gate 0) self-host Gradio/HF Space · ?embed=1</p>';
+}
+document.addEventListener("click", function(e){
+  var t = e.target;
+  while(t && t !== document.body && !t.getAttribute("data-v")) t = t.parentNode;
+  if(!t || !t.getAttribute) return;
+  var v = t.getAttribute("data-v");
+  if(v === "next") next();
+  else if(v === "a" || v === "b" || v === "tie" || v === "bothbad") vote(v);
+});
+render();
+</script>
+</body>
+</html>
