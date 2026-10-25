@@ -211,6 +211,15 @@ function readState(win) {
   console.log("== F7: game ==");
   await goHash("#/game");
   ok(window.location.hash === "#/game", "S08 game renders");
+  await clk(q('[data-act="gd-blueprint"]'));
+  ok(document.getElementById("sheet-overlay").classList.contains("show"), "GDevelop blueprint sheet opens");
+  const bpText = document.getElementById("sheet-body").textContent;
+  ok(bpText.includes("GON Game Blueprint") && bpText.includes("GDJS Runtime"), "blueprint pipeline described (params, not game code)");
+  const bpJson = JSON.parse(document.querySelector("#sheet-body pre").textContent);
+  ok(bpJson.blueprint === "quiz-3" && bpJson.passThreshold === 2 && bpJson.questions.length === 3, "typed payload valid (quiz-3, threshold, 3 questions)");
+  ok(bpJson.engine.includes("GDevelop"), "engine attribution present (MIT)");
+  window.closeSheet();
+  ok(!document.getElementById("sheet-overlay").classList.contains("show"), "blueprint sheet closes");
   const correct = [1, 2, 1];
   for (let i = 0; i < 3; i++) {
     const radio = q('input[name="gq' + i + '"][value="' + correct[i] + '"]');
