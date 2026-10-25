@@ -437,6 +437,11 @@ textarea{min-height:100px;resize:vertical}
      TRƯỚC Leaderboard; nhúng iframe arena cùng origin (arena-embed.html?
      embed=1 — stand-in demo cho FastChat self-host / Gradio ?embed=true);
      vote trong khung về trang chính qua postMessage, bảng vote cập nhật live.
+   - FE-Confirm-14 (25/10 — FE FINAL SWEEP): quét toàn bộ quyết định còn sót
+     của PO vào demo trước khi chốt & apply vào source code chính: (1) Đường
+     KOL ngách trending token/XP + disclaimer KHÔNG hứa fame/income (Hồ sơ);
+     (2) ⚖️ Side-by-side — user tự chọn 2 output để so + vote (màn Arena);
+     (3) 🔑 nâng cấp ẩn danh → Google giữ nguyên UUID + tiến trình (Hồ sơ).
    ===================================================================== */
 
 /* ---------------- Trạng thái ---------------- */
@@ -465,7 +470,8 @@ var DEFAULT_STATE = {
   arenaBattles: [],     // {pairId,choice,model,t} — 1 vote mỗi cặp đấu (arena.ai-style)
   learnedCards: {},     // cardId -> 1 (đã qua checkpoint — mở khoá 💜)
   remixes: [],          // {from,fromAuthor,topic,persona,depth,t} — output phái sinh có ghi công nguồn
-  agentJourneys: []     // FE-Confirm-12: {topic,orch,recovered,confirmed,t} — phiên Journey Agent (Agent Mode kiểu arena.ai)
+  agentJourneys: [],    // FE-Confirm-12: {topic,orch,recovered,confirmed,t} — phiên Journey Agent (Agent Mode kiểu arena.ai)
+  upgrades: []          // FE-Confirm-14: {t,name,keptUuid} — nâng cấp ẩn danh → Google (giữ nguyên UUID + tiến trình)
 };
 function mergeState(raw){
   var out = JSON.parse(JSON.stringify(DEFAULT_STATE)), k;
@@ -1212,6 +1218,38 @@ function arenaBlock(){
 /* S11 (FE-Confirm-13, PO 25/10): Arena có MÀN HÌNH RIÊNG — menu đứng trước Leaderboard,
  * nhúng iframe arena cùng origin (stand-in cho FastChat self-host — Gate 0, Apache-2.0,
  * Gradio/HF Space ?embed=true). Vote trong khung về trang chính qua postMessage (FE-Confirm-11). */
+var SB_STATE = {shown:false, a:0, b:1, voted:null}; // FE-Confirm-14: Side-by-side — so trực tiếp 2 output user chọn
+function sbBlock(){
+  var opts = OUTPUTS.map(function(o,i){
+    var f = FORMATS[o.fmt];
+    return '<option value="' + i + '">' + f.em + " " + o.title + " — " + o.by + '</option>';
+  }).join("");
+  var stage = "";
+  if(SB_STATE.shown){
+    var oa = OUTPUTS[SB_STATE.a], ob = OUTPUTS[SB_STATE.b];
+    var delta = SB_STATE.voted ? ARENA_ELO[SB_STATE.voted] : null;
+    function sbCard(key){
+      var o = (key === "a") ? oa : ob, chosen = SB_STATE.voted === key;
+      return '<div class="arena-card' + (chosen?" chosen":"") + '"><span style="font-size:1.8rem">' + FORMATS[o.fmt].em + '</span>' +
+        '<h4 style="margin:0">' + esc(o.title) + '</h4><p class="small muted">' + FORMATS[o.fmt].label + ' · do bạn chọn để so</p>' +
+        (SB_STATE.voted
+          ? '<div class="reveal show">🏷️ ' + o.by + (chosen?' · <b>lựa chọn của bạn</b>':"") + '</div>' +
+            '<div style="margin-top:6px"><span class="tag ' + (delta[key]>=0?"ok":"warn") + '">📈 Elo ' + (delta[key]>=0?"+":"") + delta[key] + '</span></div>'
+          : '<button class="btn primary sm" type="button" data-act="sb-vote" data-choice="' + key + '">Chọn ' + key.toUpperCase() + '</button>') + '</div>';
+    }
+    stage = '<div class="arena-stage" id="sb-stage">' + sbCard("a") + '<div class="arena-vs">VS</div>' + sbCard("b") + '</div>' +
+      (SB_STATE.voted
+        ? '<div class="row" style="margin-top:10px"><button class="btn gold sm" type="button" data-act="sb-compare">⚖️ So cặp khác</button></div>'
+        : '<p class="small muted" style="margin-top:10px">Side-by-side của arena.ai: <b>bạn chọn 2 output</b> (không ẩn danh như Battle) — vote vẫn là tín hiệu Arena + bộc lộ persona, ghi vào POAP.</p>');
+  }
+  return '<div class="card"><h3>⚖️ So trực tiếp (Side-by-side)</h3>' +
+    '<p class="small muted">Chọn 2 output từ ' + OUTPUTS.length + ' output đã sinh để đặt cạnh nhau rồi vote — đầy đủ bộ mode arena.ai trong GON: Battle (ẩn danh) · ⚖️ Side-by-side (tự chọn) · 🤖 Agent (Journey Agent).</p>' +
+    '<div class="row" style="flex-wrap:wrap;align-items:center">' +
+      '<select id="sb-a" aria-label="Output A" style="flex:1;min-width:200px;padding:8px;border-radius:10px;border:1px solid var(--line);background:#0e1526;color:#e8eefc">' + opts + '</select>' +
+      '<b style="margin:0 8px">VS</b>' +
+      '<select id="sb-b" aria-label="Output B" style="flex:1;min-width:200px;padding:8px;border-radius:10px;border:1px solid var(--line);background:#0e1526;color:#e8eefc">' + opts + '</select>' +
+      '<button class="btn primary sm" type="button" data-act="sb-compare">⚖️ So sánh</button></div>' + stage + '</div>';
+}
 ROUTES.arena = function(){
   var embedVotes = S.votes.filter(function(v){ return v.via === "embed"; });
   return '<div class="page"><div class="page-head"><h1>⚔️ Arena</h1><span class="chip">FastChat embed · cùng origin</span></div>' +
@@ -1221,6 +1259,7 @@ ROUTES.arena = function(){
       '<p class="small muted" style="margin-top:10px">📺 <b>Embed thật cùng origin</b> (kiểu Gradio <span class="mono">?embed=true</span>): khung trên là <span class="mono">arena-embed.html?embed=1</span> của GON — stand-in demo cho <b>FastChat self-host</b> (demo offline, không gọi mạng). Vote trong khung gửi về trang chính qua <span class="mono">postMessage</span> → ghi <span class="mono">S.votes</span> (IndexedDB) + <b>+15 XP</b>.</p>' +
       '<div class="callout" style="margin-top:10px">🏭 <b>Production:</b> tự host <b>FastChat</b> (Gate 0, Apache-2.0 — multi-model battle + vote có sẵn) dưới dạng Gradio/HF Space rồi nhúng: <span class="mono">&lt;iframe src="https://&lt;fastchat-space&gt;.hf.space/?embed=true"&gt;&lt;/iframe&gt;</span>. KHÔNG nhúng arena.ai/lmarena trực tiếp — bị chặn iframe (X-Frame-Options/CSP) và phạm ToS.</div>' +
     '</div>' +
+    sbBlock() +
     '<div class="card"><h3>🗳 Vote qua embed <span class="small muted">(' + embedVotes.length + ')</span></h3>' + (embedVotes.length
       ? '<table class="xp-table"><thead><tr><th>Lúc</th><th>Lựa chọn</th><th>Model</th></tr></thead><tbody>' + embedVotes.slice().reverse().map(function(v){
           var cv = {a:"A",b:"B",tie:"Hoà",bothbad:"Cả hai chưa đạt"}[v.choice] || v.choice;
@@ -1353,6 +1392,7 @@ ROUTES.proof = function(){
   S.picks.forEach(function(p){ events.push({em:"👣", label:"Chọn output: \""+p.title+"\" → "+PERSONAS[p.persona].em+" "+PERSONAS[p.persona].label+" ("+DEPTHS[p.depth].label+")", t:p.t}); });
   S.remixes.forEach(function(r){ events.push({em:"🎨", label:"Remix: "+r.topic+" ("+PERSONAS[r.persona].em+" "+PERSONAS[r.persona].label+") từ "+r.fromAuthor, t:r.t}); });
   S.agentJourneys.forEach(function(a){ events.push({em:"🤖", label:"Journey Agent: "+a.topic+" → "+a.orch+(a.recovered?" (🔧 recovery)":"")+(a.confirmed===true?" · ✅ xong":a.confirmed===false?" · 👎 chưa đạt":""), t:a.t}); });
+  S.upgrades.forEach(function(u){ events.push({em:"🔑", label:"Nâng cấp Google: "+u.name+" — giữ UUID "+u.keptUuid.slice(0,8)+", tiến trình nguyên vẹn", t:u.t}); });
   Object.keys(S.loves).forEach(function(k){ var lv = S.loves[k]; events.push({em:"💜", label:"Đã hiểu thật: "+(lv.topic||k), t:lv.t}); });
   S.forks.forEach(function(f){ events.push({em:"🍴", label:"Fork: "+f.topic, t:f.t}); });
   if(S.gameBest!==null) events.push({em:"🎮", label:"Mini-game: "+S.gameBest+"/3", t:Date.now()});
@@ -1488,6 +1528,12 @@ ROUTES.profile = function(){
       (acc.anon ? '<span class="uuid-chip">🔑 Nâng cấp lên tài khoản thật bất cứ lúc nào để đồng bộ</span>' : "") + '</div></div>' +
     '<div class="pf-stats">' + stats.map(function(s){ return '<div class="pf-stat"><b>' + s.n + '</b><span>' + s.l + '</span></div>'; }).join("") + '</div>' +
     footprintCard() +
+    kolCard() +
+    '<div class="card" style="margin-top:14px"><h3>☁️ Đồng bộ tài khoản</h3>' +
+      (acc.anon
+        ? '<p class="small muted">Bạn đang học bằng hồ sơ ẩn danh <span class="mono">' + esc(acc.uuid) + '</span> — tiến trình nằm trên thiết bị này (IndexedDB). Nâng cấp lên Google để đồng bộ đa thiết bị, <b>giữ nguyên toàn bộ tiến trình</b>.</p>' +
+          '<div class="row"><button class="btn primary sm" type="button" data-act="upgrade-open">🔑 Nâng cấp lên Google (mock)</button></div>'
+        : '<p class="small muted">☁️ Đã kết nối Google: <b>' + esc(acc.email||"") + '</b> · UUID gốc <span class="mono">' + esc(acc.uuid) + '</span> được giữ khi nâng cấp — tiến trình đồng bộ đa thiết bị (mock).</p>') + '</div>' +
     '<div class="card" style="margin-top:14px"><h3>Cá nhân hóa</h3>' +
       '<label class="checkline"><input type="checkbox" id="ck-personalization" ' + (S.personalization?"checked":"") + '><span><b>Gợi ý theo footprint</b> — ảnh hưởng tab "Dành cho bạn".</span></label></div>' +
     '<div class="card"><h3>Quyền riêng tư & dữ liệu</h3>' +
@@ -1509,6 +1555,30 @@ function footprintCard(){
       return '<div class="mastery-row"><span style="width:170px">' + PERSONAS[k].em + " " + PERSONAS[k].label + '</span><div class="bar"><i style="width:' + w + '%"></i></div><b>' + cnt + '</b></div>';
     }).join("") +
     '<p class="small muted">Độ sâu: 🌤️ ' + fc.d.light + ' Nhẹ · ☀️ ' + fc.d.mid + ' Vừa · 🌌 ' + fc.d.deep + ' Sâu</p></div>';
+}
+/* ---------------- Đường KOL ngách (FE-Confirm-14) — trending token/XP niche-KOL path ----------------
+ * Quyết định gốc của PO: "trending token/XP niche-KOL path, NEVER fame/income guarantees".
+ * Token xu hướng = tổng điểm xu hướng các output CỦA MÌNH (brew + remix, tính live bằng trendOf).
+ * Tier theo metric THẬT (output lên xu hướng ≥40, token tổng), KHÔNG theo thời gian online. */
+function kolCard(){
+  var mine = feedCards().filter(function(c){ return c.mine; });
+  var token = mine.reduce(function(a,c){ return a + trendOf(c); }, 0);
+  var hot = S.brewed.filter(function(b){ return b.trend >= 40; }).length;
+  var fc = footprintCounts(), total = S.picks.length;
+  var dom = Object.keys(fc.p).sort(function(a,b){ return fc.p[b]-fc.p[a]; })[0];
+  var niche = total ? PERSONAS[dom].em + " " + PERSONAS[dom].label : "chưa bộc lộ — chọn output trong Khám phá để lộ ngách";
+  var tier, tierIdx, nextNote, pct;
+  if(hot >= 3 || token >= 100){ tier = "⭐ KOL ngách"; tierIdx = 3; nextNote = "đã đạt cấp cao nhất của demo — production còn chuỗi KOL ngách nhiều tầng theo chuyên mục"; pct = 100; }
+  else if(hot >= 1){ tier = "🌿 Chủ ngách"; tierIdx = 2; nextNote = "còn " + (3-hot) + " output ≥40 xu hướng hoặc " + (100-token) + " token tới ⭐ KOL ngách"; pct = Math.min(99, 50 + hot*15); }
+  else { tier = "🌱 Mầm ngách"; tierIdx = 1; nextNote = "1 output của bạn đạt ≥40 điểm xu hướng để lên 🌿 Chủ ngách"; pct = Math.min(49, token); }
+  return '<div class="card" style="margin-top:14px" id="kol-card"><h3>🌱 Đường KOL ngách <span class="small muted">trending token / XP niche-KOL path</span></h3>' +
+    '<div class="mastery-row"><span style="width:170px"><b>' + tier + '</b></span><div class="bar"><i style="width:' + pct + '%"></i></div><b>' + tierIdx + '/3</b></div>' +
+    '<div class="mastery-row"><span style="width:170px">🎯 Ngách của bạn</span><div style="flex:1" class="small">' + niche + '</div><b></b></div>' +
+    '<div class="mastery-row"><span style="width:170px">🔥 Token xu hướng</span><div style="flex:1" class="small muted">tổng xu hướng ' + mine.length + ' output của bạn (Brew + Remix)</div><b>' + token + '</b></div>' +
+    '<div class="mastery-row"><span style="width:170px">🏅 Lifetime XP</span><div style="flex:1" class="small muted">level = floor(XP/100) — uncapped</div><b>' + lifetimeXp() + '</b></div>' +
+    '<div class="mastery-row"><span style="width:170px">🔥 Output lên xu hướng</span><div style="flex:1" class="small muted">output của mình đạt ≥40 điểm</div><b>' + hot + '</b></div>' +
+    '<p class="small muted">Bước tới: ' + nextNote + ' · Bảng xếp hạng chuyên mục: 🥇 Leaderboard.</p>' +
+    '<div class="callout" style="margin-top:10px">⚠️ <b>Trung thực:</b> GON <b>KHÔNG hứa hẹn nổi tiếng hay thu nhập</b>. Token xu hướng & XP không quy đổi thành tiền, không bảo đảm fame/income — chúng chỉ ghi nhận việc <b>học thật</b> (checkpoint, learningEvents) và đóng góp thật (remix, fork, xu hướng cộng đồng).</div></div>';
 }
 AFTER.profile = function(){
   var ck = document.getElementById("ck-personalization"); if(!ck) return;
@@ -1557,7 +1627,8 @@ var FLOWS = [
   {id:"F11",name:"POAP + quyền riêng tư (xuất/xoá)",go:"profile",need:"privacy"},
   {id:"F12",name:"Leaderboard (kiểu arena.ai): vote Arena → xếp hạng model + thứ hạng người học",go:"leaderboard",need:"lbviewed"},
   {id:"F13",name:"Remix output (persona reveal) + 💜 Đã hiểu thật (gated sau checkpoint)",go:"feed",need:"remixed"},
-  {id:"F14",name:"Journey Agent (Agent Mode): 1 lệnh → trọn hành trình + phản hồi 5 tín hiệu",go:"discover",need:"agented"}
+  {id:"F14",name:"Journey Agent (Agent Mode): 1 lệnh → trọn hành trình + phản hồi 5 tín hiệu",go:"discover",need:"agented"},
+  {id:"F15",name:"Nâng cấp ẩn danh → Google (giữ nguyên UUID + tiến trình)",go:"profile",need:"upgraded"}
 ];
 function flowDone(f){
   switch(f.need){
@@ -1575,13 +1646,14 @@ function flowDone(f){
     case "lbviewed": return S.visited.indexOf("leaderboard")!==-1;
     case "remixed": return S.remixes.length>0;
     case "agented": return S.agentJourneys.length>0;
+    case "upgraded": return !!(S.account && !S.account.anon && /^u-/.test(S.account.uuid));
   }
   return false;
 }
 ROUTES.map = function(){
   var doneFlows = FLOWS.filter(flowDone).length;
   return '<div class="page"><div class="page-head"><button class="back-btn" type="button" data-nav="profile" aria-label="Quay lại">←</button><h1>📋 Sơ đồ xác nhận FE</h1></div>' +
-    '<div class="card"><p class="small muted">Bấm lần lượt F1→F14 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
+    '<div class="card"><p class="small muted">Bấm lần lượt F1→F15 — mỗi flow ✓ là một phần Front End đã xác nhận.</p>' +
     '<div class="brew-visual" style="margin-top:10px"><i style="width:' + Math.round(doneFlows/FLOWS.length*100) + '%"></i></div>' +
     '<p class="small muted" style="margin-top:6px">Screens ' + S.visited.length + '/' + SCREENS.length + ' · Flows ' + doneFlows + '/' + FLOWS.length + ' · XP ' + lifetimeXp() + '</p></div>' +
     '<div class="card"><h3>Luồng chính</h3>' + FLOWS.map(function(f){
@@ -1769,6 +1841,45 @@ document.addEventListener("click", function(e){
     save();
     if(jj.confirmed){ addXp(5, "Confirmed success (Agent Mode)"); }
     else { toast("👎 Đã ghi nhận phản hồi chưa đạt — tín hiệu Praise vs complaint"); }
+    render();
+    return;
+  }
+  if(act === "sb-compare"){ // FE-Confirm-14: Side-by-side — user tự chọn 2 output để so
+    var ea = document.getElementById("sb-a"), eb = document.getElementById("sb-b");
+    if(!ea || !eb) return;
+    var ia = Number(ea.value) || 0, ib = Number(eb.value) || 0;
+    if(ia === ib){ toast("⚖️ Chọn 2 output khác nhau để so"); return; }
+    SB_STATE = {shown:true, a:ia, b:ib, voted:null};
+    render();
+    return;
+  }
+  if(act === "sb-vote"){
+    if(!SB_STATE.shown || SB_STATE.voted) return;
+    var sv = actEl.getAttribute("data-choice");
+    var so = (sv === "a") ? OUTPUTS[SB_STATE.a] : OUTPUTS[SB_STATE.b];
+    SB_STATE.voted = sv;
+    S.votes.push({choice:sv, model:so.by, t:Date.now(), via:"side-by-side"});
+    save(); grantBadge("arena"); addXp(15, "Bình chọn Side-by-side"); render();
+    return;
+  }
+  if(act === "upgrade-open"){
+    if(!S.account || !S.account.anon){ toast("☁️ Tài khoản đã kết nối Google"); return; }
+    openModal('<h3>🔑 Nâng cấp lên Google</h3>' +
+      '<p class="small muted">Mô phỏng OAuth — demo không gửi dữ liệu đi đâu. <b>UUID và toàn bộ tiến trình được giữ nguyên</b>, chỉ thêm khả năng đồng bộ đa thiết bị.</p>' +
+      '<div style="display:flex;flex-direction:column;gap:8px">' +
+      '<button class="btn ghost" type="button" data-act="upgrade-pick" data-name="Học Viên GON" data-email="hocvien@gon.demo">👤 Học Viên GON</button>' +
+      '<button class="btn ghost" type="button" data-act="upgrade-pick" data-name="Minh Khánh" data-email="minhkhanh@gmail.demo">👤 Minh Khánh</button></div>');
+    return;
+  }
+  if(act === "upgrade-pick"){ // FE-Confirm-14: ẩn danh → Google, GIỮ UUID + tiến trình
+    if(!S.account || !S.account.anon) return;
+    var keepUuid = S.account.uuid;
+    var upName = actEl.getAttribute("data-name");
+    S.account = {name:upName, email:actEl.getAttribute("data-email"),
+      initials:upName.split(" ").map(function(w){return w[0];}).join("").slice(0,2).toUpperCase(), anon:false, uuid:keepUuid};
+    S.upgrades.push({t:Date.now(), name:upName, keptUuid:keepUuid});
+    save(); closeModal();
+    toast("🔑 Đã nâng cấp lên Google — UUID " + keepUuid.slice(0,8) + " & tiến trình giữ nguyên, đồng bộ đa thiết bị (mock)");
     render();
     return;
   }
