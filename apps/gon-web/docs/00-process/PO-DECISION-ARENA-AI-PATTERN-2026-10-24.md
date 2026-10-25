@@ -43,3 +43,12 @@ Prompt/Topic → 2 OUTPUT ẩn danh cạnh nhau (cùng chủ đề)
 - Chống gian lận vote: cooldown theo thiết bị/tài khoản, phát hiện vote hàng loạt, cân bằng cặp đấu (mỗi model số lượt đấu tương đương).
 - Chuyên mục leaderboard mở rộng theo định dạng GDevelop thật (6 format) và persona; "rank movement" tính theo cửa sổ thời gian (7 ngày).
 - So sánh trực tiếp 2 output do người dùng chọn (side-by-side) — giai đoạn sau.
+
+## 5. Mục embed "THẬT" (FE-Confirm-11, PO chốt sau câu hỏi iframe arena.ai)
+
+PO hỏi: *"Trong stand-alone web nếu thêm iframe để đưa arena.ai vào có chạy được không?"* → kết luận: **gần như chắc chắn không** (arena.ai chặn iframe bằng X-Frame-Options/CSP + reCAPTCHA; cross-origin chỉ nhìn được; phá nguyên tắc demo offline + E2E jsdom). PO chốt hướng đúng: **embed thứ cho phép embed, cùng origin**.
+
+Triển khai (v2.9):
+- **`ux-prototype/standalone/arena-embed.html`** — trang arena nhúng được của GON (1 tệp, không dependency, same-origin): 4 lựa chọn vote, 1 vote/cặp, ±Elo sau vote, "Đấu cặp khác", hỗ trợ **`?embed=1`** (kiểu Gradio embed mode — gọn, không chrome thừa).
+- **Demo chính:** nút **"📺 Chế độ embed (iframe)"** trong khối Arena → thay battle inline bằng `<iframe src="arena-embed.html?embed=1">` cùng origin; vote trong khung gửi về trang chính qua **`postMessage`** (`{app:"gon-arena-embed", type:"vote", pairId, choice, model, t}`) → ghi vào `S.votes` (IndexedDB) + **+15 XP** + toast.
+- **Production:** đường "đấu trường thật" = tự host **FastChat (Gate 0, Apache-2.0)** dưới dạng **Gradio/HF Space** (Gradio sinh ra để embed, có `?embed=true`) hoặc GON arena cùng origin — đúng hợp đồng postMessage ở trên. **Không** nhúng arena.ai trực tiếp; không proxy để lách header (phạm ý đồ site + ToS).

@@ -258,6 +258,13 @@ function readState(win) {
   ok(text().includes("Elo -4"), "both-bad drops both sides");
   await clk(q('[data-act="arena-next"]'));
   ok(text().includes("Model A — Gemini qua Google ADK"), "cycled back to pair 1 (already voted, labels shown)");
+  await clk(q('[data-act="arena-embed-toggle"]'));
+  const embedFrame = q("#arena-embed-frame");
+  ok(embedFrame !== null, "embed mode: same-origin iframe mounts");
+  ok(embedFrame.getAttribute("src") === "arena-embed.html?embed=1", "iframe src = arena-embed.html?embed=1 (Gradio-style embed param)");
+  ok(text().includes("Embed thật cùng origin"), "embed explainer shown (postMessage, no arena.ai hotlink)");
+  await clk(q('[data-act="arena-embed-toggle"]'));
+  ok(q("#arena-embed-frame") === null && text().includes("VS"), "toggle back to inline battle");
   const pickBtn = q('[data-act="pick-output"]');
   const pickOid = pickBtn.getAttribute("data-o");
   await clk(pickBtn);
@@ -379,6 +386,21 @@ function readState(win) {
   console.log("== no 18+ remnants (UI text only) ==");
   const ui = document.getElementById("view").textContent + " " + (document.querySelector(".demo-banner") || {textContent:""}).textContent + " " + (document.getElementById("tabbar").textContent);
   ok(!ui.includes("18+") && !ui.includes("đủ 18 tuổi"), "no 18+ gate text in UI");
+
+  console.log("== Arena embed page (arena-embed.html?embed=1) ==");
+  const embedHtml = fs.readFileSync(path.join(__dirname, "..", "arena-embed.html"), "utf8");
+  const domE = new JSDOM(embedHtml, { url: "http://localhost:4173/arena-embed.html?embed=1", runScripts: "dangerously", pretendToBeVisual: true });
+  const dE = domE.window.document;
+  ok(await waitFor(() => dE.body && dE.body.textContent.includes("VS")), "embed page boots standalone");
+  ok(dE.body.textContent.includes("embed mode · cùng origin"), "?embed=1 activates embed mode");
+  ok(dE.querySelectorAll("[data-v]").length === 5, "4 vote options + next in embed page");
+  dE.querySelector('[data-v="a"]').dispatchEvent(new domE.window.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(dE.body.textContent.includes("Kết quả cộng đồng") === false && dE.body.textContent.includes("lựa chọn của bạn"), "vote registers in embed page");
+  ok(dE.body.textContent.includes("Elo +8") && dE.body.textContent.includes("Elo -5"), "Elo deltas shown in embed page");
+  dE.querySelector('[data-v="next"]').dispatchEvent(new domE.window.MouseEvent("click", { bubbles: true }));
+  await sleep(60);
+  ok(dE.body.textContent.includes("cặp 2/3"), "next battle cycles in embed page");
 
   console.log("== IndexedDB persistence across reload ==");
   const dom2 = new JSDOM(html, {

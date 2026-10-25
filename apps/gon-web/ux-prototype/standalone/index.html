@@ -685,7 +685,7 @@ var ARENA_PAIRS = [
    a:{em:"✅",title:"Easy-task: soát 1 tin giả",model:"Model E — ADK · task-gen"},
    b:{em:"🖼️",title:"Bộ ảnh: 6 phép loại suy sai",model:"Model F — ADK · imagen-style"}, community:{a:61,b:39}}
 ];
-var ARENA_IDX = 0;
+var ARENA_IDX = 0, ARENA_EMBED_MODE = false; // FE-Confirm-11: iframe same-origin arena-embed.html (kiểu Gradio ?embed=true)
 var ARENA_ELO = {a:{a:8,b:-5}, b:{a:-5,b:8}, tie:{a:1,b:1}, bothbad:{a:-4,b:-4}};
 
 /* ---------------- Feed & xu hướng ---------------- */
@@ -1181,15 +1181,22 @@ function arenaBlock(){
               '<div style="margin-top:6px"><span class="tag ' + (delta[key]>=0?"ok":"warn") + '">📈 Elo ' + (delta[key]>=0?"+":"") + delta[key] + '</span></div>'
              : '<button class="btn primary sm" type="button" data-act="vote" data-choice="' + key + '">Chọn ' + key.toUpperCase() + '</button>') + '</div>';
   }
+  if(ARENA_EMBED_MODE){
+    return '<div class="card" id="arena-inline"><div class="row" style="justify-content:space-between"><h3 style="margin:0">⚔️ Arena — chọn output hay hơn</h3><button class="btn sm ghost" type="button" data-act="arena-embed-toggle">↩ Trở lại bản thường</button></div>' +
+      '<iframe id="arena-embed-frame" src="arena-embed.html?embed=1" title="GON Arena (embed — cùng origin)" style="width:100%;height:520px;border:1px solid var(--line);border-radius:14px;background:#0b1226"></iframe>' +
+      '<p class="small muted" style="margin-top:8px">📺 <b>Embed thật cùng origin</b> (kiểu Gradio <span class="mono">?embed=true</span>): khung trên là trang <span class="mono">arena-embed.html</span> riêng — vote trong khung được gửi về đây qua <span class="mono">postMessage</span> và ghi vào GON (+15 XP). Không nhúng arena.ai trực tiếp vì bị chặn iframe (X-Frame-Options/CSP).</p></div>';
+  }
   return '<div class="card" id="arena-inline"><div class="row" style="justify-content:space-between"><h3 style="margin:0">⚔️ Arena — chọn output hay hơn</h3><span class="small muted">kiểu arena.ai · cặp ' + (ARENA_IDX+1) + '/' + ARENA_PAIRS.length + '</span></div>' +
     '<div class="arena-stage">' + card("a") + '<div class="arena-vs">VS</div>' + card("b") + '</div>' +
     (voted
       ? '<hr class="sep"><h3 style="margin:0 0 8px">Kết quả cộng đồng</h3><div class="split-bar"><div class="a" style="width:' + p.community.a + '%">' + p.community.a + '%</div><div class="b" style="width:' + p.community.b + '%">' + p.community.b + '%</div></div>' +
-        '<div class="row" style="margin-top:10px"><button class="btn gold sm" type="button" data-act="arena-next">⚔️ Đấu cặp khác</button></div>'
+        '<div class="row" style="margin-top:10px"><button class="btn gold sm" type="button" data-act="arena-next">⚔️ Đấu cặp khác</button>' +
+        '<button class="btn ghost sm" type="button" data-act="arena-embed-toggle">📺 Chế độ embed (iframe)</button></div>'
       : '<div class="row" style="margin-top:10px;flex-wrap:wrap">' +
         '<button class="btn ghost sm" type="button" data-act="vote" data-choice="tie">🤝 Hoà — cả hai đều tốt</button>' +
         '<button class="btn ghost sm" type="button" data-act="vote" data-choice="bothbad">👎 Cả hai chưa đạt</button>' +
-        '<button class="btn gold sm" type="button" data-act="arena-next">⚔️ Đấu cặp khác</button></div>' +
+        '<button class="btn gold sm" type="button" data-act="arena-next">⚔️ Đấu cặp khác</button>' +
+        '<button class="btn ghost sm" type="button" data-act="arena-embed-toggle">📺 Chế độ embed (iframe)</button></div>' +
         '<p class="small muted" style="margin-top:10px">Hai đầu ra ẩn danh — nhãn model chỉ mở sau khi vote (kiểu arena.ai). Vote của bạn là tín hiệu Arena + bộc lộ persona; chọn output trong feed phía trên cũng là tín hiệu Arena.</p>') + '</div>';
 }
 ROUTES.arena = function(){ return ROUTES.discover(); }; // redirect: Arena đã gộp vào Khám phá
@@ -1604,6 +1611,7 @@ document.addEventListener("click", function(e){
   if(act === "lb-tab"){ LB_TAB = actEl.getAttribute("data-t") || "model"; render(); return; }
   if(act === "lb-fmt"){ LB_FMT = actEl.getAttribute("data-f") || "all"; render(); return; }
   if(act === "arena-next"){ ARENA_IDX = (ARENA_IDX + 1) % ARENA_PAIRS.length; render(); return; }
+  if(act === "arena-embed-toggle"){ ARENA_EMBED_MODE = !ARENA_EMBED_MODE; render(); return; }
   if(act === "report-ack"){ toast("🚦 Đã ghi nhận"); return; }
   if(act === "pick-output"){
     var pid = actEl.getAttribute("data-p"), did = actEl.getAttribute("data-d"), oid = actEl.getAttribute("data-o");
@@ -1665,6 +1673,16 @@ function submitTopSearch(){
 }
 document.getElementById("topsearch-input").addEventListener("keydown", function(e){
   if(e.key === "Enter"){ e.preventDefault(); submitTopSearch(); }
+});
+
+/* FE-Confirm-11: nhận vote từ iframe arena-embed.html (same-origin, kiểu Gradio embed) */
+window.addEventListener("message", function(e){
+  var d = e.data;
+  if(!d || d.app !== "gon-arena-embed" || d.type !== "vote") return;
+  var cv = {a:"A",b:"B",tie:"Hoà",bothbad:"Cả hai chưa đạt"}[d.choice] || d.choice;
+  S.votes.push({choice:d.choice, model:d.model || null, t:Date.now(), via:"embed"});
+  save(); addXp(15, "Vote Arena (embed)");
+  toast("📺 Vote từ Arena embed: " + cv + (d.model ? " — " + d.model : "") + " · +15 XP");
 });
 
 function esc(s){

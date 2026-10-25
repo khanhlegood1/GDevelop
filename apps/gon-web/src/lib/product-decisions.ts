@@ -180,3 +180,31 @@ export const GDEVELOP_INTEGRATION_DECISION = {
   goldenRule: "LLM sinh payload có kiểu (tham số), không sinh game code",
   learningEventsTo: "/api/v1 (P03) — checkpoint + XP từ kết quả chơi thật",
 } as const;
+
+/**
+ * FE-Confirm-11 (24/10 tối muộn) — EMBED ARENA THẬT (cùng origin, kiểu Gradio):
+ * PO hỏi "thêm iframe đưa arena.ai vào có chạy được không?" → KHÔNG (site chặn
+ * iframe: X-Frame-Options/CSP + reCAPTCHA; cross-origin chỉ nhìn được).
+ * Hướng chốt: embed thứ CHO PHÉP embed — GON arena riêng cùng origin
+ * (standalone/arena-embed.html, ?embed=1 kiểu Gradio) + postMessage;
+ * production: tự host FastChat (Gate 0) dạng Gradio/HF Space (?embed=true).
+ */
+export const ARENA_EMBED_SURFACE = {
+  id: "PO-2026-10-24-ARENA-EMBED",
+  date: "2026-10-24",
+  source: "Product Owner (GON) — chốt hướng embed thật cùng origin sau câu hỏi iframe arena.ai",
+  demoSurface: "ux-prototype/standalone/arena-embed.html",
+  sameOrigin: true,
+  gradioStyleParam: "?embed=1",
+  postMessageContract: {
+    app: "gon-arena-embed",
+    type: "vote",
+    pairId: "number",
+    choice: "a | b | tie | bothbad",
+    model: "string | null",
+    t: "number (epoch ms)",
+  } as Record<string, string>,
+  embedderPath: "iframe same-origin trong khối Arena của Khám phá + window message listener",
+  productionPath: "FastChat (Gate 0, Apache-2.0) self-host dưới Gradio/HF Space — embeddable qua ?embed=true",
+  doNot: ["nhúng arena.ai trực tiếp (bị chặn iframe)", "proxy để lách header (phạm ToS)"],
+} as const;
