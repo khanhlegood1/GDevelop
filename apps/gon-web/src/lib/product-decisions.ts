@@ -279,7 +279,7 @@ export const FE_FINAL_SWEEP_DECISION = {
   },
   productionQueue: [
     "GDJS Runtime thật + extension GonLearningEvents thật (tách khỏi demo 1 file — quyết định GDevelop)",
-    "Production de-18+ sweep (PO đảo ngược 24/10 — demo đã sạch, source chính còn artifact)",
+    "Production de-18+ sweep — ✅ ĐÃ XONG trong Apply-1 (Vs1App gỡ cổng độ tuổi, contract P03 giữ nguyên)",
     "Artifact embeds (P04) · VS2–VS5 · Storybook D-SB-02…06",
     "P05 verdict + P06 Go-Live — final call của PO",
   ] as const,

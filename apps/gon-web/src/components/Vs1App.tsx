@@ -15,11 +15,14 @@ import {
   sha256Hex,
   type AnyRecord,
 } from "@/lib/api";
+import { ArenaPanel } from "@/components/gon/ArenaPanel";
+import { JourneyAgentPanel } from "@/components/gon/JourneyAgentPanel";
+import { KolPathCard } from "@/components/gon/KolPathCard";
 
 const TERMS_VERSION = "terms-alpha-v1";
 const PRIVACY_VERSION = "privacy-alpha-v1";
 
-type View = "start" | "outputs" | "learn" | "progress" | "proofs";
+type View = "start" | "outputs" | "learn" | "progress" | "proofs" | "arena";
 
 const LEARNING_MODES = [
   { value: "deep_mastery", label: "Deep Mastery", description: "Đi sâu, ưu tiên độ bao phủ concept và nguồn." },
@@ -126,16 +129,13 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
   const [initialLoading, setInitialLoading] = useState(true);
   const [bootstrap, setBootstrap] = useState<AnyRecord | null>(null);
   const [signedOut, setSignedOut] = useState(false);
-  const [under18Blocked, setUnder18Blocked] = useState(false);
+  const [inviteCode, setInviteCode] = useState(devInviteHint ?? "");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [view, setView] = useState<View>("start");
 
   const [devName, setDevName] = useState("Người học Alpha");
-  const [inviteCode, setInviteCode] = useState(devInviteHint ?? "");
-  const [is18, setIs18] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [personalization, setPersonalization] = useState<"granted" | "denied">("denied");
 
   const [projects, setProjects] = useState<AnyRecord[]>([]);
@@ -307,16 +307,15 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
       await apiRequest("/api/dev/session", { method: "POST", body: { displayName: devName } });
       setSignedOut(false);
       await loadBootstrap();
-      setNotice("Đã tạo phiên dev local. Hãy hoàn tất invite + 18+ attestation để kích hoạt tài khoản.");
+      setNotice("Đã tạo phiên dev local. Hãy hoàn tất invite để kích hoạt tài khoản.");
     });
   }
 
   async function handleAttestation(event: FormEvent) {
     event.preventDefault();
-    if (!is18 || !termsAccepted) {
-      setError("Bạn cần tự xác nhận đủ 18 tuổi và chấp nhận điều khoản Private Alpha.");
-      return;
-    }
+    // PO 24/10/2026: đảo ngược định vị 18+ — "toàn bộ dự án không quan tâm user
+    // có trên 18 tuổi hay không". FE không còn cổng độ tuổi. Payload attestation
+    // GIỮ NGUYÊN theo contract P03 đã khoá (isAtLeast18/termsVersion/privacyVersion).
     await run("attestation", async () => {
       await apiRequest("/v1/me/age-attestation", {
         method: "POST",
@@ -331,7 +330,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
       const data = await apiRequest<AnyRecord>("/v1/me/bootstrap");
       setBootstrap(data);
       await loadActiveData(data);
-      setNotice("Tài khoản đã active. Đây là self-attestation 18+, không phải xác minh giấy tờ.");
+      setNotice("Tài khoản đã active. Không có cổng độ tuổi (quyết định PO 24/10) — payload attestation giữ nguyên contract P03.");
     });
   }
 
@@ -652,7 +651,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
           <span className="brand-mark" aria-hidden="true">G</span>
           <span>
             <strong>GON</strong>
-            <small>GAME OF NURTURE · 18+</small>
+            <small>GAME OF NURTURE</small>
           </span>
         </a>
         <div className="topbar-actions">
@@ -701,9 +700,9 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
             </article>
 
             <article className="panel light-panel">
-              <p className="eyebrow dark">SCR-01 · Private Alpha 18+</p>
+              <p className="eyebrow dark">SCR-01 · Private Alpha</p>
               <h2>Đăng nhập để bắt đầu</h2>
-              <p>GON chỉ dành cho người dùng đủ 18 tuổi trong Private Alpha. Google là identity provider đã duyệt tại P03.</p>
+              <p>Private Alpha — Google là identity provider đã duyệt tại P03. Không có cổng độ tuổi (quyết định PO 24/10: dự án không quan tâm user có trên 18 tuổi hay không).</p>
               {googleConfigured ? (
                 <a className="button primary large" href="/api/auth/signin/google?callbackUrl=%2F">Tiếp tục với Google</a>
               ) : (
@@ -728,11 +727,11 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
         ) : !isActive ? (
           <section className="hero-grid" aria-labelledby="onboarding-heading">
             <article className="panel hero-panel">
-              <p className="eyebrow gold">Invite · 18+ self-attestation · Consent</p>
+              <p className="eyebrow gold">Invite · Consent · Footprint</p>
               <h1 id="onboarding-heading">Hoàn tất điều kiện vào Private Alpha.</h1>
               <p>
-                Invite chỉ lưu hash và redeem một lần. Việc xác nhận tuổi là <strong>self-attestation</strong>;
-                GON không gọi đây là xác minh giấy tờ tùy thân.
+                Invite chỉ lưu hash và redeem một lần. GON <strong>không hỏi độ tuổi</strong> (quyết định PO 24/10);
+                payload attestation giữ nguyên fields theo contract P03 đã khoá.
               </p>
               <ul>
                 <li>Project, Journey và Proof mặc định riêng tư.</li>
@@ -745,21 +744,11 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                 <p className="eyebrow dark">SCR-01 · Onboarding</p>
                 <h2>Xác nhận trước khi tạo dữ liệu học</h2>
               </div>
-              {under18Blocked ? (
-                <p className="error-box" role="alert">GON Private Alpha chỉ dành cho người đủ 18 tuổi. Không có Learning Project nào được tạo trong phiên này.</p>
-              ) : null}
+              <p className="hint">🔒 Không còn cổng độ tuổi (quyết định PO 24/10). Terms/privacy version vẫn được ghi theo contract P03: {TERMS_VERSION} · {PRIVACY_VERSION}.</p>
               <label className="field">
                 <span>Mã mời Private Alpha</span>
                 <input type="text" value={inviteCode} onChange={(event) => setInviteCode(event.target.value)} autoComplete="one-time-code" required />
                 {devInviteHint ? <small>Môi trường dev đã điền mã mời cấu hình sẵn.</small> : null}
-              </label>
-              <label className="check-row">
-                <input type="checkbox" checked={is18} onChange={(event) => setIs18(event.target.checked)} />
-                <span>Tôi tự xác nhận mình đã đủ 18 tuổi.<small>Đây không phải xác minh giấy tờ.</small></span>
-              </label>
-              <label className="check-row">
-                <input type="checkbox" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} />
-                <span>Tôi chấp nhận điều khoản Private Alpha ({TERMS_VERSION}) và chính sách riêng tư ({PRIVACY_VERSION}).</span>
               </label>
               <fieldset>
                 <legend>Cá nhân hóa bằng footprint trong GON</legend>
@@ -774,8 +763,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                   </label>
                 </div>
               </fieldset>
-              <button className="button primary large" type="submit" disabled={busy !== null || under18Blocked}>Kích hoạt tài khoản</button>
-              <button className="button secondary large" type="button" onClick={() => setUnder18Blocked(true)}>Tôi chưa đủ 18 tuổi</button>
+              <button className="button primary large" type="submit" disabled={busy !== null}>Kích hoạt tài khoản</button>
             </form>
           </section>
         ) : (
@@ -784,6 +772,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
               <button type="button" aria-current={view === "start" ? "page" : undefined} onClick={() => setView("start")}>Bắt đầu</button>
               <button type="button" aria-current={view === "outputs" ? "page" : undefined} onClick={() => setView("outputs")} disabled={!explorer}>Hướng học</button>
               <button type="button" aria-current={view === "learn" ? "page" : undefined} onClick={() => setView("learn")} disabled={!player}>Học & Boss Proof</button>
+              <button type="button" aria-current={view === "arena" ? "page" : undefined} onClick={() => setView("arena")}>⚔️ Arena & Agent</button>
               <button type="button" aria-current={view === "progress" ? "page" : undefined} onClick={() => setView("progress")}>Hành trình</button>
               <button type="button" aria-current={view === "proofs" ? "page" : undefined} onClick={() => setView("proofs")}>Proof Vault</button>
             </nav>
@@ -949,6 +938,21 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                     ) : null}
                   </section>
                 ) : null}
+              </section>
+            ) : null}
+
+            {view === "arena" ? (
+              <section aria-label="Arena và Journey Agent — bề mặt đã PO chốt (standalone v2.7–v2.12)">
+                <JourneyAgentPanel
+                  signals={{
+                    confirmedSuccess: asArray<AnyRecord>(currentProgress?.mastery).length,
+                    steerability: 0,
+                    recovery: 0,
+                  }}
+                  onFeedback={(ok) => setNotice(ok ? "✅ Confirmed success — tín hiệu Agent Arena đã ghi (local VS1)." : "👎 Đã ghi phản hồi chưa đạt (local VS1).")}
+                />
+                <div style={{ height: 16 }} />
+                <ArenaPanel />
               </section>
             ) : null}
 
@@ -1215,6 +1219,12 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                   <h1 id="progress-heading">Bạn đang ở đâu trong hành trình trọn đời?</h1>
                   <p>Level luôn được tính từ Lifetime XP bằng <code>floor(LifetimeXP / 100)</code>. Forever ở Lv.35+ là một Era mở, không phải mức trần.</p>
                 </div>
+                <KolPathCard
+                  hotOutputs={0}
+                  trendToken={0}
+                  lifetimeXp={Number(currentProgress?.lifetimeXp ?? 0)}
+                  dataNote="VS1 chưa có backend xu hướng (P05+): token & output ≥40 sẽ sống khi trend API được nối — tier hiện tính trên dữ liệu thật khả dụng."
+                />
                 <div className="grid-three">
                   <article className="panel">
                     <p className="eyebrow gold">Lifelong Level</p>
