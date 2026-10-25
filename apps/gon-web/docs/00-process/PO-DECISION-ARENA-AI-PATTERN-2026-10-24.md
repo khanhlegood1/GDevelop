@@ -42,7 +42,7 @@ Prompt/Topic → 2 OUTPUT ẩn danh cạnh nhau (cùng chủ đề)
 - Elo thật: hệ thống chấm điểm Bradley-Terry với khoảng tin cậy (CI) như leaderboard chuẩn; batch cập nhật hằng giờ.
 - Chống gian lận vote: cooldown theo thiết bị/tài khoản, phát hiện vote hàng loạt, cân bằng cặp đấu (mỗi model số lượt đấu tương đương).
 - Chuyên mục leaderboard mở rộng theo định dạng GDevelop thật (6 format) và persona; "rank movement" tính theo cửa sổ thời gian (7 ngày).
-- So sánh trực tiếp 2 output do người dùng chọn (side-by-side) — giai đoạn sau.
+- So sánh trực tiếp 2 output do người dùng chọn (side-by-side) — **ĐÃ LÀM trong FE-Confirm-14 (25/10, v2.12)**: khối "⚖️ So trực tiếp" trên màn #/arena (2 select chọn output → vote a/b → mở nhãn model + ±Elo, vote ghi `via:"side-by-side"`).
 
 ## 5. Mục embed "THẬT" (FE-Confirm-11, PO chốt sau câu hỏi iframe arena.ai)
 

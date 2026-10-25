@@ -248,3 +248,39 @@ export const JOURNEY_AGENT_DECISION = {
   xpRules: { journeyDone: 25, confirmedSuccess: 5 },
   productionPath: "Google ADK orchestrator (WSIC) + GDJS learningEvents về /api/v1 (P03) làm confirmed success; không bash tự do cho learner; arena nền FastChat (Gate 0)",
 } as const;
+
+/**
+ * FE-Confirm-14 (25/10) — FE FINAL SWEEP: PO yêu cầu "Cập nhật tất cả những
+ * quyết định còn sót của tôi vào web stand alone: để tôi chốt trước khi apply
+ * vào toàn bộ source code". Audit toàn bộ decision log → 3 khoảng trống còn
+ * thiếu trong demo, tất cả đã được đóng trong v2.12:
+ * (1) trending token/XP niche-KOL path + disclaimer KHÔNG hứa fame/income;
+ * (2) ⚖️ Side-by-side (arena.ai) — user tự chọn 2 output để so + vote;
+ * (3) 🔑 nâng cấp ẩn danh → Google giữ nguyên UUID + tiến trình.
+ * Chi tiết + checklist chốt: docs/00-process/PO-DECISION-FE-FINAL-SWEEP-2026-10-25.md
+ */
+export const FE_FINAL_SWEEP_DECISION = {
+  id: "PO-2026-10-25-FE-FINAL-SWEEP",
+  date: "2026-10-25",
+  source: "Product Owner (GON) — 'Cập nhật tất cả những quyết định còn sót của tôi vào web stand alone: để tôi chốt trước khi apply vào toàn bộ source code'",
+  decisionDoc: "docs/00-process/PO-DECISION-FE-FINAL-SWEEP-2026-10-25.md",
+  kolPath: {
+    tiers: ["🌱 Mầm ngách", "🌿 Chủ ngách (≥1 output ≥40 xu hướng)", "⭐ KOL ngách (≥3 output ≥40 hoặc token ≥100)"] as const,
+    token: "tổng điểm xu hướng các output CỦA MÌNH (Brew + Remix, tính live bằng trendOf)",
+    honesty: "GON KHÔNG hứa hẹn nổi tiếng hay thu nhập — token/XP không quy đổi tiền, chỉ ghi nhận học thật & đóng góp thật",
+  },
+  sideBySide: {
+    surface: "màn #/arena — 2 <select> chọn output, vote a/b → reveal model + ±Elo",
+    voteRecord: "S.votes {choice, model, via:'side-by-side'} — tín hiệu Arena + bộc lộ persona",
+  },
+  anonymousUpgrade: {
+    surface: "Hồ sơ → '🔑 Nâng cấp lên Google (mock)'",
+    invariant: "GIỮ NGUYÊN UUID + toàn bộ tiến trình (IndexedDB) — chỉ bật đồng bộ đa thiết bị",
+  },
+  productionQueue: [
+    "GDJS Runtime thật + extension GonLearningEvents thật (tách khỏi demo 1 file — quyết định GDevelop)",
+    "Production de-18+ sweep (PO đảo ngược 24/10 — demo đã sạch, source chính còn artifact)",
+    "Artifact embeds (P04) · VS2–VS5 · Storybook D-SB-02…06",
+    "P05 verdict + P06 Go-Live — final call của PO",
+  ] as const,
+} as const;

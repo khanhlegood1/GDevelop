@@ -409,6 +409,34 @@ function readState(win) {
   ok(text().includes("phiên của bạn"), "own session orchestrator highlighted on agent board");
   ok(text().includes("×0.5"), "recovery half-weight explained (bash-recovery analog)");
 
+  console.log("== F15: FE Final Sweep — Side-by-side + KOL ngách + nâng cấp Google (FE-Confirm-14) ==");
+  await clk(document.getElementById("sb-arena"));
+  ok(text().includes("So trực tiếp (Side-by-side)"), "side-by-side block on Arena screen (arena.ai mode set complete)");
+  document.getElementById("sb-a").value = "0";
+  document.getElementById("sb-b").value = "1";
+  await clk(q('[data-act="sb-compare"]'));
+  ok(document.querySelectorAll("#sb-stage .arena-card").length === 2, "2 user-chosen outputs staged side by side");
+  const votesB4 = (await readState()).votes.length;
+  await clk(q('[data-act="sb-vote"][data-choice="a"]'));
+  ok(text().includes("lựa chọn của bạn"), "side-by-side vote reveals model labels");
+  ok(/Elo \+8/.test(text()) && /Elo -5/.test(text()), "side-by-side Elo deltas shown (+8 / -5)");
+  const stS = await readState();
+  ok(stS.votes.length === votesB4 + 1 && stS.votes[stS.votes.length - 1].via === "side-by-side", "side-by-side vote recorded with via=side-by-side");
+  await clk(document.getElementById("sb-profile"));
+  ok(text().includes("Đường KOL ngách"), "niche-KOL path card on Profile (trending token/XP)");
+  ok(text().includes("KHÔNG hứa hẹn nổi tiếng hay thu nhập"), "honesty disclaimer: never fame/income guarantees");
+  ok(/Token xu hướng/.test(text()) && /Mầm ngách|Chủ ngách|KOL ngách/.test(text()), "trending token + KOL tier shown");
+  const uuidB4 = (await readState()).account.uuid;
+  await clk(q('[data-act="upgrade-open"]'));
+  ok(document.getElementById("modal-overlay").classList.contains("show"), "upgrade modal opens (Google picker, mock)");
+  await clk(q('[data-act="upgrade-pick"]'));
+  const stU = await readState();
+  ok(stU.account.anon === false && stU.account.uuid === uuidB4, "upgraded to Google: UUID kept, progress intact");
+  ok(stU.upgrades.length === 1 && /^u-/.test(stU.upgrades[0].keptUuid), "upgrade event recorded (for POAP)");
+  ok(stU.brewed.length > 0 && stU.xpLedger.length > 0, "learning progress survives the upgrade");
+  await goHash("#/proof");
+  ok(text().includes("Nâng cấp Google"), "upgrade in POAP timeline");
+
   console.log("== S14: map ==");
   const stx = await readState();
   const undone = [];
@@ -426,10 +454,11 @@ function readState(win) {
   if (stx.visited.indexOf("leaderboard")===-1) undone.push("F12");
   if (!(stx.remixes && stx.remixes.length>0)) undone.push("F13");
   if (!(stx.agentJourneys && stx.agentJourneys.length>0)) undone.push("F14");
+  if (!(stx.account && !stx.account.anon && /^u-/.test(stx.account.uuid))) undone.push("F15");
   console.log("  (debug) undone flows:", undone.join(",") || "none");
   await goHash("#/map");
   const doneFlows = Array.from(document.querySelectorAll(".flow-item .tag.ok")).length;
-  ok(doneFlows === 14, "flows done on map (got " + doneFlows + "/14)");
+  ok(doneFlows === 15, "flows done on map (got " + doneFlows + "/15)");
   ok(text().includes("15 màn hình"), "screen checklist renders (15 screens)");
 
   console.log("== no 18+ remnants (UI text only) ==");
