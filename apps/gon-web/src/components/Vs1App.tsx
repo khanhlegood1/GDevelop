@@ -16,8 +16,10 @@ import {
   type AnyRecord,
 } from "@/lib/api";
 import { ArenaPanel } from "@/components/gon/ArenaPanel";
+import { GameSessionLauncher } from "@/components/gon/GameSessionLauncher";
 import { JourneyAgentPanel } from "@/components/gon/JourneyAgentPanel";
 import { KolPathCard } from "@/components/gon/KolPathCard";
+import { gameTemplateIdForNode } from "@/lib/gon-live-api";
 
 const TERMS_VERSION = "terms-alpha-v1";
 const PRIVACY_VERSION = "privacy-alpha-v1";
@@ -500,6 +502,17 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
     });
   }
 
+  // Apply-3b: candidates thật của Output Explorer để ArenaPanel mở trận /v1 (Apply-2).
+  const arenaLiveCandidates = useMemo(
+    () =>
+      asArray<AnyRecord>(explorer?.candidates).map((candidate) => ({
+        id: String(candidate.id),
+        title: candidate.title,
+        format: candidate.format,
+      })),
+    [explorer],
+  );
+
   const graph = (player?.playerGraph ?? null) as AnyRecord | null;
   const graphNodes = useMemo(() => asArray<AnyRecord>(graph?.nodes), [graph]);
   const activeNode = graphNodes.find((node) => node.id === activeNodeId) ?? graphNodes[0] ?? null;
@@ -952,7 +965,7 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                   onFeedback={(ok) => setNotice(ok ? "✅ Confirmed success — tín hiệu Agent Arena đã ghi (local VS1)." : "👎 Đã ghi phản hồi chưa đạt (local VS1).")}
                 />
                 <div style={{ height: 16 }} />
-                <ArenaPanel />
+                <ArenaPanel projectId={selectedProjectId} candidates={arenaLiveCandidates} />
               </section>
             ) : null}
 
@@ -1020,6 +1033,12 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                 </div>
                 {!player || !graph || !activeNode ? <div className="empty-state">Chưa có Journey. Hãy Fork một hướng học ở Output Explorer.</div> : (
                   <>
+                    <GameSessionLauncher
+                      journeyId={String(player.journey.id)}
+                      nodeId={String(activeNode.id)}
+                      templateId={gameTemplateIdForNode(activeNode)}
+                      onNotice={setNotice}
+                    />
                     <section className="panel" style={{ marginBottom: 18 }}>
                       <div className="badge-row">
                         <span className="badge success">Hành trình riêng tư</span>

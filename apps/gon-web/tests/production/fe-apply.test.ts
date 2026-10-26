@@ -143,7 +143,7 @@ describe("Apply-1 · Production de-18+ sweep (PO đảo ngược 24/10)", () => 
   });
 
   it("3 bề mặt đã PO chốt được mount trong Vs1App", () => {
-    expect(vs1Source).toContain("<ArenaPanel />");
+    expect(vs1Source).toContain("<ArenaPanel projectId={selectedProjectId} candidates={arenaLiveCandidates} />");
     expect(vs1Source).toContain("<JourneyAgentPanel");
     expect(vs1Source).toContain("<KolPathCard");
   });
