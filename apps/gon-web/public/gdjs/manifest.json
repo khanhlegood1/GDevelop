@@ -67,6 +67,7 @@
     "debugger-client/abstract-debugger-client.js",
     "affinetransformation.js",
     "Extensions/TextObject/textruntimeobject.js",
-    "Extensions/TextObject/textruntimeobject-pixi-renderer.js"
+    "Extensions/TextObject/textruntimeobject-pixi-renderer.js",
+    "Extensions/GonLearningEvents/gonlearningevents.js"
   ]
 }

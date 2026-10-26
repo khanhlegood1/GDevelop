@@ -197,10 +197,18 @@ export function gdjsProjectFromModuleGraph(config: unknown, options: { name?: st
   pushLine(title, 26, true);
   if (summary.length > 0) pushLine(summary, 16, false);
   y += 12;
+  // Apply-5: mỗi node là MỘT object riêng (GonNode{i}) — scene code generated
+  // dùng tên này để bắt sự kiện chạm (objective_viewed) và đổi màu khi đã xem.
   nodes.slice(0, 8).forEach((node, index) => {
     const nodeTitle = typeof node.title === "string" && node.title.length > 0 ? node.title : String(node.id ?? `Node ${index + 1}`);
     const minutes = typeof node.estimatedMinutes === "number" ? ` · ~${node.estimatedMinutes} phút` : "";
-    pushLine(`${index + 1}. ${nodeTitle} (${typeof node.type === "string" ? node.type : "step"}${minutes})`, 18, false);
+    const label = `${index + 1}. ${nodeTitle} (${typeof node.type === "string" ? node.type : "step"}${minutes})`;
+    z += 1;
+    const name = `GonNode${index + 1}`;
+    const { object, instance } = textObject(name, label.length > 78 ? `${label.slice(0, 75)}…` : label, 18, false, y);
+    objects.push(object);
+    instances.push(instance);
+    y += Math.round(18 * 1.6);
   });
   if (outcomes.length > 0) {
     y += 12;

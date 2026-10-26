@@ -7,6 +7,7 @@ import {
   gameEventBatch,
 } from "@/lib/gon-live-api";
 import { gdjsProjectFromModuleGraph, GON_GAME_LAUNCH_APP } from "@/lib/gdjs-launch";
+import { gdjsNodeSpecsFromProject, gdjsSceneCodeSource } from "@/lib/gdjs-scene-code";
 
 export interface GameSessionLauncherProps {
   journeyId: string;
@@ -100,14 +101,18 @@ export function GameSessionLauncher({ journeyId, nodeId, templateId, onNotice }:
     }
   }
 
-  // Gửi project JSON (sinh từ config đã lọc) vào iframe GDJS Runtime.
+  // Gửi project JSON + scene code generated (GonLearningEvents) vào iframe GDJS.
   function pushLaunch() {
     if (!session || !launchConfig || !frameRef.current?.contentWindow) return;
+    const project = gdjsProjectFromModuleGraph(launchConfig, { name: `GON · ${nodeId}` });
+    const graphNodes = (Array.isArray(launchConfig.nodes) ? launchConfig.nodes : []) as Array<Record<string, unknown>>;
+    const sceneCode = gdjsSceneCodeSource(gdjsNodeSpecsFromProject(project, graphNodes));
     frameRef.current.contentWindow.postMessage(
       {
         app: GON_GAME_LAUNCH_APP,
         type: "launch",
-        project: gdjsProjectFromModuleGraph(launchConfig, { name: `GON · ${nodeId}` }),
+        project,
+        sceneCode,
         sessionId: String(session.id),
       },
       window.location.origin,

@@ -29,7 +29,37 @@
       // Parent (GameSessionLauncher) postMessage {app:"gon-game-launch", type:"launch",
       // project, sessionId}; ở đây load runtime theo /gdjs/manifest.json (thứ tự
       // chính thức của GDJS) rồi khởi động gdjs.RuntimeGame y như GDJS/Runtime/index.html.
-      var state = { project: null, sessionId: null, running: false };
+      var state = { project: null, sceneCode: null, sessionId: null, running: false };
+      // Apply-5: bridge cho GonLearningEvents runtime extension (trong game) gửi
+      // event về /v1 — launcher làm transport (same-origin cookie + CSRF).
+      var bridgeSequence = 1; // app đã gửi session_started với sequence 1.
+      window.__gonSendEvent = function (eventType, data) {
+        if (!state.sessionId || !eventType) return;
+        bridgeSequence += 1;
+        var event = {
+          clientEventId: "game-" + eventType + "-" + Date.now() + "-" + bridgeSequence,
+          sequence: bridgeSequence,
+          eventType: eventType,
+          occurredAtClient: new Date().toISOString(),
+          data: data || {}
+        };
+        fetch("/api/csrf")
+          .then(function (response) { return response.json(); })
+          .then(function (csrf) {
+            return fetch("/v1/game-sessions/" + encodeURIComponent(state.sessionId) + "/events", {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrf.data ? csrf.data.csrfToken : "",
+                "Idempotency-Key": "game-evt-" + Date.now() + "-" + bridgeSequence
+              },
+              body: JSON.stringify({ schemaVersion: "gon.game-events/1.0", sessionId: state.sessionId, events: [event] })
+            });
+          })
+          .then(function (response) { if (!response.ok) console.warn("GON game event HTTP " + response.status); })
+          .catch(function (error) { console.warn("GON game event lỗi: " + error); });
+      };
       function send(type) {
         parent.postMessage({ app: "gon-game-launch", type: type, sessionId: state.sessionId }, "*");
       }
@@ -40,6 +70,7 @@
         if (!data || data.app !== "gon-game-launch" || data.type !== "launch") return;
         if (state.running) return;
         state.project = data.project;
+        state.sceneCode = typeof data.sceneCode === "string" ? data.sceneCode : null;
         state.sessionId = data.sessionId;
         bar("🎮 Đang tải GDJS Runtime…");
         fetch("/gdjs/manifest.json")
@@ -62,6 +93,13 @@
 
       function startRuntime() {
         try {
+          // Scene code generated (quy ước gdjs["<mangledName>Code"]) phải có mặt
+          // TRƯỚC khi RuntimeScene khởi tạo — chèn script same-origin.
+          if (state.sceneCode) {
+            var sceneScript = document.createElement("script");
+            sceneScript.textContent = state.sceneCode;
+            document.head.appendChild(sceneScript);
+          }
           window.gdjs.projectData = state.project;
           var game = new window.gdjs.RuntimeGame(window.gdjs.projectData, {});
           game.getRenderer().createStandardCanvas(document.body);

@@ -96,20 +96,37 @@ const pixiRenderers = readdirSync(pixiDir)
 
 const extensionFiles = ["Extensions/TextObject/textruntimeobject.js", "Extensions/TextObject/textruntimeobject-pixi-renderer.js"];
 
+// Apply-5: GonLearningEvents — runtime extension của GON (esbuild từ src).
+const gonExtensionSource = join(gdevelopRoot, "apps/gon-web/src/gdjs-extensions/GonLearningEvents/gonlearningevents.ts");
+const gonExtensionOut = "Extensions/GonLearningEvents/gonlearningevents.js";
+console.log("ℹ️  Build GonLearningEvents runtime extension…");
+const gonBuild = spawnSync(
+  join(gdevelopRoot, "GDJS", "node_modules", ".bin", "esbuild"),
+  [gonExtensionSource, "--outfile=" + join(publicGdjs, gonExtensionOut)],
+  { stdio: "inherit" },
+);
+if (gonBuild.status !== 0) {
+  console.error("❌ Không build được GonLearningEvents");
+  process.exit(1);
+}
+
 const manifestFiles = [
   ...coreFiles.slice(0, 6), // tới pixi-renderers/three.js
   ...pixiRenderers,
   ...coreFiles.slice(6),
   ...extensionFiles,
+  gonExtensionOut,
 ];
 
 console.log(`ℹ️  2) Copy ${manifestFiles.length} file vào public/gdjs (giữ thứ tự manifest)…`);
 mkdirSync(publicGdjs, { recursive: true });
 const copied = [];
 for (const relative of manifestFiles) {
-  const source = join(gdjsRuntimeOut, relative);
   const target = join(publicGdjs, relative);
-  cpSync(source, target);
+  if (relative !== gonExtensionOut) {
+    // File từ build GDJS chính thức — copy từ out dir.
+    cpSync(join(gdjsRuntimeOut, relative), target);
+  } // GonLearningEvents đã được esbuild ghi thẳng vào public/gdjs ở trên.
   if (!statSync(target).isFile()) {
     console.error(`❌ Thiếu file runtime: ${relative}`);
     process.exit(1);
