@@ -33,6 +33,8 @@ const requiredTables = [
   "ranking_snapshots",
   "arena_matches",
   "arena_votes",
+  "game_sessions",
+  "game_events",
   "journeys",
   "branch_commits",
   "learning_attempts",

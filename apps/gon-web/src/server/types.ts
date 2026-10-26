@@ -405,6 +405,47 @@ export interface CandidateRecord {
 }
 
 /**
+ * Apply-3 (27/10) — Game session theo hợp đồng P03:
+ * POST /journeys/{id}/game-sessions (trả GameSessionLaunch kèm launchToken
+ * + config là player graph đã lọc, không chứa đáp án ẩn) ·
+ * GET /game-sessions/{id} · POST /game-sessions/{id}/events
+ * (batch gon.game-events/1.0, idempotent theo clientEventId).
+ */
+export interface GameSessionRecord {
+  id: string;
+  journeyId: string;
+  userId: string;
+  nodeId: string;
+  templateId: string;
+  templateVersion: string;
+  status: "created" | "active" | "completed" | "abandoned" | "expired" | "invalidated";
+  launchToken: string;
+  expiresAt: string;
+  validatedLearningEffect: JsonRecord | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GameEventRecord {
+  id: string;
+  sessionId: string;
+  userId: string;
+  clientEventId: string;
+  sequence: number;
+  eventType:
+    | "session_started"
+    | "objective_viewed"
+    | "action_performed"
+    | "checkpoint_reached"
+    | "question_answered"
+    | "session_completed"
+    | "session_abandoned";
+  occurredAtClient: string;
+  data: JsonRecord;
+  createdAt: string;
+}
+
+/**
  * Apply-2 (25/10) — Arena theo hợp đồng P03 `docs/04-contracts/openapi.json`:
  * POST /projects/{id}/arena-matches · GET /arena-matches/{id} ·
  * POST /arena-matches/{id}/votes. Slot A/B trỏ candidate của CandidateSet

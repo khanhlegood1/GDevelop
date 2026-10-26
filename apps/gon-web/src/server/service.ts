@@ -81,6 +81,8 @@ import {
   type BranchCommitRecord,
   type ArenaMatchRecord,
   type ArenaVoteRecord,
+  type GameEventRecord,
+  type GameSessionRecord,
   type CandidateRecord,
   type CandidateSetRecord,
   type ChunkRecord,
@@ -3170,6 +3172,154 @@ class GonServiceCore {
     };
   }
 
+  createGameSession(actor: Actor, journeyId: string, bodyValue: unknown): CommandResult<JsonRecord> {
+    this.requireActiveUser(actor);
+    const journey = this.requireOwnedJourney(actor, journeyId);
+    const body = ensureRecord(bodyValue);
+    const nodeId = requiredString(body, "nodeId", { maxLength: 128 });
+    const templateId = requiredString(body, "templateId", { minLength: 3, maxLength: 128 });
+    const version = this.requireVisibleModuleVersion(actor, journey.upstreamModuleVersionId);
+    if (!version.graph.nodes.some((node) => node.id === nodeId)) {
+      throw validationError("nodeId không thuộc Journey hiện tại.");
+    }
+    const nowIso = this.now();
+    const session: GameSessionRecord = {
+      id: createId("game"),
+      journeyId: journey.id,
+      userId: actor.userId,
+      nodeId,
+      templateId,
+      templateVersion: version.id,
+      status: "created",
+      launchToken: createId("game"),
+      expiresAt: new Date(Date.parse(nowIso) + 24 * 60 * 60 * 1000).toISOString(),
+      validatedLearningEffect: null,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    this.repositories.gameSessions.set(session.id, session);
+    return {
+      data: {
+        ...this.gameSessionDto(session),
+        launchToken: session.launchToken,
+        config: toPlayerGraph(version.graph),
+      },
+      status: 201,
+    };
+  }
+
+  getGameSession(actor: Actor, sessionId: string): JsonRecord {
+    this.requireActiveUser(actor);
+    return this.gameSessionDto(this.requireOwnedGameSession(actor, sessionId));
+  }
+
+  appendGameEvents(actor: Actor, sessionId: string, bodyValue: unknown): CommandResult<JsonRecord> {
+    this.requireActiveUser(actor);
+    const session = this.requireOwnedGameSession(actor, sessionId);
+    const body = ensureRecord(bodyValue);
+    if (body.schemaVersion !== "gon.game-events/1.0") {
+      throw validationError("schemaVersion phải là gon.game-events/1.0.");
+    }
+    if (body.sessionId !== session.id) {
+      throw validationError("sessionId trong batch phải khớp game session trên URL.");
+    }
+    const events = body.events;
+    if (!Array.isArray(events) || events.length < 1 || events.length > 100) {
+      throw validationError("events phải gồm 1–100 sự kiện.");
+    }
+    if (session.status !== "created" && session.status !== "active") {
+      throw conflict("GAME_SESSION_NOT_OPEN", "Game session đã đóng", "Session đã hoàn tất/bị huỷ nên không nhận thêm event.");
+    }
+    const gameEventTypes = new Set([
+      "session_started",
+      "objective_viewed",
+      "action_performed",
+      "checkpoint_reached",
+      "question_answered",
+      "session_completed",
+      "session_abandoned",
+    ]);
+    const parsed = events.map((raw) => {
+      const event = ensureRecord(raw);
+      const clientEventId = typeof event.clientEventId === "string" ? event.clientEventId : "";
+      const sequence = event.sequence;
+      const eventType = event.eventType;
+      const occurredAtClient = event.occurredAtClient;
+      const data = event.data;
+      if (clientEventId.length < 8 || clientEventId.length > 128) {
+        throw validationError("clientEventId phải là chuỗi 8–128 ký tự.");
+      }
+      if (typeof sequence !== "number" || !Number.isInteger(sequence) || sequence < 1) {
+        throw validationError("sequence phải là số nguyên ≥ 1.");
+      }
+      if (typeof eventType !== "string" || !gameEventTypes.has(eventType)) {
+        throw validationError("eventType không thuộc danh sách cho phép của gon.game-events/1.0.");
+      }
+      if (typeof occurredAtClient !== "string" || Number.isNaN(Date.parse(occurredAtClient))) {
+        throw validationError("occurredAtClient phải là ISO date-time.");
+      }
+      if (data == null || typeof data !== "object" || Array.isArray(data)) {
+        throw validationError("data phải là object.");
+      }
+      return { clientEventId, sequence, eventType: eventType as GameEventRecord["eventType"], occurredAtClient, data: data as JsonRecord };
+    });
+    const seenClientEventIds = new Set(
+      [...this.repositories.gameEvents.values()]
+        .filter((item) => item.sessionId === session.id)
+        .map((item) => item.clientEventId),
+    );
+    const nowIso = this.now();
+    for (const event of parsed) {
+      // Idempotent theo clientEventId: replay batch đã nhận thì bỏ qua event trùng.
+      if (seenClientEventIds.has(event.clientEventId)) continue;
+      seenClientEventIds.add(event.clientEventId);
+      const record: GameEventRecord = {
+        id: createId("evt"),
+        sessionId: session.id,
+        userId: actor.userId,
+        clientEventId: event.clientEventId,
+        sequence: event.sequence,
+        eventType: event.eventType,
+        occurredAtClient: event.occurredAtClient,
+        data: event.data,
+        createdAt: nowIso,
+      };
+      this.repositories.gameEvents.set(record.id, record);
+      if (event.eventType === "session_started" && session.status === "created") session.status = "active";
+      if (event.eventType === "session_completed") session.status = "completed";
+      if (event.eventType === "session_abandoned") session.status = "abandoned";
+    }
+    session.updatedAt = nowIso;
+    this.repositories.gameSessions.set(session.id, session);
+    return { data: this.gameSessionDto(session), status: 201 };
+  }
+
+  private requireOwnedGameSession(actor: Actor, sessionId: string): GameSessionRecord {
+    const session = this.repositories.gameSessions.get(sessionId);
+    if (!session) {
+      throw notFound("Không tìm thấy game session.");
+    }
+    if (session.userId !== actor.userId) {
+      throw forbidden("GAME_SESSION_FORBIDDEN", "Game session không thuộc về bạn", "Chỉ chủ session mới xem và gửi event được.");
+    }
+    return session;
+  }
+
+  private gameSessionDto(session: GameSessionRecord): JsonRecord {
+    return {
+      id: session.id,
+      journeyId: session.journeyId,
+      nodeId: session.nodeId,
+      templateId: session.templateId,
+      templateVersion: session.templateVersion,
+      status: session.status,
+      // GDJS runtime embed là nợ còn lại — trung thực trả null tới khi có launcher thật.
+      launchUrl: null,
+      expiresAt: session.expiresAt,
+      validatedLearningEffect: session.validatedLearningEffect,
+    };
+  }
+
   createArenaMatch(actor: Actor, projectId: string, bodyValue: unknown): CommandResult<JsonRecord> {
     this.requireActiveUser(actor);
     const project = this.requireOwnedProject(actor, projectId);
@@ -5563,5 +5713,26 @@ export class GonService {
     bodyValue: unknown,
   ): Promise<CommandResult<JsonRecord>> {
     return this.run((core) => core.createArenaVote(actor, matchId, bodyValue));
+  }
+
+  /** Apply-3 (P03 game-sessions): tạo session + launch, xem session, gửi event batch. */
+  async createGameSession(
+    actor: Actor,
+    journeyId: string,
+    bodyValue: unknown,
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.createGameSession(actor, journeyId, bodyValue));
+  }
+
+  async getGameSession(actor: Actor, sessionId: string): Promise<JsonRecord> {
+    return this.run((core) => core.getGameSession(actor, sessionId));
+  }
+
+  async appendGameEvents(
+    actor: Actor,
+    sessionId: string,
+    bodyValue: unknown,
+  ): Promise<CommandResult<JsonRecord>> {
+    return this.run((core) => core.appendGameEvents(actor, sessionId, bodyValue));
   }
 }

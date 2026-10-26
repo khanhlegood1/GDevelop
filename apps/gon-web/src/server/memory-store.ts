@@ -37,6 +37,8 @@ import type {
   QuotaReservationRecord,
   ArenaMatchRecord,
   ArenaVoteRecord,
+  GameEventRecord,
+  GameSessionRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -199,6 +201,15 @@ export class MemoryGonStore implements GonStore {
 
   get arenaVotes(): Map<string, ArenaVoteRecord> {
     return (this.repositories.arenaVotes as MapRepositoryCollection<string, ArenaVoteRecord>).map;
+  }
+
+  /** Apply-3 (P03 game-sessions): phiên học + event batch. */
+  get gameSessions(): Map<string, GameSessionRecord> {
+    return (this.repositories.gameSessions as MapRepositoryCollection<string, GameSessionRecord>).map;
+  }
+
+  get gameEvents(): Map<string, GameEventRecord> {
+    return (this.repositories.gameEvents as MapRepositoryCollection<string, GameEventRecord>).map;
   }
 
   get journeys(): Map<string, JourneyRecord> {
