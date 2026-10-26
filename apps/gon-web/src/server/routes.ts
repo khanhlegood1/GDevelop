@@ -267,6 +267,18 @@ async function handleV1Inner(
       }
     }
 
+    if (segments[0] === "game-sessions" && segments[1]) {
+      const sessionId = segments[1];
+      if (method === "GET" && segments.length === 2) {
+        return jsonData(await service.getGameSession(actor, sessionId), 200, requestId);
+      }
+      if (method === "POST" && segments.length === 3 && segments[2] === "events") {
+        assertMutation(request);
+        const result = await service.appendGameEvents(actor, sessionId, await readJsonBody(request));
+        return jsonData(result.data, result.status, requestId);
+      }
+    }
+
     if (segments[0] === "arena-matches" && segments[1]) {
       const matchId = segments[1];
       if (method === "GET" && segments.length === 2) {
@@ -308,6 +320,11 @@ async function handleV1Inner(
         }
         if (method === "GET" && segments.length === 3 && segments[2] === "player") {
           return jsonData(await service.getJourneyPlayer(actor, journeyId), 200, requestId);
+        }
+        if (method === "POST" && segments.length === 3 && segments[2] === "game-sessions") {
+          assertMutation(request);
+          const result = await service.createGameSession(actor, journeyId, await readJsonBody(request));
+          return jsonData(result.data, result.status, requestId);
         }
         if (method === "GET" && segments.length === 3 && segments[2] === "commits") {
           const pagination = paginationFromSearchParams(url.searchParams);

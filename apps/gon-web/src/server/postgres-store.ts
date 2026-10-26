@@ -33,6 +33,8 @@ import type {
   AssessmentResult,
   ArenaMatchRecord,
   ArenaVoteRecord,
+  GameEventRecord,
+  GameSessionRecord,
   AttemptRecord,
   AttestationRecord,
   AuditRecord,
@@ -1538,6 +1540,45 @@ async function loadRepositories(
 
   for (const row of await queryRows(
     executor,
+    "select * from game_sessions order by created_at",
+  )) {
+    const record: GameSessionRecord = {
+      id: asText(row.id),
+      journeyId: asText(row.journey_id),
+      userId: asText(row.user_id),
+      nodeId: asText(row.node_id),
+      templateId: asText(row.template_id),
+      templateVersion: asText(row.template_version),
+      status: asText(row.status) as GameSessionRecord["status"],
+      launchToken: asText(row.launch_token),
+      expiresAt: asIso(row.expires_at),
+      validatedLearningEffect: row.validated_learning_effect == null ? null : asJsonRecord(row.validated_learning_effect),
+      createdAt: asIso(row.created_at),
+      updatedAt: asIso(row.updated_at),
+    };
+    repositories.gameSessions.set(record.id, record);
+  }
+
+  for (const row of await queryRows(
+    executor,
+    "select * from game_events order by created_at",
+  )) {
+    const record: GameEventRecord = {
+      id: asText(row.id),
+      sessionId: asText(row.session_id),
+      userId: asText(row.user_id),
+      clientEventId: asText(row.client_event_id),
+      sequence: Number(row.sequence),
+      eventType: asText(row.event_type) as GameEventRecord["eventType"],
+      occurredAtClient: asIso(row.occurred_at_client),
+      data: asJsonRecord(row.data),
+      createdAt: asIso(row.created_at),
+    };
+    repositories.gameEvents.set(record.id, record);
+  }
+
+  for (const row of await queryRows(
+    executor,
     "select * from arena_matches order by created_at",
   )) {
     const record: ArenaMatchRecord = {
@@ -1631,6 +1672,8 @@ const DURABLE_COLLECTIONS = [
   "rankingSnapshots",
   "arenaMatches",
   "arenaVotes",
+  "gameSessions",
+  "gameEvents",
   "journeys",
   "branchCommits",
   "attempts",
@@ -3106,6 +3149,50 @@ async function savePersonalization(
   );
 }
 
+async function saveGameSession(executor: SqlExecutor, record: GameSessionRecord): Promise<void> {
+  await executor.query(
+    `insert into game_sessions (id, journey_id, user_id, node_id, template_id, template_version, status, launch_token, expires_at, validated_learning_effect, created_at, updated_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::timestamptz, $10::jsonb, $11::timestamptz, $12::timestamptz)
+     on conflict (id) do update set
+       status = excluded.status,
+       expires_at = excluded.expires_at,
+       validated_learning_effect = excluded.validated_learning_effect,
+       updated_at = excluded.updated_at`,
+    [
+      record.id,
+      record.journeyId,
+      record.userId,
+      record.nodeId,
+      record.templateId,
+      record.templateVersion,
+      record.status,
+      record.launchToken,
+      record.expiresAt,
+      record.validatedLearningEffect == null ? null : jsonParam(record.validatedLearningEffect),
+      record.createdAt,
+      record.updatedAt,
+    ],
+  );
+}
+
+async function insertGameEvent(executor: SqlExecutor, record: GameEventRecord): Promise<void> {
+  await executor.query(
+    `insert into game_events (id, session_id, user_id, client_event_id, sequence, event_type, occurred_at_client, data, created_at)
+     values ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::jsonb, $9::timestamptz)`,
+    [
+      record.id,
+      record.sessionId,
+      record.userId,
+      record.clientEventId,
+      record.sequence,
+      record.eventType,
+      record.occurredAtClient,
+      jsonParam(record.data),
+      record.createdAt,
+    ],
+  );
+}
+
 async function saveArenaMatch(executor: SqlExecutor, record: ArenaMatchRecord): Promise<void> {
   await executor.query(
     `insert into arena_matches (id, project_id, user_id, slot_a_candidate_id, slot_b_candidate_id, status, ranking_snapshot_id, expires_at, created_at)
@@ -3239,6 +3326,8 @@ async function flushRepositories(
     footprintEvents: mapDiff("footprintEvents"),
     arenaMatches: mapDiff("arenaMatches"),
     arenaVotes: mapDiff("arenaVotes"),
+    gameSessions: mapDiff("gameSessions"),
+    gameEvents: mapDiff("gameEvents"),
     outboxEvents: diffEntries(
       [...repositories.outboxEvents.values()].map((event) => [event.eventId, event] as const),
       snapshot.get("outboxEvents") ?? new Map(),
@@ -3438,6 +3527,11 @@ async function flushRepositories(
   for (const { record } of diffs.arenaMatches.inserted) await saveArenaMatch(executor, record);
   for (const { record } of diffs.arenaMatches.updated) await saveArenaMatch(executor, record);
   for (const { record } of diffs.arenaVotes.inserted) await insertArenaVote(executor, record);
+
+  // Apply-3 (P03 game-sessions): session upsert (created -> active -> completed) + append-only events.
+  for (const { record } of diffs.gameSessions.inserted) await saveGameSession(executor, record);
+  for (const { record } of diffs.gameSessions.updated) await saveGameSession(executor, record);
+  for (const { record } of diffs.gameEvents.inserted) await insertGameEvent(executor, record);
 
   for (const { record } of diffs.journeys.updated) await updateJourney(executor, record);
   for (const { record } of diffs.journeys.inserted) {

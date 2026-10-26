@@ -47,6 +47,8 @@ import type {
   QuotaReservationRecord,
   ArenaMatchRecord,
   ArenaVoteRecord,
+  GameEventRecord,
+  GameSessionRecord,
   RankingSnapshotRecord,
   ReportRecord,
   ReviewCaseRecord,
@@ -193,6 +195,10 @@ export interface GonRepositories {
   readonly arenaMatches: RepositoryCollection<string, ArenaMatchRecord>;
   /** Apply-2 (P03 /arena-matches): vote Arena — một vote mỗi (match, user). */
   readonly arenaVotes: RepositoryCollection<string, ArenaVoteRecord>;
+  /** Apply-3 (P03 game-sessions): phiên học tương tác gắn journey node. */
+  readonly gameSessions: RepositoryCollection<string, GameSessionRecord>;
+  /** Apply-3 (P03 game-sessions): event batch idempotent theo clientEventId. */
+  readonly gameEvents: RepositoryCollection<string, GameEventRecord>;
 
   readonly journeys: RepositoryCollection<string, JourneyRecord>;
   readonly branchCommits: RepositoryCollection<string, BranchCommitRecord>;
@@ -288,6 +294,8 @@ const MAP_COLLECTION_NAMES = [
   "rankingSnapshots",
   "arenaMatches",
   "arenaVotes",
+  "gameSessions",
+  "gameEvents",
   "journeys",
   "branchCommits",
   "attempts",
@@ -336,6 +344,8 @@ export class InMemoryGonRepositories implements GonRepositories {
   readonly rankingSnapshots = new MapRepositoryCollection<string, RankingSnapshotRecord>();
   readonly arenaMatches = new MapRepositoryCollection<string, ArenaMatchRecord>();
   readonly arenaVotes = new MapRepositoryCollection<string, ArenaVoteRecord>();
+  readonly gameSessions = new MapRepositoryCollection<string, GameSessionRecord>();
+  readonly gameEvents = new MapRepositoryCollection<string, GameEventRecord>();
 
   readonly journeys = new MapRepositoryCollection<string, JourneyRecord>();
   readonly branchCommits = new MapRepositoryCollection<string, BranchCommitRecord>();
