@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiRequest, type AnyRecord } from "@/lib/api";
 import {
   GAME_SESSION_OPEN_STATUSES,
   gameEventBatch,
 } from "@/lib/gon-live-api";
+import { gdjsProjectFromModuleGraph, GON_GAME_LAUNCH_APP } from "@/lib/gdjs-launch";
 
 export interface GameSessionLauncherProps {
   journeyId: string;
@@ -24,10 +25,31 @@ export interface GameSessionLauncherProps {
  */
 export function GameSessionLauncher({ journeyId, nodeId, templateId, onNotice }: GameSessionLauncherProps) {
   const [session, setSession] = useState<AnyRecord | null>(null);
+  const [launchConfig, setLaunchConfig] = useState<AnyRecord | null>(null);
+  const [gameReady, setGameReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
 
   const open = session ? GAME_SESSION_OPEN_STATUSES.has(String(session.status)) : false;
+
+  // Apply-4: nhận tín hiệu ready/complete từ launcher GDJS (same-origin postMessage).
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      const data = event.data as { app?: string; type?: string; sessionId?: string };
+      if (!data || data.app !== GON_GAME_LAUNCH_APP) return;
+      if (data.type === "ready") {
+        setGameReady(true);
+        onNotice?.("🎮 GDJS Runtime đã khởi động trong iframe — nội dung phiên học đang hiển thị.");
+      }
+      if (data.type === "complete") {
+        void complete();
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   async function start() {
     if (busy) return;
@@ -45,8 +67,9 @@ export function GameSessionLauncher({ journeyId, nodeId, templateId, onNotice }:
           { clientEventId: `live-start-${Date.now()}`, sequence: 1, eventType: "session_started", data: { nodeId } },
         ]),
       });
+      setLaunchConfig((created.config as AnyRecord | undefined) ?? null);
       setSession(afterStart);
-      onNotice?.(`🎮 Game session ${String(created.id)} đã active trên /v1 (launchToken chỉ trả đúng lúc tạo).`);
+      onNotice?.(`🎮 Game session ${String(created.id)} đã active trên /v1 (launchUrl: ${String(created.launchUrl)}).`);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Không tạo được game session /v1.");
     } finally {
@@ -77,6 +100,20 @@ export function GameSessionLauncher({ journeyId, nodeId, templateId, onNotice }:
     }
   }
 
+  // Gửi project JSON (sinh từ config đã lọc) vào iframe GDJS Runtime.
+  function pushLaunch() {
+    if (!session || !launchConfig || !frameRef.current?.contentWindow) return;
+    frameRef.current.contentWindow.postMessage(
+      {
+        app: GON_GAME_LAUNCH_APP,
+        type: "launch",
+        project: gdjsProjectFromModuleGraph(launchConfig, { name: `GON · ${nodeId}` }),
+        sessionId: String(session.id),
+      },
+      window.location.origin,
+    );
+  }
+
   return (
     <section className="panel stack" aria-labelledby="game-session-heading" style={{ marginBottom: 18 }}>
       <h3 id="game-session-heading">🎮 Học tương tác qua Game session (/v1 thật)</h3>
@@ -94,9 +131,21 @@ export function GameSessionLauncher({ journeyId, nodeId, templateId, onNotice }:
             <span className="badge warning">validatedLearningEffect: {String(session.validatedLearningEffect)}</span>
           </div>
           {open ? (
-            <button className="button primary" type="button" onClick={() => void complete()} disabled={busy}>
-              {busy ? "Đang gửi…" : "✅ Hoàn thành phiên (session_completed)"}
-            </button>
+            <>
+              <iframe
+                ref={frameRef}
+                src={String(session.launchUrl ?? "/game-launch.html")}
+                title="GON game session — GDJS Runtime"
+                style={{ width: "100%", height: 480, border: "1px solid var(--line, #2a3550)", borderRadius: 12, background: "#0b1226" }}
+                onLoad={pushLaunch}
+              />
+              <p className="hint">
+                {gameReady ? "🎮 GDJS Runtime đang chạy (nút ✅ trong khung cũng hoàn tất phiên)." : "Đang khởi động GDJS Runtime…"}
+              </p>
+              <button className="button primary" type="button" onClick={() => void complete()} disabled={busy}>
+                {busy ? "Đang gửi…" : "✅ Hoàn thành phiên (session_completed)"}
+              </button>
+            </>
           ) : (
             <p className="hint">Phiên đã đóng — máy chủ từ chối event mới (409 GAME_SESSION_NOT_OPEN). Tạo phiên mới nếu muốn học lại.</p>
           )}

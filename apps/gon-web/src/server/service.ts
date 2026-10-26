@@ -3313,8 +3313,9 @@ class GonServiceCore {
       templateId: session.templateId,
       templateVersion: session.templateVersion,
       status: session.status,
-      // GDJS runtime embed là nợ còn lại — trung thực trả null tới khi có launcher thật.
-      launchUrl: null,
+      // Apply-4: launcher thật — public/game-launch.html chạy GDJS Runtime
+      // (public/gdjs theo manifest) với config nhận qua postMessage.
+      launchUrl: "/game-launch.html",
       expiresAt: session.expiresAt,
       validatedLearningEffect: session.validatedLearningEffect,
     };

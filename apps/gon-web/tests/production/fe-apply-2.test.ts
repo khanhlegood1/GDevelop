@@ -70,7 +70,8 @@ describe("Apply-3b · Game event batch (schema gon.game-events/1.0)", () => {
   });
 
   it("event ép clientEventId về khoảng 8–128 ký tự", () => {
-    expect(gameEvent({ clientEventId: "short", sequence: 1, eventType: "session_started" }).clientEventId.length).toBeGreaterThanOrEqual(8);
+    const short = gameEvent({ clientEventId: "short", sequence: 1, eventType: "session_started" }) as { clientEventId: string };
+    expect(short.clientEventId.length).toBeGreaterThanOrEqual(8);
     const padded = gameEvent({ clientEventId: `x-${"a".repeat(200)}`, sequence: 1, eventType: "session_started" });
     expect(String(padded.clientEventId).length).toBeLessThanOrEqual(128);
   });
