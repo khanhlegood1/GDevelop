@@ -1,6 +1,6 @@
 # PO Decision — Apply-5: GonLearningEvents — event học phát sinh trong game (2026-10-27)
 
-**Kết luận: SHIPPED — chờ PO xác nhận.** Extension runtime **GonLearningEvents** chạy thật trong GDJS Runtime: chạm vào node → `objective_viewed`, xem đủ mọi node → `checkpoint_reached` — gửi thẳng về `POST /v1/game-sessions/{id}/events`.
+**Kết luận: SHIPPED — PO đã xác nhận ĐẠT (27/10, PO bấm nhầm "chưa đạt" lúc đầu rồi đính chính lại: canvas GDJS render + event trong game chạy thật trong preview).** Extension runtime **GonLearningEvents** chạy thật trong GDJS Runtime: chạm vào node → `objective_viewed`, xem đủ mọi node → `checkpoint_reached` — gửi thẳng về `POST /v1/game-sessions/{id}/events`.
 
 ## 1. Kiến trúc (theo quy ước chính thức của GDJS)
 

@@ -123,19 +123,29 @@ describe("game sessions /v1 (Apply-3)", () => {
     ).data as Record<string, unknown>;
     expect(started.status).toBe("active");
 
-    // Batch hai: học + hoàn tất → completed.
+    // Batch hai: học + hoàn tất → completed (event trong game: objective_viewed).
     const done = (
       await service.appendGameEvents(actor, String(launch.id), batch(String(launch.id), [
-        event("evt-question-001", 3, "question_answered", { correct: true }),
-        event("evt-checkpoint-1", 4, "checkpoint_reached", { checkpointId: "cp1" }),
-        event("evt-complete-001", 5, "session_completed", { finalScore: 0.9 }),
+        event("evt-objective-1", 3, "objective_viewed", { nodeId: "node_1" }),
+        event("evt-question-001", 4, "question_answered", { correct: true }),
+        event("evt-checkpoint-1", 5, "checkpoint_reached", { checkpointId: "cp1" }),
+        event("evt-complete-001", 6, "session_completed", { finalScore: 0.9 }),
       ]))
     ).data as Record<string, unknown>;
     expect(done.status).toBe("completed");
+    // Apply-6: validatedLearningEffect thật — suy ra từ event tích lũy.
+    expect(done.validatedLearningEffect).toMatchObject({
+      source: "game_events",
+      distinctObjectivesViewed: 1,
+      checkpointReached: true,
+      validated: true,
+    });
+    const fetchedAfterDone = (await service.getGameSession(actor, String(launch.id))) as Record<string, unknown>;
+    expect((fetchedAfterDone.validatedLearningEffect as Record<string, unknown>).validated).toBe(true);
 
     const stored = store.gameSessions.get(String(launch.id));
     expect(stored?.status).toBe("completed");
-    expect([...store.gameEvents.values()].filter((item) => item.sessionId === String(launch.id))).toHaveLength(5);
+    expect([...store.gameEvents.values()].filter((item) => item.sessionId === String(launch.id))).toHaveLength(6);
   });
 
   it("replays a duplicate clientEventId without duplicating work, then locks the closed session", async () => {
@@ -148,6 +158,9 @@ describe("game sessions /v1 (Apply-3)", () => {
     const sessionId = String(session.id);
 
     await service.appendGameEvents(actor, sessionId, batch(sessionId, [event("evt-complete-001", 1, "session_completed")]));
+    // Hoàn thành mà không chạm node nào trong game → validated false (trung thực).
+    const closed = (await service.getGameSession(actor, sessionId)) as Record<string, unknown>;
+    expect(closed.validatedLearningEffect).toMatchObject({ source: "game_events", distinctObjectivesViewed: 0, checkpointReached: false, validated: false });
     // Replay cùng clientEventId sau khi đóng: batch bị từ chối vì session đã completed.
     await expect(
       service.appendGameEvents(actor, sessionId, batch(sessionId, [event("evt-complete-001", 1, "session_completed")])),

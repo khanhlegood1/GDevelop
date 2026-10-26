@@ -133,7 +133,13 @@ export function GameSessionLauncher({ journeyId, nodeId, templateId, onNotice }:
               {String(session.status)}
             </span>
             <span className="badge info">session {String(session.id)}</span>
-            <span className="badge warning">validatedLearningEffect: {String(session.validatedLearningEffect)}</span>
+            {session.validatedLearningEffect && typeof session.validatedLearningEffect === "object" ? (
+              <span className={`badge ${Boolean((session.validatedLearningEffect as Record<string, unknown>).validated) ? "success" : "warning"}`}>
+                {Boolean((session.validatedLearningEffect as Record<string, unknown>).validated) ? "✅" : "⚠️"} validated: {String((session.validatedLearningEffect as Record<string, unknown>).distinctObjectivesViewed)} objective · checkpoint {String((session.validatedLearningEffect as Record<string, unknown>).checkpointReached)}
+              </span>
+            ) : (
+              <span className="badge warning">validatedLearningEffect: null (chưa hoàn tất)</span>
+            )}
           </div>
           {open ? (
             <>
