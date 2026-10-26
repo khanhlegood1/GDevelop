@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { apiRequest } from "@/lib/api";
 import {
   ARENA_ELO_DELTAS,
   ARENA_PAIRS,
@@ -11,6 +12,14 @@ import {
   SIDE_BY_SIDE_OUTPUTS,
   type ArenaVoteRecord,
 } from "@/lib/arena-surface";
+import { arenaLiveCandidateIds, arenaLiveSlotLabel, ARENA_VOTE_CHOICES } from "@/lib/gon-live-api";
+
+export interface ArenaPanelProps {
+  /** project đang chọn — có CandidateSet thì mở được trận /v1 thật (Apply-2). */
+  projectId?: string | null;
+  /** candidates từ Output Explorer — cần ≥2 id unique để tạo trận /v1. */
+  candidates?: Array<{ id: string; title?: unknown; format?: unknown }>;
+}
 
 /**
  * ⚔️ Arena — port production của FE-Confirm-9/11/13/14:
@@ -21,7 +30,7 @@ import {
  * VS1: votes là bề mặt CỤC BỘ (chưa ghi /v1 — backend arena xếp sau P05);
  * hợp đồng vote đã định kiểu trong src/lib/arena-surface.ts.
  */
-export function ArenaPanel() {
+export function ArenaPanel({ projectId, candidates }: ArenaPanelProps) {
   const [pairIndex, setPairIndex] = useState(0);
   const [battleVotes, setBattleVotes] = useState<Partial<Record<number, ArenaVoteRecord>>>({});
   const [sbA, setSbA] = useState(0);
@@ -30,6 +39,51 @@ export function ArenaPanel() {
   const [sbVote, setSbVote] = useState<"a" | "b" | null>(null);
   const [embedVotes, setEmbedVotes] = useState<ArenaVoteRecord[]>([]);
   const [notice, setNotice] = useState("");
+
+  // Apply-3b: trận đấu /v1 thật (backend Apply-2) khi có project + ≥2 output.
+  const liveIds = arenaLiveCandidateIds(candidates ?? []);
+  const [liveMatch, setLiveMatch] = useState<Record<string, unknown> | null>(null);
+  const [liveResult, setLiveResult] = useState<Record<string, unknown> | null>(null);
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveError, setLiveError] = useState("");
+
+  async function startLiveMatch() {
+    if (!projectId || !liveIds || liveBusy) return;
+    setLiveBusy(true);
+    setLiveError("");
+    setLiveMatch(null);
+    setLiveResult(null);
+    try {
+      const data = await apiRequest<Record<string, unknown>>(`/v1/projects/${projectId}/arena-matches`, {
+        method: "POST",
+        body: { candidateIds: liveIds },
+      });
+      setLiveMatch(data);
+    } catch (cause) {
+      setLiveError(cause instanceof Error ? cause.message : "Không tạo được trận đấu /v1 (cần CandidateSet — chạy Search/Brew trước).");
+    } finally {
+      setLiveBusy(false);
+    }
+  }
+
+  async function voteLive(choice: string) {
+    if (!liveMatch || liveResult || liveBusy) return;
+    setLiveBusy(true);
+    setLiveError("");
+    try {
+      const data = await apiRequest<Record<string, unknown>>(`/v1/arena-matches/${String(liveMatch.id)}/votes`, {
+        method: "POST",
+        body: { choice },
+      });
+      setLiveResult(data);
+      const match = data.match as Record<string, unknown> | undefined;
+      if (match) setLiveMatch(match);
+    } catch (cause) {
+      setLiveError(cause instanceof Error ? cause.message : "Không ghi được vote /v1.");
+    } finally {
+      setLiveBusy(false);
+    }
+  }
 
   const pair = ARENA_PAIRS[pairIndex]!;
   const battleVote = battleVotes[pairIndex] ?? null;
@@ -74,12 +128,81 @@ export function ArenaPanel() {
         <p className="eyebrow">arena.ai pattern · FastChat (Gate 0)</p>
         <h2 id="arena-heading">⚔️ Arena</h2>
         <p className="hint">
-          Bộ mode đầy đủ: Battle (ẩn danh) · ⚖️ Side-by-side (tự chọn) · 🤖 Agent (Journey Agent).
-          VS1: vote là bề mặt cục bộ, chưa ghi vào /v1 — backend arena xếp sau P05.
+          Bộ mode đầy đủ: Battle (ẩn danh) · ⚖️ Side-by-side (tự chọn) · 🤖 Agent (Journey Agent) ·
+          🔌 Live /v1 (ghi vote thật vào backend từ Apply-2; Battle/Side-by-side vẫn là bề mặt cục bộ).
         </p>
       </div>
 
       {notice ? <p className="notice" role="status">{notice}</p> : null}
+
+      <article className="panel stack" aria-labelledby="arena-live-heading">
+        <h3 id="arena-live-heading">🔌 Trận đấu /v1 thật (Arena live)</h3>
+        {projectId && liveIds ? (
+          <>
+            <p className="hint">
+              POST /projects/&#123;id&#125;/arena-matches → POST /arena-matches/&#123;id&#125;/votes.
+              Trước vote chỉ thấy nhãn ẩn danh; sau vote backend mở full output (revealedCandidates).
+            </p>
+            {!liveMatch ? (
+              <button className="button primary" type="button" onClick={() => void startLiveMatch()} disabled={liveBusy}>
+                {liveBusy ? "Đang tạo…" : "⚔️ Tạo trận đấu /v1"}
+              </button>
+            ) : (
+              <>
+                <div className="workspace-grid">
+                  {(["slotA", "slotB"] as const).map((slot) => {
+                    const label = arenaLiveSlotLabel(liveMatch[slot]);
+                    return (
+                      <div key={slot} className="panel stack">
+                        <strong>{label.summary}</strong>
+                        <p className="hint">{label.format} · {label.estimatedMinutes} phút</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {liveResult ? (
+                  <>
+                    <p>
+                      <span className="badge success">
+                        Đã vote: {String((liveResult.vote as Record<string, unknown> | undefined)?.choice ?? "")} · match {String(liveMatch.status)}
+                      </span>
+                    </p>
+                    <ul className="stack">
+                      {(Array.isArray(liveMatch.revealedCandidates) ? liveMatch.revealedCandidates : []).map((candidate, index) => (
+                        <li key={index}>🏷️ {String((candidate as Record<string, unknown>).title ?? "")}</li>
+                      ))}
+                    </ul>
+                    <p className="hint">
+                      Tín hiệu ranking: {(Array.isArray(liveResult.personalRankingExplanationCodes) ? liveResult.personalRankingExplanationCodes : []).join(", ")}
+                      {" "}· merge: {String(liveResult.mergedCandidateId ?? "null")} (trung thực — merge thật ở VS sau)
+                    </p>
+                  </>
+                ) : (
+                  <div className="badge-row">
+                    {ARENA_VOTE_CHOICES.map((choice) => (
+                      <button
+                        key={choice.id}
+                        className="button secondary"
+                        type="button"
+                        onClick={() => void voteLive(choice.id)}
+                        disabled={liveBusy}
+                      >
+                        {choice.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+            {liveError ? <p className="notice" role="alert">{liveError}</p> : null}
+          </>
+        ) : (
+          <p className="hint">
+            Chưa đủ điều kiện ghi /v1 — cần chọn project và có ≥2 output (chạy Search/Brew ở trang Bắt đầu).
+            Các khung Battle/Side-by-side dưới đây vẫn là bề mặt cục bộ.
+          </p>
+        )}
+      </article>
 
       <article className="panel stack" aria-labelledby="battle-heading">
         <h3 id="battle-heading">🗡️ Battle — 2 output ẩn danh (cặp {pairIndex + 1}/{ARENA_PAIRS.length})</h3>
