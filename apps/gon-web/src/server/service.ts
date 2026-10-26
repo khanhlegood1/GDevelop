@@ -3289,6 +3289,26 @@ class GonServiceCore {
       if (event.eventType === "session_completed") session.status = "completed";
       if (event.eventType === "session_abandoned") session.status = "abandoned";
     }
+    if (session.status === "completed") {
+      // Apply-6: validatedLearningEffect thật — suy ra từ event đã tích lũy
+      // của chính session (chỉ objective_viewed/checkpoint_reached từ trong game
+      // mới tính; hoàn thành mà không chạm node nào → validated: false, trung thực).
+      const sessionEvents = [...this.repositories.gameEvents.values()].filter((item) => item.sessionId === session.id);
+      const viewedNodeIds = new Set(
+        sessionEvents
+          .filter((item) => item.eventType === "objective_viewed")
+          .map((item) => (typeof item.data.nodeId === "string" && item.data.nodeId.length > 0 ? item.data.nodeId : null))
+          .filter((nodeId): nodeId is string => nodeId !== null),
+      );
+      const checkpointReached = sessionEvents.some((item) => item.eventType === "checkpoint_reached");
+      session.validatedLearningEffect = {
+        source: "game_events",
+        distinctObjectivesViewed: viewedNodeIds.size,
+        checkpointReached,
+        validated: viewedNodeIds.size > 0 && checkpointReached,
+        validatedAt: nowIso,
+      };
+    }
     session.updatedAt = nowIso;
     this.repositories.gameSessions.set(session.id, session);
     return { data: this.gameSessionDto(session), status: 201 };
