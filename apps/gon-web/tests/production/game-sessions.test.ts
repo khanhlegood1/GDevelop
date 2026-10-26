@@ -100,7 +100,7 @@ describe("game sessions /v1 (Apply-3)", () => {
     expect(launch.status).toBe("created");
     expect(typeof launch.launchToken).toBe("string");
     expect(launch.templateVersion).toMatch(/^modv_/);
-    expect(launch.launchUrl).toBeNull();
+    expect(launch.launchUrl).toBe("/game-launch.html");
     expect(launch.validatedLearningEffect).toBeNull();
     const config = launch.config as { nodes: unknown[] };
     expect(config.nodes.length).toBeGreaterThan(0);

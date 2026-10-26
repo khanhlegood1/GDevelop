@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GON Game Session — GDJS Runtime</title>
+  <style>
+    body { margin: 0; padding: 0; background-color: #0b1226; overflow: hidden; font-family: system-ui, sans-serif; }
+    #bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9;
+      padding: 6px 12px; color: #cfe0ff; background: rgba(11, 18, 38, 0.92);
+      font-size: 13px; border-bottom: 1px solid #2a3550;
+    }
+    #overlay { position: fixed; top: 8px; right: 10px; z-index: 10; }
+    #done {
+      background: #1f7ae0; border: none; color: #fff; font-weight: 600;
+      padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 14px;
+    }
+    #done:disabled { background: #33415e; cursor: default; }
+    #canvasArea { margin: 0 auto; overflow: hidden; }
+  </style>
+</head>
+<body>
+  <div id="bar">🎮 GON · GDJS Runtime — đang chờ dữ liệu phiên học…</div>
+  <div id="overlay"><button id="done" type="button" disabled>✅ Hoàn thành phiên</button></div>
+  <script>
+    (function () {
+      // Apply-4: launcher GDJS Runtime thật cho GON game session.
+      // Parent (GameSessionLauncher) postMessage {app:"gon-game-launch", type:"launch",
+      // project, sessionId}; ở đây load runtime theo /gdjs/manifest.json (thứ tự
+      // chính thức của GDJS) rồi khởi động gdjs.RuntimeGame y như GDJS/Runtime/index.html.
+      var state = { project: null, sessionId: null, running: false };
+      function send(type) {
+        parent.postMessage({ app: "gon-game-launch", type: type, sessionId: state.sessionId }, "*");
+      }
+      function bar(text) { document.getElementById("bar").textContent = text; }
+
+      window.addEventListener("message", function (event) {
+        var data = event.data;
+        if (!data || data.app !== "gon-game-launch" || data.type !== "launch") return;
+        if (state.running) return;
+        state.project = data.project;
+        state.sessionId = data.sessionId;
+        bar("🎮 Đang tải GDJS Runtime…");
+        fetch("/gdjs/manifest.json")
+          .then(function (response) { return response.json(); })
+          .then(function (manifest) {
+            var files = manifest.files || [];
+            var index = 0;
+            function loadNext() {
+              if (index >= files.length) { startRuntime(); return; }
+              var script = document.createElement("script");
+              script.src = "/gdjs/" + files[index];
+              script.onload = function () { index += 1; loadNext(); };
+              script.onerror = function () { bar("❌ Không tải được GDJS runtime: " + files[index]); };
+              document.head.appendChild(script);
+            }
+            loadNext();
+          })
+          .catch(function (error) { bar("❌ Không đọc được manifest GDJS: " + error.message); });
+      });
+
+      function startRuntime() {
+        try {
+          window.gdjs.projectData = state.project;
+          var game = new window.gdjs.RuntimeGame(window.gdjs.projectData, {});
+          game.getRenderer().createStandardCanvas(document.body);
+          game.getRenderer().bindStandardEvents(game.getInputManager(), window, document);
+          game.loadAllAssets(function () {
+            game.startGameLoop();
+            state.running = true;
+            document.getElementById("done").disabled = false;
+            bar("🎮 " + (state.project && state.project.name ? state.project.name : "GON") + " — GDJS Runtime đang chạy");
+            send("ready");
+          });
+        } catch (error) {
+          bar("❌ Lỗi khởi động GDJS: " + error.message);
+        }
+      }
+
+      document.getElementById("done").addEventListener("click", function () {
+        if (state.running) send("complete");
+      });
+    })();
+  </script>
+</body>
+</html>
