@@ -39,7 +39,6 @@
   "exclude": [
     "node_modules",
     "ux-prototype",
-    "tests/app.test.js",
-    "src/gdjs-extensions"
+    "tests/app.test.js"
   ]
 }

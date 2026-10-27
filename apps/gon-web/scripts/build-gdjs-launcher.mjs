@@ -97,7 +97,7 @@ const pixiRenderers = readdirSync(pixiDir)
 const extensionFiles = ["Extensions/TextObject/textruntimeobject.js", "Extensions/TextObject/textruntimeobject-pixi-renderer.js"];
 
 // Apply-5: GonLearningEvents — runtime extension của GON (esbuild từ src).
-const gonExtensionSource = join(gdevelopRoot, "apps/gon-web/src/gdjs-extensions/GonLearningEvents/gonlearningevents.ts");
+const gonExtensionSource = join(gdevelopRoot, "Extensions/GonLearningEvents/gonlearningevents.ts");
 const gonExtensionOut = "Extensions/GonLearningEvents/gonlearningevents.js";
 console.log("ℹ️  Build GonLearningEvents runtime extension…");
 const gonBuild = spawnSync(
