@@ -135,6 +135,9 @@ async function handleV1Inner(
         assertMutation(request);
         return jsonData(await service.setConsent(actor, segments[2], await readJsonBody(request)), 200, requestId);
       }
+      if (method === "GET" && segments[1] === "kol-path" && segments.length === 2) {
+        return jsonData(await service.getKolPath(actor), 200, requestId);
+      }
       if (method === "GET" && segments[1] === "progress" && segments.length === 2) {
         return jsonData(await service.getMyProgress(actor), 200, requestId);
       }

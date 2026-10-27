@@ -160,6 +160,8 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
 
   const [journeys, setJourneys] = useState<AnyRecord[]>([]);
   const [player, setPlayer] = useState<AnyRecord | null>(null);
+  // Apply-8: đường KOL ngách thật từ /v1/me/kol-path (trend token = vote Arena thật).
+  const [kolPath, setKolPath] = useState<AnyRecord | null>(null);
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [bossSources, setBossSources] = useState("");
@@ -218,13 +220,15 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
   }
 
   async function loadProgressAndProofs() {
-    const [progressData, ledgerData, proofData, journeyData] = await Promise.all([
+    const [progressData, ledgerData, proofData, journeyData, kolPathData] = await Promise.all([
       apiRequest<AnyRecord>("/v1/me/progress"),
       apiPage<AnyRecord>("/v1/me/xp-ledger?limit=50"),
       apiPage<AnyRecord>("/v1/proofs?limit=50"),
       apiPage<AnyRecord>("/v1/journeys?limit=50"),
+      apiRequest<AnyRecord>("/v1/me/kol-path"),
     ]);
     setProgress(progressData);
+    setKolPath(kolPathData);
     setLedger(ledgerData.data);
     setProofs(proofData.data);
     setJourneys(journeyData.data);
@@ -1239,10 +1243,11 @@ export function Vs1App({ googleConfigured, devAuthEnabled, devInviteHint }: Vs1A
                   <p>Level luôn được tính từ Lifetime XP bằng <code>floor(LifetimeXP / 100)</code>. Forever ở Lv.35+ là một Era mở, không phải mức trần.</p>
                 </div>
                 <KolPathCard
-                  hotOutputs={0}
-                  trendToken={0}
+                  hotOutputs={Number(kolPath?.hotOutputs ?? 0)}
+                  trendToken={Number(kolPath?.trendToken ?? 0)}
                   lifetimeXp={Number(currentProgress?.lifetimeXp ?? 0)}
-                  dataNote="VS1 chưa có backend xu hướng (P05+): token & output ≥40 sẽ sống khi trend API được nối — tier hiện tính trên dữ liệu thật khả dụng."
+                  niche={kolPath?.outputs?.[0] ? String(kolPath.outputs[0].format) : undefined}
+                  dataNote="Token xu hướng tính từ vote Arena thật của bạn (Elo: thắng +8, thua -5, hoà +1, cả hai chưa đạt -4; merge không tính điểm) — output đạt ≥40 điểm được tính là hot."
                 />
                 <div className="grid-three">
                   <article className="panel">

@@ -3341,6 +3341,86 @@ class GonServiceCore {
     };
   }
 
+  /**
+   * Apply-8 (27/10) — Đường KOL ngách: trend token tính từ vote Arena THẬT
+   * trên các output (candidate của CandidateSet hiện tại) thuộc project của
+   * người học. Elo mirror FE-9: thắng +8, thua -5, hoà +1, cả hai chưa đạt -4,
+   * merge 0. Tier mirror src/lib/kol-path.ts (ngưỡng standalone v2.12).
+   */
+  getKolPath(actor: Actor): JsonRecord {
+    this.requireActiveUser(actor);
+    const outputs: Array<{ id: string; projectId: string; title: string; format: string; trend: number }> = [];
+    for (const project of this.repositories.projects.values()) {
+      if (project.ownerUserId !== actor.userId || project.deletedAt) continue;
+      const candidateSet = this.latestCandidateSet(project.id);
+      if (!candidateSet) continue;
+      for (const candidate of [...this.repositories.candidates.values()]) {
+        if (candidate.candidateSetId !== candidateSet.id) continue;
+        outputs.push({ id: candidate.id, projectId: project.id, title: candidate.title, format: candidate.format, trend: 0 });
+      }
+    }
+    const trendById = new Map<string, number>(outputs.map((output) => [output.id, 0]));
+    for (const vote of this.repositories.arenaVotes.values()) {
+      const match = this.repositories.arenaMatches.get(vote.matchId);
+      if (!match || match.status !== "voted" || match.userId !== actor.userId) continue;
+      const a = trendById.get(match.slotACandidateId);
+      const b = trendById.get(match.slotBCandidateId);
+      if (a === undefined || b === undefined) continue;
+      if (vote.choice === "left_better") {
+        trendById.set(match.slotACandidateId, a + 8);
+        trendById.set(match.slotBCandidateId, b - 5);
+      } else if (vote.choice === "right_better") {
+        trendById.set(match.slotACandidateId, a - 5);
+        trendById.set(match.slotBCandidateId, b + 8);
+      } else if (vote.choice === "tie") {
+        trendById.set(match.slotACandidateId, a + 1);
+        trendById.set(match.slotBCandidateId, b + 1);
+      } else if (vote.choice === "both_bad") {
+        trendById.set(match.slotACandidateId, a - 4);
+        trendById.set(match.slotBCandidateId, b - 4);
+      }
+      // "merge": 0 cho cả hai — không tính điểm (merge thật là VS sau).
+    }
+    const hotThreshold = 40;
+    const own = outputs.map((output) => ({ ...output, trend: trendById.get(output.id) ?? 0 }));
+    const hotOutputs = own.filter((output) => output.trend >= hotThreshold).length;
+    const trendToken = own.reduce((total, output) => total + Math.max(0, output.trend), 0);
+    const tiers = [
+      { id: "sprout", label: "🌱 Mầm ngách", index: 1, requirement: "mặc định cho mọi người học thật" },
+      { id: "niche_owner", label: "🌿 Chủ ngách", index: 2, requirement: "≥1 output của mình đạt ≥40 điểm xu hướng" },
+      { id: "niche_kol", label: "⭐ KOL ngách", index: 3, requirement: "≥3 output ≥40 xu hướng hoặc token xu hướng ≥100" },
+    ] as const;
+    let tier: (typeof tiers)[number] = tiers[0];
+    let progressPct = Math.min(49, trendToken);
+    let nextStep = "1 output của bạn đạt ≥40 điểm xu hướng để lên 🌿 Chủ ngách";
+    if (hotOutputs >= 1) {
+      tier = tiers[1];
+      progressPct = Math.min(99, 50 + hotOutputs * 15);
+      nextStep = `còn ${3 - hotOutputs} output ≥40 xu hướng hoặc ${100 - trendToken} token tới ⭐ KOL ngách`;
+    }
+    if (hotOutputs >= 3 || trendToken >= 100) {
+      tier = tiers[2];
+      progressPct = 100;
+      nextStep = "";
+    }
+    return {
+      tier: { id: tier.id, label: tier.label, index: tier.index, requirement: tier.requirement },
+      progressPct,
+      nextStep,
+      trendToken,
+      hotOutputs,
+      outputs: own.map((output) => ({
+        id: output.id,
+        projectId: output.projectId,
+        title: output.title,
+        format: output.format,
+        trend: output.trend,
+        hot: output.trend >= hotThreshold,
+      })),
+      updatedAt: this.now(),
+    };
+  }
+
   createArenaMatch(actor: Actor, projectId: string, bodyValue: unknown): CommandResult<JsonRecord> {
     this.requireActiveUser(actor);
     const project = this.requireOwnedProject(actor, projectId);
@@ -5755,5 +5835,10 @@ export class GonService {
     bodyValue: unknown,
   ): Promise<CommandResult<JsonRecord>> {
     return this.run((core) => core.appendGameEvents(actor, sessionId, bodyValue));
+  }
+
+  /** Apply-8 (27/10): GET /v1/me/kol-path — trend token từ vote Arena thật. */
+  async getKolPath(actor: Actor): Promise<JsonRecord> {
+    return this.run((core) => core.getKolPath(actor));
   }
 }

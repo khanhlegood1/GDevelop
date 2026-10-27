@@ -6092,6 +6092,65 @@
           }
         ]
       }
+    },
+    "/me/kol-path": {
+      "get": {
+        "summary": "Đường KOL ngách của người học hiện tại — trend token tính từ vote Arena thật (Elo +8/-5/+1/-4, merge 0)",
+        "operationId": "getKolPath",
+        "tags": [
+          "Progress"
+        ],
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KolPath"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9016,6 +9075,115 @@
             "$ref": "#/components/schemas/ModuleGraph"
           }
         ]
+      },
+      "KolTier": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label",
+          "index",
+          "requirement"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "sprout",
+              "niche_owner",
+              "niche_kol"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "requirement": {
+            "type": "string"
+          }
+        }
+      },
+      "KolPathOutput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "projectId",
+          "title",
+          "format",
+          "trend",
+          "hot"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^cand_"
+          },
+          "projectId": {
+            "type": "string",
+            "pattern": "^prj_"
+          },
+          "title": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string"
+          },
+          "trend": {
+            "type": "integer"
+          },
+          "hot": {
+            "type": "boolean"
+          }
+        }
+      },
+      "KolPath": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tier",
+          "progressPct",
+          "nextStep",
+          "trendToken",
+          "hotOutputs",
+          "outputs",
+          "updatedAt"
+        ],
+        "properties": {
+          "tier": {
+            "$ref": "#/components/schemas/KolTier"
+          },
+          "progressPct": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "nextStep": {
+            "type": "string"
+          },
+          "trendToken": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hotOutputs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KolPathOutput"
+            }
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     }
   },
