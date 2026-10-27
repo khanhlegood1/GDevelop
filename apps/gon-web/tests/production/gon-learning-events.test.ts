@@ -85,10 +85,12 @@ describe("Apply-5 · GonLearningEvents runtime + launcher bridge (source checks)
   });
 
   it("source extension (.ts) theo pattern evtTools của extension GDevelop chính thức", () => {
-    const source = read("../../src/gdjs-extensions/GonLearningEvents/gonlearningevents.ts");
+    const source = read("../../../../Extensions/GonLearningEvents/gonlearningevents.ts");
     expect(source).toContain("namespace gdjs");
     expect(source).toContain("export namespace evtTools");
     expect(source).toContain("export namespace gonLearningEvents");
+    expect(source).toContain("sendObjectiveViewed");
+    expect(source).toContain("pointIsOnObjectCondition");
   });
 
   it("launcher: bridge __gonSendEvent gửi batch gon.game-events/1.0 lên /v1 + chèn scene code", () => {

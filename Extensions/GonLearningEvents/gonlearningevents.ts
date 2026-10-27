@@ -43,6 +43,17 @@ namespace gdjs {
       };
 
       /**
+       * Tiện ích cho editor: gửi objective_viewed cho một node học.
+       * @param nodeId Id node trong Module Graph của GON.
+       * @param title (tuỳ chọn) Tiêu đề hiển thị của node.
+       */
+      export const sendObjectiveViewed = (nodeId: string, title?: string): boolean =>
+        sendGameEvent(
+          'objective_viewed',
+          JSON.stringify({ nodeId: nodeId, ...(title ? { title: title } : {}), source: 'gdevelop_editor' })
+        );
+
+      /**
        * Kiểm tra một điểm (chuột, tọa độ scene) nằm trong AABB của object.
        * Dùng cho điều kiện "chạm vào node" của scene code.
        */
@@ -54,6 +65,37 @@ namespace gdjs {
         const box = object.getAABB();
         if (!box || !box.min || !box.max) return false;
         return x >= box.min[0] && x <= box.max[0] && y >= box.min[1] && y <= box.max[1];
+      };
+
+      /**
+       * Condition cho GDevelop editor: điểm (x, y) có nằm trên bất kỳ object nào
+       * trong danh sách không. Chấp nhận cả gọi trực tiếp (object đơn) như scene
+       * code generated của GON vẫn dùng.
+       */
+      export const pointIsOnObjectCondition = (
+        objectsListsOrObject: unknown,
+        x: number,
+        y: number
+      ): boolean => {
+        // Gọi trực tiếp với một object (scene code generated của GON).
+        if (
+          objectsListsOrObject &&
+          typeof objectsListsOrObject === 'object' &&
+          typeof (objectsListsOrObject as { getAABB?: unknown }).getAABB === 'function'
+        ) {
+          return pointIsOnObject(objectsListsOrObject as { getAABB: () => { min: Array<number>; max: Array<number> } }, x, y);
+        }
+        // Gọi từ events GDevelop: objectsLists = hashtable tên -> danh sách object.
+        const lists = objectsListsOrObject as Record<string, Array<{ getAABB: () => { min: Array<number>; max: Array<number> } }>> | null | undefined;
+        if (!lists || typeof lists !== 'object') return false;
+        for (const listName of Object.keys(lists)) {
+          const list = lists[listName];
+          if (!Array.isArray(list)) continue;
+          for (const object of list) {
+            if (pointIsOnObject(object, x, y)) return true;
+          }
+        }
+        return false;
       };
     }
   }
