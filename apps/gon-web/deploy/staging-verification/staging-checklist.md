@@ -5,11 +5,19 @@
 > (managed PostgreSQL, GCS bucket, Google OAuth credentials, Gemini/ADK key,
 > Cloud Run). Mỗi mục ghi: điều kiện tiên quyết, bước chạy, tiêu chí đạt.
 >
-> **Trạng thái: NOT RUN.** Sandbox phát triển không có hạ tầng thật; mọi kết
+> **Trạng thái: NOT RUN (staging thật).** Sandbox phát triển không có hạ tầng thật; mọi kết
 > quả local/hermetic nằm trong
 > [P05-R1.15 evidence](../../docs/06-nfr/P05-R1.15-STAGING-VERIFICATION-PACKAGE.md).
 > Không mục nào dưới đây được coi là đã đạt trước khi có output đính kèm từ
 > staging.
+>
+> **Local probes re-run 2026-10-29 (sau Apply-1..8, PR #48–#57): PASS 4/4** —
+> security probe 7/7 passed (0 failed) · benchmark + benchmark-heavy (guard
+> relaxed) · guard-engagement: controls engaged đúng (400 requests → 280
+> RATE_LIMITED kèm Retry-After). Raw: .
+> Battery production 211/211 · tsc binary thật PASS · 12 migrations check PASS.
+> Đây vẫn là bằng chứng local/hermetic — KHÔNG thay thế staging thật (mục 0.1–0.8
+> và §1–§10 dưới đây).
 
 ## 0. Tiên quyết hạ tầng (do PO cung cấp)
 

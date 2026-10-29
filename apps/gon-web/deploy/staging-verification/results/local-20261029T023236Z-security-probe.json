@@ -1,0 +1,58 @@
+{
+  "baseUrl": "http://127.0.0.1:3000",
+  "environment": "authenticated local HTTP probe; not staging/production DAST",
+  "passed": 7,
+  "failed": 0,
+  "checks": [
+    {
+      "name": "authentication is required for bootstrap",
+      "passed": true,
+      "expectedStatus": 401,
+      "actualStatus": 401,
+      "problemCode": "AUTH_REQUIRED"
+    },
+    {
+      "name": "mutation without CSRF token is rejected",
+      "passed": true,
+      "expectedStatus": 403,
+      "actualStatus": 403,
+      "problemCode": "CSRF_VALIDATION_FAILED"
+    },
+    {
+      "name": "spoofed forwarded host does not satisfy same-origin",
+      "passed": true,
+      "expectedStatus": 403,
+      "actualStatus": 403,
+      "problemCode": "CSRF_VALIDATION_FAILED"
+    },
+    {
+      "name": "mutation without Idempotency-Key is rejected",
+      "passed": true,
+      "expectedStatus": 400,
+      "actualStatus": 400,
+      "problemCode": "VALIDATION_FAILED"
+    },
+    {
+      "name": "invalid JSON returns a controlled problem response",
+      "passed": true,
+      "expectedStatus": 400,
+      "actualStatus": 400,
+      "problemCode": "VALIDATION_FAILED"
+    },
+    {
+      "name": "JSON body over 2,500,000 bytes is rejected",
+      "passed": true,
+      "expectedStatus": 413,
+      "actualStatus": 413,
+      "problemCode": "REQUEST_TOO_LARGE"
+    },
+    {
+      "name": "expected browser security headers are present",
+      "passed": true,
+      "expectedStatus": 200,
+      "actualStatus": 200,
+      "missingHeaders": [],
+      "cacheControl": "no-store"
+    }
+  ]
+}
